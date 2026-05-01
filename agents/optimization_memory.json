@@ -1,0 +1,62 @@
+{
+  "experiments": [],
+  "generated_apls": [
+    {
+      "date": "2026-04-28",
+      "deck": "Landless Belcher",
+      "method": "gemma",
+      "share": 0.1869
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Cutter Affinity",
+      "method": "gemma",
+      "share": 0.0748
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Jeskai Phelia",
+      "method": "gemma",
+      "share": 0.0467
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Landless Belcher",
+      "method": "gemma",
+      "share": 0.1869
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Cutter Affinity",
+      "method": "gemma",
+      "share": 0.0748
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Jeskai Phelia",
+      "method": "gemma",
+      "share": 0.0467
+    }
+  ],
+  "playbooks_drafted": [
+    {
+      "date": "2026-04-28",
+      "deck": "Blink"
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Boros Aggro"
+    },
+    {
+      "date": "2026-04-28",
+      "deck": "Boros Energy"
+    }
+  ],
+  "stats": {
+    "total_experiments": 0,
+    "total_improvements": 0,
+    "total_sim_games": 0,
+    "total_time_sec": 751.7294070720673,
+    "total_api_cost": 0.0
+  }
+}
