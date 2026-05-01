@@ -1,6 +1,6 @@
 # Spec: Stage A/B 100k re-validation at post-Stage-1.7 baseline
 
-**Status:** EXECUTING
+**Status:** SHIPPED 2026-05-01 — Canonical 68.4% / Variant 75.1% at N=100k seed=42
 **Created:** 2026-04-28 by claude.ai (for tomorrow execution)
 **Target executor:** Claude Code
 **Estimated effort:** 90-120 minutes (mostly gauntlet wall time; ~45 min canonical + ~45 min variant + 15-30 min cascade)
