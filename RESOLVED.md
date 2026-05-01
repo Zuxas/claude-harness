@@ -128,6 +128,8 @@ Same `load-path-dependent-setup-creates-silent-no-op-features` class as tagger-l
 - Variant Modern gauntlet n=1000 seed=42, two runs: 78.8% → 78.8% (Δ +0.00pp); per-matchup max dev: 0.00pp; all 15 matchups bit-identical.
 - Pre-fix per-matchup variance: ±2.5pp; pre-fix aggregate variance: ±0.6pp. Both collapse to 0.00pp post-fix.
 
+**100k scale validation (2026-05-01, Spec #8):** Stage 1.7 determinism contract confirmed at production scale. Canonical 100k gauntlet (N=100k seed=42, 18-deck field) completed with zero errors; aggregate canonical 68.4%, variant 75.1%. The same-seed invariant established at n=1k holds at n=100k — more games means more RNG draw, making bit-stability at this scale a stronger claim. Fix at `run_match_set` + `run_bo3_set` entry points is confirmed sufficient at production scale.
+
 **Mid-execution refinement:** Initial fix touched only `run_match_set` and validation showed canonical aggregate +0.10pp / per-matchup max-dev 1.80pp on `bo3` matchups (Domain Zoo, Izzet Affinity, Izzet Prowess, Eldrazi Tron, Jeskai Blink). Investigation: `engine/bo3_match.py:run_bo3_set` is a parallel entry point not routed through `run_match_set`; same fix needed at the bo3 entry. Mirror fix applied. Re-validation: 0.00pp.
 
 **Generalizable lesson candidate (now compounded into v1.5):** "code that relies on a fix at one entry point must be checked for parallel entry points that need the same fix" — generalization of `load-path-dependent-setup-creates-silent-no-op-features` from setup functions to fixes themselves.
@@ -175,6 +177,11 @@ Same `load-path-dependent-setup-creates-silent-no-op-features` class as tagger-l
 - Canonical Boros Energy: 64.5% field-weighted (`data/parallel_results_20260428_125005.json`)
 - Variant Boros Energy Variant Jermey: 78.7% field-weighted (`data/parallel_results_20260428_125019.json`)
 - Variant edge: ~+14.2pp (was +12.0pp at Stage A SHIP, partial-effect)
+
+**100k re-validation (2026-05-01, Spec #8, post-oracle-sprint — supersedes 1k anchor above):**
+- Canonical Boros Energy: 68.4% field-weighted, N=100k seed=42, 18-deck field (`data/parallel_results_20260501_021659.json`)
+- Variant Boros Energy Variant Jermey: 75.1% field-weighted, N=100k seed=42
+- Variant edge: ~+6.7pp (contraction from 14.2pp due to mirror-match drag on variant FWR; field-measurement artifact — see Stage A Amendment 5 for analysis)
 
 **Documentation cascade landed:**
 - Stage A spec Amendment 4 (tagger-fix activation reveals partial-effect at SHIP)
