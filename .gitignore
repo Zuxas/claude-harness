@@ -1,0 +1,29 @@
+# ── Personal / sensitive ────────────────────────────────────
+MEMORY.md
+HARNESS_GUIDE.txt
+THURSDAY_PROCEDURES.txt
+WORKING_WITHOUT_CLAUDE.txt
+*.pdf
+
+# ── Personal knowledge domains ───────────────────────────────
+knowledge/personal/
+knowledge/career/
+knowledge/mtg/
+
+# ── Session state ────────────────────────────────────────────
+state/
+inbox/
+logs/
+dashboard.md
+
+# ── Temp / cache ─────────────────────────────────────────────
+agents/temp/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# ── Editor / OS ──────────────────────────────────────────────
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

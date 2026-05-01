@@ -1,0 +1,224 @@
+{
+  "main": {
+    "id": "ccb22ba2d942a7f7",
+    "type": "split",
+    "children": [
+      {
+        "id": "3670f4690cf41dbd",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "bc0aefffe85ed0c9",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ],
+        "stacked": true
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "a9b0153d01ef2b85",
+    "type": "split",
+    "children": [
+      {
+        "id": "169af092760b5160",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "052880b61ec7db84",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "fbb070fe4e63934c",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "[\"tags\"]",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "c2bca62f22265cc4",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "right": {
+    "id": "7e6b78e3cbe61511",
+    "type": "split",
+    "children": [
+      {
+        "id": "57779473ee504e3b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "10372097e67349c9",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "e6c49a1042ca1eea",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Claude Code.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Claude Code"
+            }
+          },
+          {
+            "id": "0da7719a48735d83",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "6d279e630e9a1509",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "f4e9076e4e4d1d78",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Claude Code.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Claude Code"
+            }
+          }
+        ],
+        "currentTab": 4
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "bc0aefffe85ed0c9",
+  "lastOpenFiles": [
+    "mtg/nightly-2026-04-28.md",
+    "mtg/gauntlet-modern-2026-04-28.md",
+    "mtg/calibration-2026-04-28.md",
+    "mtg/mtga-session-2026-04-28.md",
+    "mtg/sim-yawgmoth.md",
+    "mtg/sim-prowess.md",
+    "tech/cache-key-audit-2026-04-28.md",
+    "tech/cache-key-audit-2026-04-28.md.tmp.35616.1777421201312",
+    "mtg/playbook-draft-boros-energy.md",
+    "mtg/playbook-draft-boros-aggro.md",
+    "mtg/playbook-draft-blink.md",
+    "tech/spec-authoring-lessons.md.tmp.35616.1777414021461",
+    "tech/drift-2026-04-28.md",
+    "tech/spec-authoring-lessons.md.tmp.14876.1777369218284",
+    "tech/spec-authoring-lessons.md.tmp.14876.1777367433629",
+    "tech/spec-authoring-lessons.md.tmp.14876.1777367422514",
+    "tech/spec-authoring-lessons.md.tmp.14876.1777367414039",
+    "tech/cache-collision-bug-2026-04-27.md.tmp.14876.1777364428146",
+    "tech/cache-collision-bug-2026-04-27.md.tmp.14876.1777362331496",
+    "tech/cache-collision-bug-2026-04-27.md.tmp.14876.1777356824064",
+    "_index.md.tmp.14876.1777356547741",
+    "tech/cache-collision-bug-2026-04-27.md",
+    "tech/harness-architecture.md",
+    "tech/infrastructure.md",
+    "tech/mtga-log-parser.md",
+    "tech/obsidian-viewer.md",
+    "tech/powershell-patterns.md",
+    "tech/rtk-token-compression.md",
+    "Rust.md",
+    "Claude Code.md",
+    "mtg/sim-humans.md",
+    "_template.md",
+    "_index.md",
+    "mtg/sim-boros-energy.md",
+    "Untitled 1.canvas",
+    "Untitled.canvas",
+    "mtg/team-resolve.md",
+    "mtg/competitive-history.md"
+  ]
+}
