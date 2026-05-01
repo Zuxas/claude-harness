@@ -43,10 +43,6 @@ each status. After a spec ships, it stays in this index forever.
   `apl/card_specs/` parallel to `engine/card_handlers_verified.py`. Tier 1+2 landed.
   **Status:** Spec drafted 2026-04-29. POC scope shipped. Full migration pending.
 
-- `2026-04-29-stage-ab-100k-revalidation.md` — 100k re-validation anchoring
-  JB+Phase-B-shifted baseline. PID 19496 was running at last check.
-  **Status:** Still pending completion + result capture.
-
 - `2026-04-30-github-actions-runner-setup.md` — Self-hosted runner registration +
   CI/CD pipeline design. Both runners live (JERMEY on mtg-sim + mtg-meta-analyzer).
   **Status:** Runners registered, CI live, all initial issues resolved. DONE except
@@ -71,6 +67,7 @@ commits from 2026-04-26/2026-04-27 session that pre-date this directory)
 - `2026-04-29-drift-detect-8th-check-rmw-pattern.md` — Shipped.
 - `2026-04-29-rmw-race-cluster-fix.md` — Shipped.
 - `2026-04-29-within-matchup-parallelism.md` — Shipped (8706f68).
+- `2026-04-29-stage-ab-100k-revalidation.md` — Shipped 2026-05-01. Canonical 68.4% / Variant 75.1% at N=100k seed=42.
 - `2026-04-29-friday-pt-readiness.md` — Shipped.
 
 ## SUPERSEDED
