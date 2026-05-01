@@ -153,7 +153,7 @@ These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-
 **Concrete fix:** Replace `card.keywords` lookup in `has_keyword` with `card.tags` (the attribute actually populated by `tag_keywords()` at deck load). Preserve oracle-text fallback for cards loaded outside the tag pass. ~5-line edit.
 **Estimated effort:** 30 min (5-line fix + bit-stable validation across the 6 affected callers, since they may all be silently miscomputing combat outcomes).
 **Severity:** HIGH (silently wrong combat results in 6+ engine paths).
-**Status:** OPEN
+**Status:** RESOLVED 2026-04-29 at b4384dc — `has_keyword` already checks `card.tags` via `getattr` with oracle_text fallback. Title was correct; Status field was never updated. Verified 2026-05-01 by reading `engine/match_state.py:228-240`.
 **Created:** 2026-04-29
 
 ### cross-canonical-apl-shared-card-bug-pattern (NEW 2026-04-29; partially resolved 2026-04-29)
@@ -474,6 +474,26 @@ else:
 **Estimated effort:** 30-45 min.
 **Status:** OPEN
 **Created:** 2026-04-29
+
+### planeswalker-loyalty-not-tracked (NEW 2026-05-02; PT SOS handler batch)
+
+**Source spec:** `harness/specs/2026-05-02-pt-sos-handler-batch.md`
+**What's not perfect:** Planeswalker loyalty counters are not tracked in the sim. ETB handlers for PWs (e.g., Professor Dellian Fel) model only a one-shot activation: kill if target exists, else draw 1 / lose 1. Multi-turn tick (+2/0/-6 across turns), emblem generation, and planeswalker-as-permanent attrition are all absent. As Golgari Midrange runs 4x Prof. Dellian Fel, this underrates the archetype's midgame staying power.
+**Why not fixed in source spec:** Planeswalker loyalty tracking requires persistent per-permanent state not currently in Card or GameState. Structural multi-turn refactor; out of scope for a handler batch.
+**Concrete fix:** Add `loyalty_counters` attribute to Card (default None for non-PWs). In `_run_player_turn`, fire loyalty-ability activations each main phase per registered PW handler. ETB sets starting loyalty. Model +2/0/-3 choices per game state (life totals, board presence). ~3-4 hr spec to cover all PWs currently in Standard field.
+**Estimated effort:** 3-4 hours.
+**Status:** OPEN
+**Created:** 2026-05-02
+
+### maestro-opus-trigger-apl-deferred (NEW 2026-05-02; PT SOS handler batch)
+
+**Source spec:** `harness/specs/2026-05-02-pt-sos-handler-batch.md`
+**What's not perfect:** Molten-Core Maestro's Opus trigger (put a +1/+1 counter on it whenever you cast an instant/sorcery; add {R} equal to its power if 5+ mana spent) is not wired. The ETB handler correctly sets 2/2 menace and documents the gap; but without the trigger, Maestro in the sim is just a 2/2 menace and never grows. In a 33-spell Izzet Maestro deck, Maestro would realistically end up as a 5-8/5-8 in a real game.
+**Why not fixed in source spec:** Opus trigger requires APL-level hook on each cast_spell call. Pattern exists (Colorstorm Stallion uses same hook in `apl/izzet_prowess_standard.py`). Deferred because Izzet Maestro APL is deferred until Constructed results land.
+**Concrete fix:** When building Izzet Maestro APL, add `_fire_opus_triggers(gs)` helper (pattern: for each card on bf with Opus, check if last-cast spell cost >= 5, increment counters, add mana). Call from `cast_spell` post-cast hook. Mirror Colorstorm Stallion's existing APL implementation.
+**Estimated effort:** 20-30 min as part of Maestro APL build.
+**Status:** OPEN
+**Created:** 2026-05-02
 
 ## How to use this file
 
