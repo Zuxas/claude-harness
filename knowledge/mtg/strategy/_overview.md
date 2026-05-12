@@ -29,16 +29,13 @@ cited published strategy.
 - [[format-standard-spring-2026]] -- the strategic identity of each
   current Standard pillar. *Snapshot dated; rewrite when meta shifts.*
 
-[Strong] Every paragraph in every strategy block carries an epistemic
-tag: `[Strong]` (sourced doctrine, stable), `[Inference]` (synthesis,
-working hypothesis), `[Uncertain]` (low-confidence pattern-match,
-reserved for rare use). When in doubt, distrust `[Inference]`.
+[Strong] Every paragraph in every block carries an epistemic tag:
+`[Strong]` (sourced doctrine), `[Inference]` (synthesis), `[Uncertain]`
+(low confidence, rare use). Distrust `[Inference]` first when claims
+contradict.
 
-[Strong] Every block points to the codebase module that operationalizes
+[Strong] Every block points to a codebase module that operationalizes
 its doctrine. If a block contradicts the code, the code wins -- file
-an imperfection and rewrite the block.
+an imperfection.
 
-[Inference] This overview reflects the structure of the spec
-(`harness/specs/2026-05-12-mtg-strategy-knowledge-base-slice-a.md`).
-The "when to consult" assignments above are my synthesis of how the
-blocks compose; another reader might consult them in a different order.
+Spec: `harness/specs/2026-05-12-mtg-strategy-knowledge-base-slice-a.md`
