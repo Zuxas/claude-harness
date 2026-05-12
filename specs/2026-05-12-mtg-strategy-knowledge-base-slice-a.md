@@ -1,12 +1,19 @@
 ---
 title: "MTG strategy knowledge base -- Slice A (foundational)"
-status: "PROPOSED"
+status: "SHIPPED"
 created: "2026-05-12"
 updated: "2026-05-12"
 project: "harness"
 estimated_time: "90-150 min"
 related_findings: []
-related_commits: []
+related_commits:
+  - "2a0887d -- _overview + gitignore carve-out"
+  - "e091530 -- chapin-principles"
+  - "064809b -- role-theory"
+  - "f21c1b7 -- card-advantage"
+  - "18b7884 -- threat-answer-density"
+  - "1af8ab7 -- format-standard-spring-2026"
+  - "a8d6bc9 -- index + slice close"
 supersedes: null
 superseded_by: null
 ---
@@ -362,3 +369,9 @@ After this spec ships, MOVE these entries to `harness/IMPERFECTIONS.md`.
 ## Changelog
 
 - 2026-05-12: Created (status PROPOSED)
+- 2026-05-12: Status -> SHIPPED at commit a8d6bc9. 6 blocks live under
+  harness/knowledge/mtg/strategy/. .gitignore carve-out added for the
+  strategy/ subdir (mid-execution amendment -- knowledge/mtg/ was fully
+  ignored, blocking commits). All validation gates passed except
+  _overview.md initially exceeded the 200-word target at 285 (1.43x);
+  trimmed inline to 245 (within +25% bound) before final commit.
