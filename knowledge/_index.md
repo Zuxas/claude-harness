@@ -13,3 +13,25 @@
 | mtg/sim-belcher | mtg | 2026-04-29 | apl-tuner-agent |
 | harness/ROADMAP | strategy | 2026-04-30 | 6-phase roadmap to PT-level tool; honest capability framing; what sim can/can't tell you |
 | tech/external-research-mtg-ai-2026-04-30 | tech | 2026-04-30 | Nettle 2-1-2 mulligan finding + mtg-agents LLM-as-judge + hybrid vector search patterns |
+| mtg/sim-azorius-control | mtg | 2026-05-01 | apl-tuner-agent |
+| mtg/sim-boros-aggro | mtg | 2026-05-03 | apl-tuner-agent |
+| mtg/sim-domain-zoo | mtg | 2026-05-03 | apl-tuner-agent |
+| mtg/sim-amulet-titan | mtg | 2026-05-04 | apl-tuner-agent |
+| mtg/sim-eldrazi-ramp | mtg | 2026-05-04 | apl-tuner-agent |
+| mtg/sim-izzet-lessons | mtg | 2026-05-04 | apl-tuner-agent |
+| mtg/sim-izzet-spellementals | mtg | 2026-05-06 | apl-tuner-agent |
+| mtg/sim-golgari-midrange | mtg | 2026-05-06 | apl-tuner-agent |
+| mtg/sim-selesnya-landfall | mtg | 2026-05-06 | apl-tuner-agent |
+| mtg/sim-dimir-excruciator | mtg | 2026-05-06 | apl-tuner-agent |
+| mtg/sim-azorius-blink | mtg | 2026-05-06 | apl-tuner-agent |
+| mtg/sim-izzet-prowess | mtg | 2026-05-08 | apl-tuner-agent |
+| mtg/sim-mono-green-landfall | mtg | 2026-05-09 | apl-tuner-agent |
+| mtg/sim-boros-energy | mtg | 2026-05-10 | apl-tuner-agent |
+| mtg/sim-eldrazi-tron | mtg | 2026-05-10 | apl-tuner-agent |
+| mtg/sim-jeskai-blink | mtg | 2026-05-11 | apl-tuner-agent |
+| mtg/strategy/_overview | strategy | 2026-05-12 | Index of MTG strategic-theory blocks |
+| mtg/strategy/chapin-principles | strategy | 2026-05-12 | Chapin's 6 Principles framework -- T/A/Cn/V/M/Ck |
+| mtg/strategy/role-theory | strategy | 2026-05-12 | Flores' beatdown/control as relational roles |
+| mtg/strategy/card-advantage | strategy | 2026-05-12 | CA taxonomy -- raw/virtual/tempo/quality/ratios |
+| mtg/strategy/threat-answer-density | strategy | 2026-05-12 | Density math + sweepers + 60-card budget |
+| mtg/strategy/format-standard-spring-2026 | strategy | 2026-05-12 | Pillar archetypes' strategic identity (snapshot 2026-05-12) |
