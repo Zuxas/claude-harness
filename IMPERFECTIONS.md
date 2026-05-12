@@ -495,6 +495,26 @@ else:
 **Status:** OPEN
 **Created:** 2026-05-02
 
+### standard-apl-goldfish-only-no-match-quality (NEW 2026-05-03; PT SOS gauntlet run)
+
+**Source:** PT SOS gauntlet run 2026-05-03 — Selesnya Landfall and Izzet Lessons vs updated Standard field.
+**What's not perfect:** All Standard APLs are goldfish-level — no interaction, no removal, no opponent modeling. Gauntlet results are unreliable: Selesnya beats Prowess 98.6% (PT: 62.9%), Lessons beats Prowess 1.9% (PT: 46.3%), Selesnya vs Mono-Green inverted (sim: 31.6%, PT: 65.4%). The official PT SOS matchup matrix is the only authoritative Standard WR source.
+**Why not fixed in source spec:** Standard match APLs require full hand-tracking, combat sequencing, and removal logic. Each is a multi-hour build. Not scoped in any current spec.
+**Concrete fix:** Build match APLs for the Top 4 Standard decks in priority order: (1) Selesnya Landfall (best deck, 63.81% WR), (2) Mono-Green Landfall (55.45%), (3) Izzet Spellementals (50.87%), (4) Izzet Prowess (49.80%). Each needs RemovalAwareGoldfishAdapter or equivalent. ~3-4h per deck. Izzet Lessons specifically needs lesson/learn cycle modeling.
+**Estimated effort:** 12-16h total for all 4. Can be done incrementally.
+**Status:** OPEN
+**Created:** 2026-05-03
+
+### standard-field-missing-dimir-excruciator-azorius-blink (NEW 2026-05-03; PT SOS field update)
+
+**Source:** PT SOS final field update 2026-05-03. Dimir Excruciator (3.1%) and Azorius Blink (2.5%) in field config but no deck files or APLs registered.
+**What's not perfect:** 5.6% of the Standard field returns ERROR in gauntlet runs. FWR slightly inflated because those percentages are excluded from the weighted average.
+**Why not fixed:** New archetypes identified from PT SOS — decklist not yet in sim.
+**Concrete fix:** (1) Fetch Dimir Excruciator decklist from PT SOS MTGDecks data in DB. (2) Build deck file. (3) Register GenericAPL or build stub. Repeat for Azorius Blink. ~30 min each.
+**Estimated effort:** 1h total.
+**Status:** OPEN
+**Created:** 2026-05-03
+
 ## How to use this file
 
 When picking up a session:
@@ -509,3 +529,35 @@ When closing an imperfection:
 2. Move the entry to `harness/RESOLVED.md` (create if needed)
 3. The findings doc that originated the imperfection gets a "Resolved" note with link to commit
 4. Add a "Resolved this week" line at the top of THIS file with a pointer to the [RESOLVED.md](http://RESOLVED.md) entry, for at-a-glance visibility [RESOLVED.md](http://RESOLVED.md) entry, for at-a-glance visibility
+
+---
+
+## mtg-strategy-blocks-not-codebase-grounded
+
+**Source spec:** harness/specs/2026-05-12-mtg-strategy-knowledge-base-slice-a.md
+**Source commit:** a8d6bc9
+**Status:** OPEN
+**Created:** 2026-05-12
+
+**What's not perfect:** Approach C (training-derived primer) was the picked approach for Slice A. User explicitly flagged training-derived synthesis as the failure mode. Mitigated by epistemic hygiene rules ([Strong]/[Inference]/[Uncertain] tags, source citations, codebase pointers) but not eliminated. Some paragraphs are confident-sounding paraphrase that isn't strictly verifiable against a single source.
+
+**Why not fixed in source spec:** Approach A (codebase crystallization) was offered and the user picked C. Speed > grounding for this slice.
+
+**Concrete fix:** Slice A-prime -- re-read chapin.py / deck_roles.py / blunders.py / meta_scoring.py in detail; rewrite any block paragraph that contradicts what the code actually does; replace `[Inference]` tags with `[Strong]` where the code provides direct grounding.
+
+**Estimated effort:** 30-45 min
+
+## mtg-strategy-format-meta-block-decays
+
+**Source spec:** harness/specs/2026-05-12-mtg-strategy-knowledge-base-slice-a.md
+**Source commit:** 1af8ab7
+**Status:** OPEN
+**Created:** 2026-05-12
+
+**What's not perfect:** harness/knowledge/mtg/strategy/format-standard-spring-2026.md is a dated snapshot (Format snapshot: 2026-05-12). Standard meta shifts after new set releases or banning announcements; the block will go stale within weeks.
+
+**Why not fixed in source spec:** Auto-update from scraped data was rejected (manual write-back keeps strategic interpretation human-curated).
+
+**Concrete fix:** Add a scheduled task / calendar reminder to rewrite the format block monthly, or whenever a new set drops. Trigger criteria (already in block's "Decay tracking" section): 30+ days since format_snapshot, new set legalized, pillar archetype falls below 5% or new one rises above 5%, banning announcement affecting any pillar.
+
+**Estimated effort:** 20-30 min per refresh
