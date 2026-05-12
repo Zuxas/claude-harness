@@ -8,7 +8,14 @@ WORKING_WITHOUT_CLAUDE.txt
 # ── Personal knowledge domains ───────────────────────────────
 knowledge/personal/
 knowledge/career/
-knowledge/mtg/
+# Pattern: ignore all immediate children of knowledge/mtg/ (operational
+# artifacts -- APL tuning, calibration logs, sim notes), then carve out
+# strategy/ which contains general MTG theory blocks (Chapin principles,
+# role theory, etc.) -- public/durable, not personal data.
+# Git limitation: cannot re-include a child of a fully-ignored parent dir,
+# so the parent rule must be `*`-glob not trailing-slash.
+knowledge/mtg/*
+!knowledge/mtg/strategy/
 
 # ── Session state ────────────────────────────────────────────
 state/
