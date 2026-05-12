@@ -1,5 +1,5 @@
 # harness/specs/ -- Spec Index
-# Last updated: 2026-05-01
+# Last updated: 2026-05-12
 
 Chronological list of all execution specs by status. Newest first within
 each status. After a spec ships, it stays in this index forever.
@@ -53,6 +53,12 @@ each status. After a spec ships, it stays in this index forever.
 (retroactively populated -- see harness/specs/RETROACTIVE.md for the 14
 commits from 2026-04-26/2026-04-27 session that pre-date this directory)
 
+- `2026-05-12-mtg-strategy-knowledge-base-slice-a.md` — Shipped 2026-05-12 at
+  commit a8d6bc9. 6 strategy blocks under harness/knowledge/mtg/strategy/:
+  _overview, chapin-principles, role-theory, card-advantage,
+  threat-answer-density, format-standard-spring-2026. Approach C
+  (training-derived) with strict epistemic hygiene. 2 imperfections opened
+  (slice-not-codebase-grounded, format-block-decays).
 - `2026-04-27-guide-attack-trigger-fix.md` — Shipped.
 - `2026-04-27-oracle-parser-orphan-fix.md` — Shipped.
 - `2026-04-27-phase-3.5-stage-a-block-eligibility.md` — Shipped.
