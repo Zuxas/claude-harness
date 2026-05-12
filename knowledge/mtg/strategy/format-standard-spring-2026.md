@@ -250,6 +250,68 @@ each archetype above. [[role-theory]] for matchup-by-matchup role
 assignment. [[threat-answer-density]] for the density math that
 explains why Lessons crushes Selesnya but loses to Mono-Green.
 
+## 2026-05-12 mid-snapshot correction
+
+[Strong] After this block was first written (commit 1af8ab7), a live
+query of `mtg-meta-analyzer/mtg_meta.db` for the last 14 days
+(N=1262 Standard decks) produced meta shares that contradict the
+"Expected May 29 meta share" predictions earlier in this block.
+
+**Corrections** (data source: `mtg_meta.db` decks table joined to
+events, format=standard, last 14 days as of 2026-05-12):
+
+| Archetype | Earlier prediction | Actual 14d share | Correction |
+|---|---|---|---|
+| Izzet Prowess | ~20% (declining) | **23.5%** | Slightly declined from PT 31% but still #1 by large margin. Field has NOT abandoned Prowess. |
+| Mono-Green Landfall | (combined ~40% with Selesnya) | **11.6%** | Single largest non-Prowess deck. The volume Landfall pick. |
+| Izzet Spellementals | ~10% rising | **6.9%** | Flat, not rising. |
+| Selesnya Landfall | (combined ~40% with Mono-G) | **4.3%** | Much smaller share than predicted. Despite top PT WR, the field hasn't adopted it broadly. |
+| Selesnya Aggro | NOT PREDICTED | **5.2%** | New pillar. Triggers the "new archetype above 5%" decay condition. Strategic identity TBD pending more data. |
+| Izzet Lessons | ~5% | 3.8-5.6% | Within prediction range (variance depends on Lessons / "Izzet Lesson" normalization). |
+
+[Inference] The earlier "May 29 RC deck-lock question" section uses
+the now-superseded meta shares. The corrected calculation:
+
+[Inference] Field-weighted WR with corrected shares (assumes PT
+matchup numbers still hold, which is itself an assumption):
+
+For **Selesnya Landfall** (PT WR 63.81%):
+- vs Prowess (23.5%): 62.9% × 0.235 = 14.8 pts
+- vs Mono-G (11.6%): 65.4% × 0.116 = 7.6
+- vs Spellementals (6.9%): ~50% × 0.069 = 3.5
+- vs Selesnya Aggro (5.2%): UNKNOWN — assume 50% × 0.052 = 2.6
+- vs Selesnya mirror (4.3%): 50% × 0.043 = 2.2
+- vs Lessons (5.6%): 25% × 0.056 = 1.4
+- vs rest (43%): assume ~52% × 0.43 = 22.4
+- **Total: ~54.5%** [Inference, heavy dependence on "rest" bucket]
+
+For **Mono-Green Landfall**:
+- vs Prowess (23.5%): 62.7% × 0.235 = 14.7
+- vs Selesnya (4.3%): 34.6% × 0.043 = 1.5
+- vs Spellementals (6.9%): ~50% × 0.069 = 3.5
+- vs Selesnya Aggro (5.2%): UNKNOWN — assume 50% × 0.052 = 2.6
+- vs mirror (11.6%): 50% × 0.116 = 5.8
+- vs Lessons (5.6%): 41.9% × 0.056 = 2.3
+- vs rest (43%): assume ~50% × 0.43 = 21.5
+- **Total: ~51.9%** [Inference]
+
+[Strong] Both Landfall variants still favored vs the Prowess-heavy
+field. The Selesnya/Mono-Green gap narrows from the earlier
+calculation but Selesnya remains the higher-WR pick on paper, and
+Mono-Green remains the larger-sample lower-variance pick.
+
+[Uncertain] Selesnya Aggro at 5.2% is the largest data gap. No PT
+matchup data. Likely a fast WG creature deck with Landfall-style
+payoffs but more aggressive curve. If it has a Selesnya-Landfall-style
+favorable matchup vs Prowess, it could be the actual best pick;
+unknown.
+
+[Strong] The "Pillar archetype rises above 5%" decay condition has
+fired (Selesnya Aggro at 5.2%). Per this block's own rules, a Slice
+A-prime / format-block-rewrite is overdue. Tracked as imperfection
+`mtg-strategy-format-meta-block-decays` -- consider it primed for the
+next session.
+
 ## Decay tracking
 
 This block expires. Rewrite triggers:
