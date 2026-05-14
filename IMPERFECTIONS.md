@@ -254,7 +254,7 @@ Combined, this is **12.5pp of phantom canonical field share** (Orzhov Blink 6.1%
 2. Source actual Orzhov Blink + Grinding Breach decklists from MTGTop8/MTGGoldfish, replace the duplicate files. Restores intended field diversity. Needs human input on which lists to source. ~30-60 min.
 3. Combination: source real Grinding Breach (it's a real Modern archetype with hand-tuned APL waiting); remove Orzhov Blink (it's effectively a duplicate of Esper Blink with no separate identity in the repo).
 **Estimated effort:** 10 min for fix 1; 30-60 min for fix 2.
-**Status:** OPEN
+**Status:** RESOLVED 2026-05-14 -- both halves now closed. orzhov_blink_modern.txt and esper_blink_modern.txt are no longer bit-identical (verified hash mismatch); the grinding_breach <-> temur_breach duplicate was resolved today by deleting decks/grinding_breach_modern.txt + apl/grinding_breach.py (see apl-deck-mismatch-grinding-breach). format_config.py canonical Modern field has neither "Orzhov Blink" nor "Grinding Breach" -- both phantom field-share entries are gone.
 **Created:** 2026-04-29
 
 ---
@@ -356,13 +356,13 @@ These are design gaps, not bugs — the code works but the quality ceiling is lo
 
 ---
 
-### apl-deck-mismatch-grinding-breach (RESOLVED 2026-04-29 at 74b4f33 -- removed from canonical field)
+### apl-deck-mismatch-grinding-breach (RESOLVED 2026-05-14 -- duplicate file + orphaned APL deleted)
 
 **Source:** Investigation following duplicate-deck-files finding.
 **What's not perfect:** `apl/grinding_breach.py` is a 93L hand-tuned APL that expects `COMBO_PIECES = {"Underworld Breach", "Grinding Station"}`, ENABLERS including Emry, Mox Opal, etc. But `decks/grinding_breach_modern.txt` (mislabeled as duplicate of temur_breach) contains zero of those cards — it's a Storm-ritual deck (Desperate Ritual, Past in Flames, Ral Monsoon Mage). The APL searches for cards it'll never find; main_phase logic falls through to default behavior. Effectively, the canonical 6.4% "Grinding Breach" gauntlet slice runs an APL grasping at non-existent combo pieces.
 **Why not fixed:** Compounds with `duplicate-deck-files-in-canonical-field`; same fix applies (source real decklist).
 **Concrete fix:** Same as duplicate-deck-files fix 2 — source actual Underworld Breach + Grinding Station decklist (any recent Modern Top 8) and replace the file. ~15 min.
-**Status:** OPEN
+**Status:** RESOLVED 2026-05-14 -- chose Path A (delete) rather than Path B (source real list). The "Grinding Breach" archetype was already removed from `format_config.py` canonical Modern field on 2026-04-29, so the broken APL was no longer being driven by the gauntlet. Today's cleanup: deleted `decks/grinding_breach_modern.txt` (was bit-identical to temur_breach_modern.txt), deleted `apl/grinding_breach.py` (orphaned), removed "grindingbreach" key from APL_REGISTRY, redirected "breach" alias to TemurBreachAPL (the actual breach deck we model), removed "grinding breach"/"grindingbreach" from sim_bridge.py kill-turn distribution. Updated apl/temur_breach.py docstring.
 **Created:** 2026-04-29
 
 ### jeskaicontrol-key-mismapping (RESOLVED 2026-04-29 at 908b617)
