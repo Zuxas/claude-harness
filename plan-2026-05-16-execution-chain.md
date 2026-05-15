@@ -3,6 +3,7 @@
 **Authored:** 2026-05-15 end-of-day
 **Sub-project focus:** Polish + new overlay feature
 **Days to RC DC:** 13
+**Estimate:** 6-9h focused (1-2h log QA + 1-2h stability/responsiveness + 3-4h overlay + 30-45min Google Maps).
 
 ## Session start (15min)
 
@@ -84,6 +85,68 @@ catch rendering bugs, fix on the spot. Test plan:
 
 ---
 
+## Section 1.5 — Stability + responsiveness sweep (1-2h)
+
+User's explicit ask: "make the gui less buggy where it closes
+randomly and maybe make it more responsive".
+
+"Closes randomly" needs forensics first -- without repro steps we
+can't fix blind. Three concrete actions:
+
+### 1.5a Crash instrumentation (~30min)
+
+- Install a global `sys.excepthook` in `run_gui.py` that:
+  - Logs uncaught exceptions to `logs/gui_crash_YYYY-MM-DD.log`
+  - Shows the traceback in a QMessageBox (or non-blocking notification)
+    so the user knows what happened instead of silent death
+- Install a `QtCore.qInstallMessageHandler` to capture Qt-side
+  warnings/errors (segfaults from C++ side, deleted-object access,
+  etc.) into the same log
+- Add `try/except` wrappers around the main event loop entry so
+  exceptions on close don't silently terminate
+
+### 1.5b Thread lifecycle audit (~30min)
+
+The live-tail QThread (added 2026-05-14) could be a closes-randomly
+culprit. Audit:
+
+- `MtgaLogWatcher.stop()` -- does it actually join cleanly when
+  the user clicks the X? Test: close GUI mid-parse, confirm no
+  zombie thread + no segfault
+- Workers in tabs (DataLoadWorker instances) -- many tabs hold a
+  worker ref but don't cancel on tab teardown. Possible crash on
+  app-close if a worker is mid-flight against a torn-down DB
+  connection
+- Add `worker.wait(timeout=3000)` to all close paths
+- Add the watcher's signal connections to `Qt.QueuedConnection`
+  to ensure they fire on the GUI thread, not the worker thread
+
+### 1.5c Responsiveness profiling (~45-60min)
+
+Common Qt slow-paint causes to check:
+
+- **Big QTableWidget repaints** (~ Match History recent-matches
+  table, palette card list): use `setUpdatesEnabled(False)` /
+  `setSortingEnabled(False)` during populate, re-enable after
+- **DB queries on the UI thread**: any tab that calls `get_*()`
+  in a button handler without a worker. Grep `gui/tabs/` for
+  `get_matches\|get_decks\|get_meta_standings` outside `_do` /
+  `DataLoadWorker._run`. Move to workers.
+- **Synchronous match log re-parse** -- the Match Log "Sync MTGA"
+  button is worker-threaded (good), but `_refresh_orphan_banner`
+  fires `_ensure_table` + a synchronous COUNT(*) on every tab
+  show. Cache the count or move to a worker
+- **Replay transcript build is sync on the UI thread** (clicking
+  Watch Replay can hang ~1-2s on first build). Already cached
+  per match in `data/match_replays/`, but the FIRST click for an
+  unseen match is the slow path -- run in a worker, show
+  "Loading..." until ready
+
+Pick the top 2-3 hot spots. Don't refactor everything; we have a
+working app.
+
+---
+
 ## Section 2 — Matchup notes overlay (3-4h)
 
 User's explicit ask: "build an overlay or something with notes".
@@ -144,6 +207,26 @@ without fighting Windows window-management edge cases. A as v0.2.
 - Author 2026-05-17 chain
 - Update CLAUDE.md / NEXT_STEPS / ROADMAP
 - Commit + push
+
+---
+
+## Section 4 — My Events Google Maps deeplink (~30-45min)
+
+User's explicit ask: "in the my events portion id like to open a
+google maps of whatever store ive clicked on".
+
+- Find the relevant tab (Event Finder / Event Hub / Tournament
+  Prep -> Scout?) -- "My Events" UI label TBD on inspection.
+- Identify the store/venue field on each event row (likely
+  `event_name` + location columns from `events` table).
+- Add a right-click context-menu action "📍 Open in Google Maps"
+  or a small button per row.
+- Build URL: `https://www.google.com/maps/search/?api=1&query={encoded_venue_query}`.
+  For best results, use the venue name + city + state if available;
+  fall back to just venue name otherwise.
+- Open via `QDesktopServices.openUrl(QUrl(...))` (same pattern
+  as the existing Untapped deck-URL handler in ladder_meta.py).
+- Confirm URL works for a handful of real entries.
 
 ---
 
