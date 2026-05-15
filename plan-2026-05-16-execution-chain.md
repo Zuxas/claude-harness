@@ -2,11 +2,16 @@
 
 **Authored:** 2026-05-15 end-of-day
 **Days to RC DC:** 13
-**Total estimate:** 6-9h focused
+**Total estimate:** 7-10h focused (overlay is 4-5h, not 3-4h, since we're doing real transparent overlay not companion window)
 **Pre-resolved decisions** (no debate at runtime):
-- Overlay mode = **companion window** (not transparent click-through)
-- Window flags = `Qt.WindowStaysOnTopHint | Qt.Tool`
-- Toggle hotkey = **Ctrl+Shift+M**
+- Overlay mode = **transparent frameless overlay** with click-through toggle
+- Window flags = `FramelessWindowHint | WindowStaysOnTopHint | Tool` plus
+  conditional `WindowTransparentForInput` when locked
+- Attributes = `WA_TranslucentBackground`, `WA_NoSystemBackground`
+- Open/hide hotkey = **Ctrl+Shift+M**
+- Lock/unlock hotkey = **Ctrl+Shift+L** (toggles click-through)
+- MTGA must be borderless windowed (not exclusive fullscreen) -- known
+  constraint, ~ everyone runs borderless anyway
 - Crash log dir = `logs/gui_crash_YYYY-MM-DD.log`
 - Maps URL pattern = `https://www.google.com/maps/search/?api=1&query=<urlencoded venue>`
 
@@ -296,18 +301,30 @@ def open_event_in_maps(event_name: str, city: str = "", state: str = ""):
 
 **Goal:** companion window that shows the canonical SB plan + notes for the currently-active matchup. Updates as new matches land.
 
-### 2.1 New widget: `gui/widgets/matchup_overlay.py` (~1.5h)
+### 2.1 New widget: `gui/widgets/matchup_overlay.py` (~2h)
+
+This is a **real transparent overlay** with click-through toggle, not
+a companion window. MTGA must be in borderless windowed mode for the
+overlay to render on top (exclusive fullscreen is a Windows
+compositor limitation -- no Qt overlay can beat it).
 
 - [ ] Skeleton:
 ```python
-"""Always-on-top companion window with SB plan + matchup notes for
-the currently-active MTGA match.
+"""Transparent frameless overlay with SB plan + matchup notes for
+the currently-active MTGA match. Always on top.
+
+Locked mode (default ON):
+  - Click-through: clicks pass to MTGA underneath
+  - Overlay is visible but doesn't interfere with play
+  - Ctrl+Shift+L toggles to Unlocked
+
+Unlocked mode:
+  - Overlay receives mouse events
+  - Drag to reposition, click buttons, close
 
 Reads latest match_log row with source='mtga_log' to determine
-(my_deck_id, opp_archetype). Pulls canonical plan from saved_sb_plans
-via analysis.sb_plan_diff._find_canonical_plan. Pulls free-text
-notes from matchup_notes (deck-keyed) if any. Auto-refreshes when
-MtgaLogWatcher.matches_imported fires.
+(my_deck_id, opp_archetype). Auto-refreshes via
+MtgaLogWatcher.matches_imported signal.
 """
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
@@ -318,42 +335,100 @@ import gui.theme as theme
 class MatchupOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(
-            Qt.WindowType.Tool
+        # Frameless + always-on-top + Tool (no taskbar entry on Win).
+        # WindowTransparentForInput is set conditionally in
+        # _set_locked() -- starts locked (click-through).
+        self._base_flags = (
+            Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Tool
         )
-        self.setStyleSheet(
-            f"background: {theme.BG}; color: {theme.TEXT}; "
-            f"border: 2px solid {theme.ACCENT};"
+        self.setWindowFlags(
+            self._base_flags | Qt.WindowType.WindowTransparentForInput
         )
-        self.setMinimumSize(360, 460)
+        # Translucent so only painted content shows (not the widget's
+        # default background rect).
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self._locked = True  # click-through ON by default
         self._drag_pos = None
+        self.setMinimumSize(320, 420)
         self._build_ui()
         self.refresh()
 
     def _build_ui(self):
+        # Inner container with semi-opaque dark background. This is what
+        # actually gets painted -- the outer widget is fully translucent.
         v = QVBoxLayout(self)
         v.setContentsMargins(8, 8, 8, 8)
         v.setSpacing(6)
+        # All children inherit the panel's transparent-to-opaque
+        # styling. Use rgba() for the inner card so MTGA is partially
+        # visible through it.
+        self.setStyleSheet(
+            f"QLabel {{ color: {theme.TEXT}; background: transparent; }}"
+            f"QWidget#card {{ background: rgba(20, 24, 36, 220); "
+            f"border: 2px solid {theme.ACCENT}; border-radius: 6px; }}"
+            f"QPushButton {{ background: {theme.PANEL}; "
+            f"color: {theme.TEXT}; padding: 4px 8px; border-radius: 3px; }}"
+        )
+        card = QWidget()
+        card.setObjectName("card")
+        cv = QVBoxLayout(card)
+        cv.setContentsMargins(10, 10, 10, 10)
+        cv.setSpacing(6)
         self._header = QLabel("<b>Matchup overlay</b>")
-        self._header.setStyleSheet(f"color: {theme.ACCENT};")
-        v.addWidget(self._header)
+        self._header.setStyleSheet(f"color: {theme.ACCENT}; font-size: 13px;")
+        cv.addWidget(self._header)
         self._content = QLabel("Loading...")
         self._content.setTextFormat(Qt.TextFormat.RichText)
         self._content.setWordWrap(True)
         self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
-        v.addWidget(self._content, 1)
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.hide)
-        v.addWidget(close_btn)
+        cv.addWidget(self._content, 1)
+        # Footer: lock state + hotkey hints
+        self._footer = QLabel(
+            f"<span style='color:{theme.TEXT_DIM};font-size:9px;'>"
+            f"🔒 locked (click-through) · Ctrl+Shift+L unlock · "
+            f"Ctrl+Shift+M hide</span>"
+        )
+        self._footer.setTextFormat(Qt.TextFormat.RichText)
+        cv.addWidget(self._footer)
+        v.addWidget(card)
 
-    # Frameless windows need manual drag handling
+    def set_locked(self, locked: bool) -> None:
+        """Toggle click-through. Must hide+show to apply the flag change."""
+        self._locked = locked
+        flags = self._base_flags
+        if locked:
+            flags |= Qt.WindowType.WindowTransparentForInput
+        was_visible = self.isVisible()
+        self.setWindowFlags(flags)
+        if was_visible:
+            self.show()  # re-show because changing flags hides the window
+        # Update footer
+        if locked:
+            self._footer.setText(
+                f"<span style='color:#9aa3b8;font-size:9px;'>"
+                f"🔒 locked (click-through) · Ctrl+Shift+L unlock · "
+                f"Ctrl+Shift+M hide</span>"
+            )
+        else:
+            self._footer.setText(
+                f"<span style='color:#e0a060;font-size:9px;'>"
+                f"🔓 unlocked (drag to move) · Ctrl+Shift+L lock · "
+                f"Ctrl+Shift+M hide</span>"
+            )
+
+    def toggle_locked(self) -> None:
+        self.set_locked(not self._locked)
+
+    # Frameless windows need manual drag handling (only when unlocked)
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
+        if not self._locked and event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint() - self.pos()
     def mouseMoveEvent(self, event):
-        if self._drag_pos and event.buttons() & Qt.MouseButton.LeftButton:
+        if (not self._locked and self._drag_pos and
+                event.buttons() & Qt.MouseButton.LeftButton):
             self.move(event.globalPosition().toPoint() - self._drag_pos)
 
     def refresh(self):
@@ -426,12 +501,23 @@ self._mtga_watcher.matches_imported.connect(
 )
 ```
 
-- [ ] Add toggle hotkey (Ctrl+Shift+M):
+- [ ] Add two hotkeys (Ctrl+Shift+M show/hide, Ctrl+Shift+L lock/unlock):
 ```python
 from PyQt6.QtGui import QKeySequence, QShortcut
-self._overlay_shortcut = QShortcut(QKeySequence("Ctrl+Shift+M"), self)
-self._overlay_shortcut.activated.connect(self._toggle_matchup_overlay)
+# Show/hide
+self._overlay_toggle_sc = QShortcut(QKeySequence("Ctrl+Shift+M"), self)
+self._overlay_toggle_sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
+self._overlay_toggle_sc.activated.connect(self._toggle_matchup_overlay)
+# Lock/unlock (click-through)
+self._overlay_lock_sc = QShortcut(QKeySequence("Ctrl+Shift+L"), self)
+self._overlay_lock_sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
+self._overlay_lock_sc.activated.connect(
+    self._matchup_overlay.toggle_locked
+)
 ```
+
+Note `ApplicationShortcut` context -- needed so the hotkey fires
+even when MTGA has keyboard focus.
 
 - [ ] Add toggle method:
 ```python
@@ -450,16 +536,33 @@ def _toggle_matchup_overlay(self):
 - [ ] Save geometry to `ui_state.overlay_geometry` on hide/close.
 - [ ] Restore on show.
 
-### 2.4 Smoke test (~30min)
+### 2.4 Smoke test (~45min)
 
-- [ ] Open overlay (Ctrl+Shift+M).
-- [ ] Verify it shows the latest match's matchup with plan if available.
-- [ ] Drag to reposition.
-- [ ] Hide / show — position persists.
-- [ ] Play a new MTGA match → within 30s, overlay refreshes automatically.
-- [ ] Test "no canonical plan" path with a fresh opp archetype.
+This is a transparent overlay over a live game, so test in a real
+session not just a static GUI.
 
-- [ ] Commit: `feat(gui): matchup notes overlay (Ctrl+Shift+M)`.
+- [ ] Launch MTGA. **Confirm borderless windowed mode** (Options →
+      Graphics → Windowed or Fullscreen Borderless, NOT Exclusive
+      Fullscreen). If exclusive fullscreen, the overlay won't render
+      on top -- that's a known Windows compositor limitation.
+- [ ] Press Ctrl+Shift+M -- overlay appears, locked (click-through),
+      semi-transparent dark card with neon-blue border on top of
+      whatever MTGA is showing.
+- [ ] Click "through" the overlay onto MTGA cards -- should pass.
+- [ ] Press Ctrl+Shift+L -- overlay unlocks, footer turns orange,
+      mouse events now land on overlay.
+- [ ] Drag overlay to a new screen position.
+- [ ] Press Ctrl+Shift+L again -- re-lock, click-through resumes
+      from the new position.
+- [ ] Play a match start-to-finish.
+- [ ] Within 30s of match completion, overlay refreshes with the
+      new opponent's archetype + canonical plan.
+- [ ] Test "no canonical plan" path (play a matchup you don't
+      have stored) -- overlay shows the hint instead of a plan.
+- [ ] Press Ctrl+Shift+M to hide. Press again to re-show -- position
+      should be preserved (from `ui_state.overlay_geometry`).
+
+- [ ] Commit: `feat(gui): transparent matchup overlay with lock/unlock`.
 
 ---
 
