@@ -1,605 +1,260 @@
 # Execution Chain — 2026-05-16 (Saturday)
 
-**Authored:** 2026-05-15 end-of-day
+**Authored:** 2026-05-15 evening (consolidating the original 5/15, 5/16,
+and 5/17 chains after the 5/16 staged work shipped same-day on 5/15)
 **Days to RC DC:** 13
-**Total estimate:** 7-10h focused (overlay is 4-5h, not 3-4h, since we're doing real transparent overlay not companion window)
-**Pre-resolved decisions** (no debate at runtime):
-- Overlay mode = **transparent frameless overlay** with click-through toggle
-- Window flags = `FramelessWindowHint | WindowStaysOnTopHint | Tool` plus
-  conditional `WindowTransparentForInput` when locked
-- Attributes = `WA_TranslucentBackground`, `WA_NoSystemBackground`
-- Open/hide hotkey = **Ctrl+Shift+M**
-- Lock/unlock hotkey = **Ctrl+Shift+L** (toggles click-through)
-- MTGA must be borderless windowed (not exclusive fullscreen) -- known
-  constraint, ~ everyone runs borderless anyway
-- Crash log dir = `logs/gui_crash_YYYY-MM-DD.log`
-- Maps URL pattern = `https://www.google.com/maps/search/?api=1&query=<urlencoded venue>`
+**Total estimate:** 5-7h focused
 
----
-
-## Execution order
-
-Run sections **strictly in this order** -- each section unblocks the next.
-
-```
-1.5a Crash logger        (30min) -- MUST be first so we capture bugs in §1
-1   MTGA log QA          (1-2h)  -- walk surfaces; crash logger captures anything that fires
-1.5b Thread audit        (30min) -- informed by §1 observations
-1.5c Responsiveness      (45-60m) -- informed by §1 observations
-4   Google Maps deeplink (30-45m) -- quick win mid-day
-2   Matchup overlay      (3-4h)  -- biggest feature, last
-```
+The original 5/16 chain (crash logger / thread audit / responsiveness /
+transparent overlay) shipped today on 5/15. What's left for tomorrow is
+the items the original 5/15 chain skipped (SB plan validation, gauntlet,
+EV refresh), the items deferred from 5/16 (Google Maps deeplink), and
+the staged 5/17 work (real-MTGA endurance, QLockFile, missing SB plans).
 
 ---
 
 ## Section 0 — Session start (15min)
 
+Per `harness/CLAUDE.md` SESSION START PROTOCOL:
+
 1. Read `harness/state/latest-snapshot.md`.
 2. Read `harness/inbox/drift-pr--2026-05-16.md` if present.
-3. Read `harness/MEMORY.md` -- 2026-05-14 / 2026-05-15 entries.
+3. Read `harness/MEMORY.md` — 2026-05-15 evening entry (the shipped-
+   same-day overlay run + thread audit + responsiveness + crash logger).
 4. Check `harness/IMPERFECTIONS.md`.
-5. `git pull` on mtg-meta-analyzer + harness (in case anything landed overnight).
-6. Surface DAILY RHYTHM CHECK options (skip if user already wants the chain as-is).
+5. Run DAILY RHYTHM CHECK below.
 
 ---
 
-## Section 1.5a — Crash instrumentation (30min, FIRST)
+## Section 1 — Real-MTGA endurance test (1-2h)
 
-**Goal:** install sys.excepthook + Qt message handler so any crash during today's work writes a forensic log to disk.
+**Goal:** put miles on the overlay before RC DC. Several fixes landed
+yesterday evening AFTER the last user smoke pass: force-quit rewrite,
+horizontal-compact revert, click-pip-expand, UIState truncating writes,
+pre-push hook README skip-list. None of those were user-verified in
+real MTGA — only headless Qt smoke. Crash logger should now catch
+anything that fires.
 
 ### Tasks
 
-- [ ] Create `gui/crash_handler.py`:
-```python
-"""Install global exception + Qt message handlers so crashes leave a
-forensic trail in logs/gui_crash_YYYY-MM-DD.log instead of silently
-killing the process."""
-import sys
-import traceback
-from datetime import datetime
-from pathlib import Path
-from PyQt6.QtCore import qInstallMessageHandler, QtMsgType
-from PyQt6.QtWidgets import QMessageBox
-
-_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
-
-
-def install_handlers() -> None:
-    """Call once from run_gui.py BEFORE creating QApplication."""
-    sys.excepthook = _exception_hook
-    qInstallMessageHandler(_qt_message_handler)
-
-
-def _exception_hook(exc_type, exc_value, tb):
-    _LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_path = _LOG_DIR / f"gui_crash_{datetime.now().strftime('%Y-%m-%d')}.log"
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(f"\n=== {datetime.now().isoformat()} ===\n")
-        traceback.print_exception(exc_type, exc_value, tb, file=f)
-    try:
-        body = "".join(traceback.format_exception(exc_type, exc_value, tb))
-        QMessageBox.critical(None, "Unhandled exception", body[-2000:])
-    except Exception:
-        pass
-
-
-def _qt_message_handler(msg_type, context, message):
-    if msg_type in (QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg,
-                    QtMsgType.QtWarningMsg):
-        _LOG_DIR.mkdir(parents=True, exist_ok=True)
-        log_path = _LOG_DIR / f"qt_msgs_{datetime.now().strftime('%Y-%m-%d')}.log"
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.now().isoformat()} [{msg_type}] {message}\n")
-```
-
-- [ ] In `run_gui.py`, add at the very top of main entry (before `QApplication`):
-```python
-from gui.crash_handler import install_handlers
-install_handlers()
-```
-
-- [ ] Smoke test: deliberately raise an exception in a button handler (or
-      via Ctrl+K palette + a bogus command), confirm log file gets written
-      and modal appears.
-
-- [ ] Commit: `feat(gui): crash + Qt message handlers logging to disk`.
+- [ ] Launch GUI; verify auto-sync prints `[auto-sync] N matches`.
+- [ ] Verify only ONE python process is alive in Task Manager (no
+      zombies from yesterday's session).
+- [ ] Press Ctrl+Shift+M while MTGA has focus → overlay appears
+      middle-right.
+- [ ] Press Ctrl+Shift+Q with analyzer focused → process exits cleanly
+      (no zombie in Task Manager). The local QShortcut fallback is what
+      should fire here since Win32 global registration is likely failing
+      to claim Ctrl+Shift+Q (Discord / NVIDIA / etc. has it).
+- [ ] Re-launch. Press Ctrl+Shift+Q while MTGA has focus → does
+      anything happen? Expected: NO (global registration is blocked).
+      If it works → great, the global path is open on your box.
+- [ ] Play 5-10 ranked Bo3 matches end to end. After each match:
+  - Overlay refreshes within 30s with the new opponent
+  - Match History sub-tab gets the new row
+  - Per-game stats / SB plan / opening hand all populated
+  - Watch Replay popup opens with the transcript
+- [ ] During matches, alt-tab to Chrome → overlay hides; alt-tab back
+      → overlay re-appears. Repeat 5+ times.
+- [ ] Cycle compact ↔ full during sideboarding. Click the compact pip
+      anywhere → expand back.
+- [ ] Switch matchup dropdown manually to preview a different plan.
+- [ ] At end of session, check `logs/gui_crash_*.log` and
+      `logs/qt_msgs_*.log`. Triage each as "fix on the spot" /
+      "open IMPERFECTION" / "ignore as cosmetic".
 
 ---
 
-## Section 1 — MTGA log tool QA (1-2h)
+## Section 2 — Tokyo Prowess SB plan validation (1-1.5h)
 
-**Goal:** walk every surface from the last 2 days' work, fix bugs on the spot. Crash logger from 1.5a captures anything that explodes.
+**Goal:** the original 5/15 chain wanted this; we pulled the data
+earlier today but never closed the loop with team-canonical edits.
 
-### 1.1 Launch + auto-sync
+### Findings already on disk from 2026-05-15 morning data pull
 
-- [ ] Close any open GUI. From repo root: `python run_gui.py`.
-- [ ] Verify console prints `[auto-sync] N new MTGA matches imported on launch` within ~3s (N=0 if nothing to import).
-- [ ] Verify Dashboard rank label shows current rank (Platinum 2 29-29 as of 5/15 evening; will have shifted by Saturday).
-- [ ] Verify label is underlined + cursor changes on hover.
-
-### 1.2 Live tail
-
-- [ ] In MTGA, play one ranked Bo3 match (Traditional_Ladder).
-- [ ] Within 30s of match completion, statusbar should flash `MTGA watcher: 1 new match imported`.
-- [ ] If active tab is Match Log or My Decks → Match History, it should auto-refresh.
-- [ ] Verify new row in match_log via the GUI.
-
-### 1.3 Match Log tab — Sync buttons
-
-- [ ] Open Tournament → Match Log.
-- [ ] Click **↻ Sync Untapped** → expect "Sync complete: N new rows".
-- [ ] Click **↻ Sync MTGA** → expect "MTGA sync complete: N new matches imported".
-- [ ] Orphan banner appears IF any my_deck_id IS NULL rows exist.
-- [ ] Click "Resolve..." → OrphanResolverDialog walks orphans (existing feature, just smoke).
-
-### 1.4 My Decks → Match History sub-tab
-
-For Tokyo Prowess (id=17):
-- [ ] Filter dropdown defaults to "Ranked (any)".
-- [ ] Summary header shows ranked-only W-L + per-category breakdown.
-- [ ] Matchup table populates with ranked-only data.
-- [ ] **Mulligan analysis** section shows ranked-only buckets (this is the fix from yesterday — verify it's actually filtering).
-- [ ] Switch filter to "All matches" → counts increase (includes Bo3 casual / Sealed).
-- [ ] Recent Matches table on the LEFT of the splitter; Match Detail panel on the RIGHT.
-- [ ] Click a Bo3 row → Match Detail populates with:
-  - Per-game W/L + class (close / blowout / normal)
-  - T# / mull-to / life endpoints
-  - SB plan with **target on counter casts** ("You cast Annul → targets: High Noon")
-  - Canonical-vs-actual diff IF matchup exists in saved_sb_plans
-- [ ] Click **▶ Watch replay** → popup opens.
-- [ ] Verify transcript shows:
-  - Opening hand at top of each game
-  - Mulligan KEEP/MULL decisions
-  - Cards drawn ("You draw X", "Kajar draws a card")
-  - Lands played, spells cast, resolves
-  - Counterspells with target attribution
-  - Scry top/bottom with card names
-  - Declare attackers / blockers
-  - Damage, tokens, +1/+1 counters
-  - Life changes color-coded red/green
-
-### 1.5 Ladder sub-tab (Mythic decklist ingestion)
-
-- [ ] Meta → Ladder.
-- [ ] **↻ Cache local** button works → "Decklists: N written, ..."
-- [ ] Click a Mythic leaderboard row → decklist panel below populates with main + SB.
-- [ ] Right-click row → "Save to My Decks" → confirm dialog.
-- [ ] **↻ Pull current top 30** triggers an actual network pull (rate-limited, ~15-30s).
-
-### 1.6 Dashboard
-
-- [ ] Click rank label → progression chart popup opens.
-- [ ] Format dropdown switches Constructed / Limited (data may be sparse for Limited).
-- [ ] Win Rate Over Time chart is the DEFAULT (not Meta Share).
-- [ ] Format dropdown "all" option works (cross-format query).
-- [ ] Refresh button updates rank label.
-
-### 1.7 Known issues to look for
-
-- Any cut-off text / wrong widths in tables
-- Date sort issues
-- Per-game stats panel empty for old matches (acceptable — pre-feature import)
-- 5c Lute matches still labeled "Deck" by opp classifier (real gap; defer to seed-archetype work later)
-
-### 1.8 Bug fix sweep
-
-For every bug found above:
-- [ ] Quick fix on the spot if <15min
-- [ ] If >15min, add to IMPERFECTIONS.md + move on (don't derail QA)
-- [ ] Commit each fix separately with `fix(gui): <description>`
-
----
-
-## Section 1.5b — Thread lifecycle audit (30min)
-
-**Goal:** the "GUI closes randomly" complaint may be a thread joining/cleanup issue. Audit + fix any obvious gaps.
+- **3 matches misclassified to deck 17 (Tokyo Prowess)** but with
+  cards from a different deck: m=59 vs Gruul Aggro (Dimir cards),
+  m=72 vs Azorius (Esper cards), m=75 vs 4-Color Allies (empty SB).
+  Need to fix `my_deck_id` on these rows.
+- **Fuzzy archetype matcher gaps:** Azorius Control should match UW
+  High Noon, Simic Rhythm has no canonical plan, "Deck" is too vague.
+  Add a guild↔color-code lookup dict in `analysis/sb_plan_diff.py`.
+- **Real canonical-vs-played divergences:**
+  - m=60 vs Izzet Elementals (Izzet Prowess plan): IN 75% / OUT 38%.
+    Missing IN: +1 Spell Pierce, +1 Abrade. Left Slickshots in
+    (canonical wants -4 of them).
+  - m=61 vs Golgari Control (Golgari Midrange plan): IN 67% / OUT 67%.
+    Missed -2 Disdainful Stroke. Brought unplanned +2 Slagstorm
+    +1 Bounce Off +1 Spell Pierce.
 
 ### Tasks
 
-- [ ] Grep `gui/tabs/` for `DataLoadWorker(`:
+- [ ] **Decide on Slickshot cut discipline.** Canonical says cut all 4
+      Slickshot vs control matchups; you kept 3 in vs Izzet Elementals.
+      Either: (a) accept the canonical plan + adjust in-game discipline,
+      OR (b) update the canonical plan to reflect what you actually want
+      to do. Update `saved_sb_plans.id=53` (Izzet Prowess matchup) accordingly.
+- [ ] **Decide on Golgari Slagstorm inclusion.** Canonical Golgari Midrange
+      plan (id=39) doesn't include Slagstorm; you brought 2. Update plan
+      or commit to skipping Slagstorm vs Golgari.
+- [ ] **Fix 3 misclassified matches.** SQL:
+      ```sql
+      -- m=59 was probably Dimir Aggro id=18; verify by re-classifying
+      UPDATE match_log SET my_deck_id = NULL WHERE id IN (59, 72, 75);
+      -- Then run the orphan resolver from Match Log tab
+      ```
+- [ ] **Patch fuzzy archetype matcher** in
+      `analysis/sb_plan_diff.py::_find_canonical_plan` — add a guild→
+      color-code dict (Azorius↔UW, Simic↔UG, Dimir↔UB, Orzhov↔WB,
+      Rakdos↔BR, Gruul↔RG, Selesnya↔WG, Izzet↔UR, Golgari↔BG, Boros↔WR)
+      and try matching both directions before falling back to first-word.
+
+---
+
+## Section 3 — Single-instance enforcement (30min)
+
+**Goal:** prevent the zombie-process accumulation we saw yesterday
+(4 leftover python processes including 2 from previous-day pythonw3.13
+running 18+ hours).
+
+### Tasks
+
+- [ ] At top of `run_gui.py:main()`, after `argparse` but before
+      `QApplication`:
+  ```python
+  from PyQt6.QtCore import QLockFile
+  import tempfile, os
+  lock_path = os.path.join(tempfile.gettempdir(), "mtg-meta-analyzer.lock")
+  lock = QLockFile(lock_path)
+  lock.setStaleLockTime(30 * 1000)  # 30s
+  if not lock.tryLock(100):
+      print("MTG Meta Analyzer is already running. Check the system tray.")
+      sys.exit(0)
+  # Keep lock alive for the lifetime of the process
+  _lock_keeper = lock  # bind to module-level so GC doesn't release it
   ```
-  rtk grep "DataLoadWorker(" gui/tabs/
+- [ ] Verify with two consecutive `python run_gui.py` — second should
+      print and exit.
+- [ ] Stop existing GUI; relaunch — single instance OK.
+- [ ] Optional polish: if user double-clicks the launcher and a previous
+      instance exists, send a Win32 message to the existing instance to
+      bring its window to focus instead of just exiting silently.
+
+---
+
+## Section 4 — Google Maps deeplink for events (30-45min)
+
+**Goal:** deferred from 5/16. Right-click an event in My Events →
+opens Google Maps to the venue.
+
+### Tasks
+
+- [ ] Find the event-row context-menu handler in
+      `gui/tabs/event_finder_tab.py` or `gui/tabs/event_hub_tab.py`.
+      Ask the user if ambiguous.
+- [ ] Add action `📍 Open venue in Google Maps`.
+- [ ] URL builder:
+  ```python
+  import urllib.parse
+  from PyQt6.QtGui import QDesktopServices
+  from PyQt6.QtCore import QUrl
+
+  def open_event_in_maps(event_name: str, city: str = "", state: str = ""):
+      parts = [p for p in (event_name, city, state) if p]
+      query = " ".join(parts)
+      encoded = urllib.parse.quote(query)
+      url = f"https://www.google.com/maps/search/?api=1&query={encoded}"
+      QDesktopServices.openUrl(QUrl(url))
   ```
-  For each tab, verify the worker is either:
-  - Held in a `self._*_worker = w` reference (cleanup possible)
-  - Cancelled in tab's `cleanup()` method (if present)
-
-- [ ] Add a `cleanup()` method to any tab that holds workers but doesn't:
-```python
-def cleanup(self):
-    for attr in ("_panel_worker", "_chart_worker", "_mtga_sync_worker", "_fetch_worker"):
-        w = getattr(self, attr, None)
-        if w is not None:
-            try:
-                w.cancel()
-                w.wait(2000)  # 2s join
-            except Exception:
-                pass
-            setattr(self, attr, None)
-```
-
-- [ ] Verify `gui/main_window.py:closeEvent` calls `cleanup()` on all tabs before super().closeEvent.
-
-- [ ] Verify `MtgaLogWatcher.stop()` is called in closeEvent (already is per 5/14 ship).
-
-- [ ] Test: open GUI, click around tabs, close — check no zombie processes in Task Manager. Check gui_crash log for any messages.
-
-- [ ] Commit: `fix(gui): clean worker lifecycle on tab + window close`.
+- [ ] Skip / grey for MTGO online events.
+- [ ] Test 3 real entries.
 
 ---
 
-## Section 1.5c — Responsiveness profiling (45-60min)
+## Section 5 — Missing Tokyo SB plans (45-60min)
 
-**Goal:** identify and fix the top 2-3 UI-thread hot spots. Don't refactor everything.
+**Goal:** the matchup dropdown lists 17 plans, but yesterday's ranked
+queue surfaced 5 archetypes with NO canonical plan: Simic Rhythm,
+Boros Tremors, Gruul Aggro, 4-Color Allies, and generic Azorius (which
+exists as UW High Noon but the fuzzy matcher doesn't find it -- the
+Section 2 matcher patch should also help here).
 
 ### Tasks
 
-- [ ] **Hot spot 1: `_refresh_orphan_banner` synchronous COUNT(*).** Match Log tab calls `_ensure_table()` + `SELECT COUNT(*)` on every tab show. Cache the count; only re-query after sync or on explicit refresh.
-  - File: `gui/tabs/match_log.py`
-  - Pattern: add `self._orphan_count_cache = None`; check + use cache in `_refresh_orphan_banner`; invalidate in `_on_sync_*` methods.
-
-- [ ] **Hot spot 2: Watch Replay first-build is sync.** First click on a match's Watch Replay can take 1-2s parsing Player.log; UI freezes during that time. Move to worker.
-  - File: `gui/widgets/replay_transcript_dialog.py`
-  - Pattern: in `_load`, the `build_transcript` call should be in a DataLoadWorker, with the QTextEdit showing "Parsing log..." during the wait.
-
-- [ ] **Hot spot 3: QTableWidget repaint flicker.** Match History recent-matches table flickers on filter change because we don't gate updates.
-  - Files: `gui/widgets/deck_match_history.py`, `gui/tabs/match_log.py`
-  - Pattern: in `_render_recent` / `_load_matches`, wrap:
-    ```python
-    table.setUpdatesEnabled(False)
-    table.setSortingEnabled(False)
-    # ... populate ...
-    table.setSortingEnabled(True)
-    table.setUpdatesEnabled(True)
-    ```
-
-- [ ] Test each fix in isolation by clicking around the GUI.
-
-- [ ] Commit each as `perf(gui): <description>`.
+For each of the 5 missing matchups:
+- [ ] Pull recent Untapped Bo3 / Mythic decklists for the archetype
+      to understand the metagame baseline build.
+- [ ] Sketch Tokyo Prowess SB plan vs that archetype using the same
+      shape as the 17 existing plans (play_in / play_out / draw_in /
+      draw_out + notes).
+- [ ] Save via My Decks → Sideboard Plans tab.
+- [ ] Re-launch GUI, verify the dropdown now includes them.
 
 ---
 
-## Section 4 — My Events Google Maps deeplink (30-45min)
+## Section 6 — Gauntlet re-run + EV vs Field refresh (45-60min)
 
-**Goal:** right-click an event in My Events → open Google Maps to the venue.
+**Goal:** the original 5/15 chain wanted this. Now that match_log_sb_plans
+captures real plans + canonical plans exist for the new matchups, the
+gauntlet can be informed by data rather than blunt sideboarding.
 
 ### Tasks
 
-- [ ] Identify the "My Events" tab. Most likely candidates:
-  - Tournament Prep → Event Finder (`gui/tabs/event_finder_tab.py`)
-  - Tournament Prep → Event Hub (`gui/tabs/event_hub_tab.py`)
-  - Decks tab → ? (depends on label match)
-  Ask the user if ambiguous.
-
-- [ ] Find the event-row context-menu handler in that tab.
-
-- [ ] Add a new action: `📍 Open venue in Google Maps`.
-
-- [ ] Build URL:
-```python
-import urllib.parse
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtCore import QUrl
-
-def open_event_in_maps(event_name: str, city: str = "", state: str = ""):
-    parts = [p for p in (event_name, city, state) if p]
-    query = " ".join(parts)
-    encoded = urllib.parse.quote(query)
-    url = f"https://www.google.com/maps/search/?api=1&query={encoded}"
-    QDesktopServices.openUrl(QUrl(url))
-```
-
-- [ ] Handle the no-venue case: if event_name starts with "MTGO" or contains "Online", grey out / skip the action.
-
-- [ ] Test with 3 real entries — verify Google Maps opens to the right place.
-
-- [ ] Commit: `feat(events): right-click 'Open venue in Google Maps'`.
+- [ ] Run `python parallel_launcher.py --deck izzetprowessstandardtokyo
+      --field rcdc` at N=1000. Verify the gauntlet picks up the latest
+      mainboard from `saved_decks.id=17`.
+- [ ] Capture the resulting FWR. Compare to the 2026-05-01 baseline
+      of 68.4% canonical / 75.1% variant. Note any shift > 3pp.
+- [ ] My Decks → Tokyo Prowess → EV vs Field sub-tab. Capture today's
+      headline EV %. Compare to 5/01 53.6% baseline.
+- [ ] If gauntlet OR EV shifted > 5pp, investigate: real meta shift?
+      data quality (Untapped wide-window pull bringing stale)? Note
+      findings in NEXT_STEPS.
 
 ---
 
-## Section 2 — Matchup notes overlay (3-4h)
+## Section 7 — End of day (15min)
 
-**Goal:** companion window that shows the canonical SB plan + notes for the currently-active matchup. Updates as new matches land.
-
-### 2.1 New widget: `gui/widgets/matchup_overlay.py` (~2h)
-
-This is a **real transparent overlay** with click-through toggle, not
-a companion window. MTGA must be in borderless windowed mode for the
-overlay to render on top (exclusive fullscreen is a Windows
-compositor limitation -- no Qt overlay can beat it).
-
-- [ ] Skeleton:
-```python
-"""Transparent frameless overlay with SB plan + matchup notes for
-the currently-active MTGA match. Always on top.
-
-Locked mode (default ON):
-  - Click-through: clicks pass to MTGA underneath
-  - Overlay is visible but doesn't interfere with play
-  - Ctrl+Shift+L toggles to Unlocked
-
-Unlocked mode:
-  - Overlay receives mouse events
-  - Drag to reposition, click buttons, close
-
-Reads latest match_log row with source='mtga_log' to determine
-(my_deck_id, opp_archetype). Auto-refreshes via
-MtgaLogWatcher.matches_imported signal.
-"""
-from PyQt6.QtCore import Qt, QPoint
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
-
-import gui.theme as theme
-
-
-class MatchupOverlay(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        # Frameless + always-on-top + Tool (no taskbar entry on Win).
-        # WindowTransparentForInput is set conditionally in
-        # _set_locked() -- starts locked (click-through).
-        self._base_flags = (
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
-        self.setWindowFlags(
-            self._base_flags | Qt.WindowType.WindowTransparentForInput
-        )
-        # Translucent so only painted content shows (not the widget's
-        # default background rect).
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
-        self._locked = True  # click-through ON by default
-        self._drag_pos = None
-        self.setMinimumSize(320, 420)
-        self._build_ui()
-        self.refresh()
-
-    def _build_ui(self):
-        # Inner container with semi-opaque dark background. This is what
-        # actually gets painted -- the outer widget is fully translucent.
-        v = QVBoxLayout(self)
-        v.setContentsMargins(8, 8, 8, 8)
-        v.setSpacing(6)
-        # All children inherit the panel's transparent-to-opaque
-        # styling. Use rgba() for the inner card so MTGA is partially
-        # visible through it.
-        self.setStyleSheet(
-            f"QLabel {{ color: {theme.TEXT}; background: transparent; }}"
-            f"QWidget#card {{ background: rgba(20, 24, 36, 220); "
-            f"border: 2px solid {theme.ACCENT}; border-radius: 6px; }}"
-            f"QPushButton {{ background: {theme.PANEL}; "
-            f"color: {theme.TEXT}; padding: 4px 8px; border-radius: 3px; }}"
-        )
-        card = QWidget()
-        card.setObjectName("card")
-        cv = QVBoxLayout(card)
-        cv.setContentsMargins(10, 10, 10, 10)
-        cv.setSpacing(6)
-        self._header = QLabel("<b>Matchup overlay</b>")
-        self._header.setStyleSheet(f"color: {theme.ACCENT}; font-size: 13px;")
-        cv.addWidget(self._header)
-        self._content = QLabel("Loading...")
-        self._content.setTextFormat(Qt.TextFormat.RichText)
-        self._content.setWordWrap(True)
-        self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
-        cv.addWidget(self._content, 1)
-        # Footer: lock state + hotkey hints
-        self._footer = QLabel(
-            f"<span style='color:{theme.TEXT_DIM};font-size:9px;'>"
-            f"🔒 locked (click-through) · Ctrl+Shift+L unlock · "
-            f"Ctrl+Shift+M hide</span>"
-        )
-        self._footer.setTextFormat(Qt.TextFormat.RichText)
-        cv.addWidget(self._footer)
-        v.addWidget(card)
-
-    def set_locked(self, locked: bool) -> None:
-        """Toggle click-through. Must hide+show to apply the flag change."""
-        self._locked = locked
-        flags = self._base_flags
-        if locked:
-            flags |= Qt.WindowType.WindowTransparentForInput
-        was_visible = self.isVisible()
-        self.setWindowFlags(flags)
-        if was_visible:
-            self.show()  # re-show because changing flags hides the window
-        # Update footer
-        if locked:
-            self._footer.setText(
-                f"<span style='color:#9aa3b8;font-size:9px;'>"
-                f"🔒 locked (click-through) · Ctrl+Shift+L unlock · "
-                f"Ctrl+Shift+M hide</span>"
-            )
-        else:
-            self._footer.setText(
-                f"<span style='color:#e0a060;font-size:9px;'>"
-                f"🔓 unlocked (drag to move) · Ctrl+Shift+L lock · "
-                f"Ctrl+Shift+M hide</span>"
-            )
-
-    def toggle_locked(self) -> None:
-        self.set_locked(not self._locked)
-
-    # Frameless windows need manual drag handling (only when unlocked)
-    def mousePressEvent(self, event):
-        if not self._locked and event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.pos()
-    def mouseMoveEvent(self, event):
-        if (not self._locked and self._drag_pos and
-                event.buttons() & Qt.MouseButton.LeftButton):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-
-    def refresh(self):
-        """Re-query latest match + canonical plan, render."""
-        from db.database import get_connection
-        from analysis.sb_plan_diff import _find_canonical_plan
-        from db.saved_decks import get_decks
-        with get_connection() as c:
-            row = c.execute(
-                "SELECT my_deck_id, opp_deck, opp_name FROM match_log "
-                "WHERE source='mtga_log' ORDER BY id DESC LIMIT 1"
-            ).fetchone()
-            if row is None:
-                self._content.setText("<i>No MTGA matches yet.</i>")
-                return
-            my_deck_id = row["my_deck_id"]
-            opp = row["opp_deck"] or "?"
-            opp_name = row["opp_name"] or "?"
-            deck = next((d for d in get_decks() if d["id"] == my_deck_id), None)
-            deck_name = deck["name"] if deck else "?"
-            plan = _find_canonical_plan(c, my_deck_id, opp) if my_deck_id else None
-            # Also pull matchup_notes if table has rows for this pair
-            note_row = c.execute(
-                "SELECT notes FROM matchup_notes "
-                "WHERE my_deck = ? AND opp_deck = ? LIMIT 1",
-                (deck_name if deck else "", opp),
-            ).fetchone() if my_deck_id else None
-            notes = (note_row["notes"] if note_row else "") or ""
-
-        parts = [
-            f"<b style='font-size:13px;'>{deck_name}</b>",
-            f"<span style='color:{theme.TEXT_DIM};font-size:11px;'>"
-            f"vs {opp_name} ({opp})</span>",
-            "<hr/>",
-        ]
-        if plan:
-            import json
-            in_cards = json.loads(plan["play_in"] or "[]")
-            out_cards = json.loads(plan["play_out"] or "[]")
-            from collections import Counter
-            in_c = Counter(in_cards)
-            out_c = Counter(out_cards)
-            parts.append(f"<b>Canonical plan ({plan['difficulty']}):</b>")
-            parts.append("<b style='color:#80c890;'>IN:</b>")
-            for nm, q in in_c.most_common():
-                parts.append(f"&nbsp;&nbsp;+{q} {nm}")
-            parts.append("<br/><b style='color:#d88060;'>OUT:</b>")
-            for nm, q in out_c.most_common():
-                parts.append(f"&nbsp;&nbsp;-{q} {nm}")
-        else:
-            parts.append(
-                f"<i style='color:{theme.TEXT_DIM};'>No canonical SB plan "
-                f"stored for {opp} -- add one via My Decks → SB Plans tab.</i>"
-            )
-        if notes:
-            parts.append("<hr/><b>Notes:</b>")
-            parts.append(notes.replace("\n", "<br/>"))
-        self._content.setText("<br/>".join(parts))
-```
-
-### 2.2 Wire into MainWindow (~30min)
-
-- [ ] In `gui/main_window.py.__init__`, after the watcher init:
-```python
-from gui.widgets.matchup_overlay import MatchupOverlay
-self._matchup_overlay = MatchupOverlay()
-# Auto-refresh on new match
-self._mtga_watcher.matches_imported.connect(
-    lambda _n: self._matchup_overlay.refresh()
-)
-```
-
-- [ ] Add two hotkeys (Ctrl+Shift+M show/hide, Ctrl+Shift+L lock/unlock):
-```python
-from PyQt6.QtGui import QKeySequence, QShortcut
-# Show/hide
-self._overlay_toggle_sc = QShortcut(QKeySequence("Ctrl+Shift+M"), self)
-self._overlay_toggle_sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
-self._overlay_toggle_sc.activated.connect(self._toggle_matchup_overlay)
-# Lock/unlock (click-through)
-self._overlay_lock_sc = QShortcut(QKeySequence("Ctrl+Shift+L"), self)
-self._overlay_lock_sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
-self._overlay_lock_sc.activated.connect(
-    self._matchup_overlay.toggle_locked
-)
-```
-
-Note `ApplicationShortcut` context -- needed so the hotkey fires
-even when MTGA has keyboard focus.
-
-- [ ] Add toggle method:
-```python
-def _toggle_matchup_overlay(self):
-    if self._matchup_overlay.isVisible():
-        self._matchup_overlay.hide()
-    else:
-        self._matchup_overlay.refresh()
-        self._matchup_overlay.show()
-```
-
-- [ ] Add palette command (optional but nice): "> Toggle matchup overlay" in `gui/widgets/_palette_actions.py`.
-
-### 2.3 Persist position (~15min)
-
-- [ ] Save geometry to `ui_state.overlay_geometry` on hide/close.
-- [ ] Restore on show.
-
-### 2.4 Smoke test (~45min)
-
-This is a transparent overlay over a live game, so test in a real
-session not just a static GUI.
-
-- [ ] Launch MTGA. **Confirm borderless windowed mode** (Options →
-      Graphics → Windowed or Fullscreen Borderless, NOT Exclusive
-      Fullscreen). If exclusive fullscreen, the overlay won't render
-      on top -- that's a known Windows compositor limitation.
-- [ ] Press Ctrl+Shift+M -- overlay appears, locked (click-through),
-      semi-transparent dark card with neon-blue border on top of
-      whatever MTGA is showing.
-- [ ] Click "through" the overlay onto MTGA cards -- should pass.
-- [ ] Press Ctrl+Shift+L -- overlay unlocks, footer turns orange,
-      mouse events now land on overlay.
-- [ ] Drag overlay to a new screen position.
-- [ ] Press Ctrl+Shift+L again -- re-lock, click-through resumes
-      from the new position.
-- [ ] Play a match start-to-finish.
-- [ ] Within 30s of match completion, overlay refreshes with the
-      new opponent's archetype + canonical plan.
-- [ ] Test "no canonical plan" path (play a matchup you don't
-      have stored) -- overlay shows the hint instead of a plan.
-- [ ] Press Ctrl+Shift+M to hide. Press again to re-show -- position
-      should be preserved (from `ui_state.overlay_geometry`).
-
-- [ ] Commit: `feat(gui): transparent matchup overlay with lock/unlock`.
-
----
-
-## Section 3 — End of day (15min)
-
-- [ ] Author `harness/plan-2026-05-17-execution-chain.md`.
-- [ ] Update `mtg-meta-analyzer/CLAUDE.md` + `NEXT_STEPS.md`.
+- [ ] Author `harness/plan-2026-05-17-execution-chain.md` (for Sunday).
+- [ ] Update mtg-meta-analyzer CLAUDE.md / NEXT_STEPS / ROADMAP.
 - [ ] Commit + push all repos.
 
 ---
 
 ## Backlog (defer if time runs short)
 
-- 5c Lute archetype seed (~20-30min)
-- Tokyo Prowess canonical SB plans for missing matchups (~45-60min)
-- EV vs Field projection refresh + baseline check (~30min)
+- Visual board replay viewer v0.7 (6-10h, post-RC)
 - Damage breakdown per source (~45min)
 - Cards-played-on-curve analysis (~45-60min)
-- Rank progression: trigger snapshot on every new ranked match (not just every 30s tick) (~15min)
-- Visual board replay viewer v0.7 (6-10h, post-RC)
+- Hover-to-fade on overlay (low ROI; only works unlocked)
+- Per-archetype overlay defaults (fiddly UX; low ROI)
+- PyInstaller .exe packaging (post-RC)
+- Decklist diff vs canonical SB on overlay (medium effort, useful for
+  post-G1 review)
 
 ---
 
 ## Sub-project menu (per harness/SUBPROJECTS.md)
 
-If pivoting away from mtg-meta-analyzer at morning DAILY RHYTHM CHECK:
-- mtg-sim — Phase 3.5 Stages D-K
-- harness — skill-system spec (15d stale)
-- APLs — Pioneer L1 backlog
-- website — Latent
-- calibration — Stable
+If user pivots away from mtg-meta-analyzer at the morning DAILY
+RHYTHM CHECK:
+
+- **mtg-sim** — Phase 3.5 keyword coverage Stages D-K; Standard
+  match APLs (IMPERFECTION standard-apl-goldfish-only-no-match-quality).
+- **harness** — skill-system spec at
+  `harness/specs/2026-05-01-skill-system-harness.md` (16d stale).
+- **APLs** — Pioneer L1 backlog (57 cards in waves of 8-12).
+- **website** — Latent.
+- **calibration** — Stable.
 
 ---
 
 ## Standing-by note
 
-Per Rule 7: after each completed section, surface options (continue /
-pivot / break / drift-detect). User decides. Don't nudge.
+Per Rule 7 of SPEC-FIRST EXECUTION PROTOCOL: after each section,
+surface options (continue / pivot / break / drift-detect snapshot).
+Don't nudge.
 
-13 days to RC DC.
+13 days to RC DC. The big infrastructure pieces shipped on 5/15.
+Tomorrow's work is durability + data-completeness + the original 5/15
+plan items that got skipped when we pivoted to the 5/16 staged work.
