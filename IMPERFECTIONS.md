@@ -45,6 +45,40 @@ These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-
 
 ## Open imperfections
 
+### gauntlet-bypasses-match-apl-when-no-sb-plan (NEW 2026-06-26; surfaced by Decision-2 UW Control tuning)
+
+Source spec: (Decision 2, UW Control tuning, 2026-06-26)
+Source commit: (diagnostic only; no code committed)
+What is not perfect: run_matchup.py::_run_fair routes a deck to the REAL match-APL Bo3 path (engine.bo3_match.run_bo3_set -> match_engine.run_match, the ONLY path that honors WANTS_PRIORITY_STACK / R1) ONLY when get_sb_plan(deck, opp) returns a non-empty SB plan (the has_our_sb gate). For "UW Control" get_sb_plan returns ([],[]) for every opponent, so it silently falls back to Path B which uses the GOLDFISH apl.uw_control.UWControlAPL (GenericAPL shim) -- the hand-written match APL + R1 priority stack are dead code. Net: the gauntlet's FWR for such decks does NOT measure the deck's real match APL, so promote/discard verdicts on them are untrustworthy.
+Why not fixed: Decision 2 was scoped to APL tuning; this is a pipeline-routing gap that editing the APL cannot fix.
+Concrete fix: (a) register SB plans for match-APL decks (UW Control + audit ALL MATCH_APL_REGISTRY decks for the same silent bypass), OR (b) change _run_fair's gate to route to Path A whenever a real MATCH_APL exists for the deck (not only when an SB plan exists), defaulting to an empty SB plan. Add a lint/audit that flags any MATCH_APL deck whose gauntlet path resolves to a Goldfish/Generic shim.
+Estimated effort: 1-2h (gate fix + audit) Status: OPEN Created: 2026-06-26
+
+### celestial-colonnade-not-in-restless-lands (NEW 2026-06-26; surfaced by Decision-2)
+
+Source spec: (Decision 2, UW Control tuning, 2026-06-26)
+Source commit: (diagnostic only)
+What is not perfect: engine/game_state.py _RESTLESS_LANDS (L815-825) omits Celestial Colonnade, so UW Control's primary manland finisher cannot be animated/attack in the sim. Empirically the deck deals ~0 average damage across fair matchups and only wins on opponent self-kill/timeout. (Likely other manlands are also missing -- audit the list vs the format's real manlands.)
+Why not fixed: engine-side change; Decision 2 was APL-only (an APL clock workaround was prototyped but the underlying land isn't engine-modeled as an attacker).
+Concrete fix: add Celestial Colonnade (and audit other Modern/Standard manlands: Mutavault, Mishra's Factory, restless/creature-lands, etc.) to _RESTLESS_LANDS with correct activation cost + resulting P/T/keywords; verify it can attack via match_engine; re-baseline. Small per-land, high payoff for control/midrange clocks.
+Estimated effort: 30-60 min for Colonnade + a manland audit. Status: OPEN Created: 2026-06-26
+
+### planeswalker-loyalty-inert-in-match-mode (NEW 2026-06-26; relates to planeswalker-loyalty-not-tracked)
+
+Source spec: (Decision 2, 2026-06-26)
+What is not perfect: in match mode, main_phase_match casts planeswalkers via _cast_all_castable but never ticks loyalty / activates abilities / reaches ultimates -- the PW pile is inert (cast in 100+/120 games yet contributes ~0). This is the match-mode face of the existing `planeswalker-loyalty-not-tracked` imperfection (R5 ladder rung) and a major reason control/superfriends score far below real WR.
+Concrete fix: see modelability-ladder R5 (planeswalker loyalty over turns + attackable PWs); ensure the match turn loop activates a PW ability each turn and tracks loyalty/ultimate.
+Estimated effort: L (R5 rung). Status: OPEN Created: 2026-06-26
+
+### engine-apl-nondeterminism-id-based-ordering (NEW 2026-06-26; surfaced by R2 spike)
+
+Source spec: harness/specs/2026-06-26-R2-instant-combat-design.md (R2 spike, branch modelability/r2-instant-combat)
+Source commit: (pre-existing; not introduced by R1/R2 -- predates both)
+What is not perfect: The Amulet Titan goldfish APL and the Boros Energy *match* APL exhibit cross-process nondeterminism NOT controlled by the RNG seed -- e.g. Boros match a_wins varies 39-55 at the SAME seed/branch-point with R2 absent. Root cause is id()-based ordering (object-identity-dependent iteration) somewhere in those APL/engine paths, which is not stabilized by the global-random save/seed/restore that fixed the event-bus determinism (stage-1.7). R1/R2 bit-identity verification had to pin PYTHONHASHSEED and substitute a deterministic Golgari mirror for the design's named-but-nondeterministic Boros mirror.
+Why not fixed in source spec: Out of R2's bounded scope (R2 proves instant-combat modelable + no-regression; this is a pre-existing latent issue it merely exposed). Fixing it is an engine/APL determinism pass, not an R2 deliverable.
+Concrete fix: Find the id()-based or set-iteration ordering in the Amulet goldfish APL and Boros match APL paths (grep for `set(` iteration, `id(`, dict-insertion-order assumptions on object keys); replace with a stable sort key (card name / a stable index). Add to tests/test_determinism.py a cross-process same-seed assertion for Amulet goldfish + Boros match (currently only event-bus determinism is covered). Verify max-dev 0.00pp across processes at a pinned + at an unpinned PYTHONHASHSEED.
+Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test). Status: OPEN Created: 2026-06-26
+
 ### gemma-apl-quality-low-for-smoke-gate (NEW 2026-04-28; surfaced by S4 T.7; updated 2026-04-28 post-OAuth-probe)
 
 **Source spec:** `harness/specs/2026-04-28-auto-pipeline-output-flow-to-retune.md` (SHIPPED 2026-04-28)
