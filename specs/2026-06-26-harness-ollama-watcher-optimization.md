@@ -157,6 +157,12 @@ run `-ExecutionPolicy Bypass`). Touches: **no repo files** — OS env only.
   qwen2.5-coder:7b`, then point `_classify_deck`'s model at it (or add a
   `_pick_classify_model` preferring 7b). **AUTO-APPLY: BENCHMARK FIRST** — verify 7B
   classification dict-parse success rate matches 14B before adopting.
+  **DONE 2026-06-27 (extended to ALL code-gen, not just classify):** pulled
+  qwen2.5-coder:7b; set `_APL_CODE_MODEL_PREFERENCE=["qwen2.5-coder:7b","gemma4"]`
+  (14b retired from preference), code-gen temps -> 0.1, num_batch 1024 added. Same-prompt
+  A/B vs 14b: 95.5 tok/s / 7.7s vs 0.30 tok/s / 27.5min (~320x). Full decomposed gen on a
+  Modern deck: ~10s -> valid loadable APL. The 14b 0.30 tok/s spill empirically confirmed the
+  VRAM-fit thesis; this is the highest-impact change in the whole spec.
 - **C3. Phase-order the nightly to batch same-model steps** [V3 | M | Low] — today
   nightly interleaves qwen (auto-pipeline APL gen) and gemma (retune/playbook/drift),
   forcing >=1 reload. Group all code-gen first, all prose second, so at most one swap

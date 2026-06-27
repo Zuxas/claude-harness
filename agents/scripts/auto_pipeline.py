@@ -222,48 +222,110 @@ def _generate_via_claude(deck_name, format_name="modern"):
 
 
 def _call_ollama(prompt: str, model: str, temperature: float = 0.3,
-                  max_tokens: int = 512) -> str:
-    """Low-level Ollama API call. Returns response string or raises."""
+                  max_tokens: int = 512, num_ctx: int = 4096) -> str:
+    """Low-level Ollama API call. Returns response string or raises.
+
+    Uses streaming mode to accumulate tokens -- avoids Ollama bug where
+    stream=False returns empty response for Gemma 4 after heavy load.
+
+    num_ctx (B1): defaults to 4096, which is fine for the short decomposed
+    calls (max_tokens 300-600). The monolith fallback requests
+    max_tokens=4096, so it passes num_ctx=8192 to leave room for the
+    prompt + output inside the context window (previously prompt+output
+    exceeded the hardcoded 4096 ctx and silently truncated the output).
+
+    keep_alive (B2): "30m" keeps the model warm across nightly steps.
+
+    Resilience (D1): the HTTP call is retried up to 3 attempts with ~2s
+    then ~8s backoff on URLError / timeout / empty-response. The last
+    error is raised only after all retries are exhausted.
+    """
     import urllib.request
+    import urllib.error
     body = json.dumps({
-        "model": model, "prompt": prompt, "stream": False,
-        "options": {"temperature": temperature, "num_predict": max_tokens},
+        "model": model, "prompt": prompt, "stream": True,
+        "keep_alive": "30m",
+        "options": {"temperature": temperature, "num_predict": max_tokens,
+                    "num_ctx": num_ctx, "num_batch": 1024},
     }).encode()
-    req = urllib.request.Request(
-        "http://localhost:11434/api/generate", data=body,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        return json.loads(resp.read()).get("response", "").strip()
+
+    backoffs = [2, 8]  # waits between attempts (3 attempts total)
+    last_err = None
+    for attempt in range(len(backoffs) + 1):
+        try:
+            req = urllib.request.Request(
+                "http://localhost:11434/api/generate", data=body,
+                headers={"Content-Type": "application/json"},
+            )
+            tokens = []
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                for line in resp:
+                    if not line.strip():
+                        continue
+                    chunk = json.loads(line)
+                    tokens.append(chunk.get("response", ""))
+                    if chunk.get("done"):
+                        break
+            result = "".join(tokens).strip()
+            if not result:
+                raise ValueError("empty response from Ollama")
+            return result
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            last_err = e
+            if attempt < len(backoffs):
+                log(f"  Ollama call failed ({e}); retry "
+                    f"{attempt + 1}/{len(backoffs)} in {backoffs[attempt]}s", "WARN")
+                time.sleep(backoffs[attempt])
+    raise last_err
 
 
 def _classify_deck(deck_name: str, decklist: str) -> dict:
-    """Step 1: Extract structured deck metadata via Gemma 12B.
+    """Step 1: Extract structured deck metadata.
 
     Returns a dict with keys: role, key_cards, removal, keep_threshold, must_have.
-    Uses the fast 12B model — this is a pure extraction task, not code generation.
+    Uses the best available code model (Qwen preferred — more reliable output format).
     """
-    prompt = f"""Analyze this MTG deck and answer in EXACTLY this format (no other text):
+    model = _pick_apl_model()
+    prompt = f"""# MTG Deck Analysis — return a Python dict literal only
 
 DECK: {deck_name}
 DECKLIST:
 {decklist or "(no decklist — use your knowledge of this archetype)"}
 
-Answer format (fill in each field, no extra lines):
-ROLE: aggro|combo|control|midrange|ramp
-KEY_CARDS: card1, card2, card3
-REMOVAL: card1, card2
-KEEP_THRESHOLD: 2|3
-MUST_HAVE: card_name_or_NONE
-"""
+# Fill in the values based on the decklist above:
+result = {{
+    "role": "aggro",        # one of: aggro, combo, control, midrange, ramp
+    "key_cards": ["CardA", "CardB", "CardC"],  # top 3 win conditions, exact names from decklist
+    "removal": ["RemovalA"],  # removal/interaction spells, exact names
+    "keep_threshold": 2,    # min lands to keep opening hand (2 or 3)
+    "must_have": None,      # one critical card name string, or None
+}}
+# Output ONLY the dict literal. No imports, no explanation."""
     try:
-        response = _call_ollama(prompt, model="gemma4", temperature=0.1, max_tokens=256)
-        result = {}
-        for line in response.splitlines():
-            if ":" in line:
-                key, _, val = line.partition(":")
-                result[key.strip().lower().replace(" ", "_")] = val.strip()
-        return result
+        response = _call_ollama(prompt, model=model, temperature=0.1, max_tokens=300)
+        # Parse Python dict literal
+        import ast as _ast
+        # Strip markdown fences if present
+        clean = response.strip()
+        if clean.startswith("```"):
+            lines = clean.splitlines()
+            clean = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+        # Extract the dict literal (find the { ... } block)
+        start = clean.find("{")
+        end = clean.rfind("}") + 1
+        if start >= 0 and end > start:
+            parsed = _ast.literal_eval(clean[start:end])
+            # Normalize to flat string values for downstream consumers
+            result = {}
+            for k, v in parsed.items():
+                if isinstance(v, list):
+                    result[k] = ", ".join(str(x) for x in v)
+                elif v is None:
+                    result[k] = "NONE"
+                else:
+                    result[k] = str(v)
+            return result
+        return {}
     except Exception as e:
         log(f"  Deck classification failed: {e}", "WARN")
         return {}
@@ -284,22 +346,25 @@ Key cards: {key_cards}
 Minimum lands to keep: {keep_threshold}
 Must-have card (or NONE): {must_have}
 
-EXEMPLAR (follow this exact structure):
+CRITICAL RULE: in list comprehensions, use `x` as the item variable. NEVER use the same
+variable name inside a comprehension as in the enclosing for-loop.
+
+EXEMPLAR (use `x` inside comprehensions, `c` as loop variable):
 
     def keep(self, hand, mulligans, on_play):
-        lands = [c for c in hand if c.is_land()]
+        lands = [x for x in hand if x.is_land()]
         if len(hand) <= 4:
             return True
         if not lands:
             return False
-        threats = [c for c in hand if c.name in KEY_CARDS]
+        threats = [x for x in hand if x.name in KEY_CARDS]
         return len(lands) >= {keep_threshold} and (threats or mulligans >= 2)
 
     def bottom(self, hand, n):
-        excess = sorted([c for c in hand if c.is_land()], key=lambda c: c.name)
+        excess = sorted([x for x in hand if x.is_land()], key=lambda x: x.name)
         to_bottom = excess[3:] if len(excess) > 3 else []
-        high_cmc = sorted([c for c in hand if not c.is_land() and c not in to_bottom],
-                          key=lambda c: -c.cmc)
+        high_cmc = sorted([x for x in hand if not x.is_land() and x not in to_bottom],
+                          key=lambda x: -x.cmc)
         for s in high_cmc:
             if len(to_bottom) >= n:
                 break
@@ -308,7 +373,7 @@ EXEMPLAR (follow this exact structure):
 
 Write the two methods only. No class definition, no imports, no explanation.
 """
-    return _call_ollama(prompt, model=model, temperature=0.2, max_tokens=600)
+    return _call_ollama(prompt, model=model, temperature=0.1, max_tokens=600)
 
 
 def _generate_mainphase_methods(classification: dict, deck_name: str,
@@ -333,23 +398,36 @@ Key cards (primary win conditions): {key_cards}
 Removal spells: {removal}
 Strategy: {role_guidance}
 
-VALID Card API:
-  card.name, card.cmc, card.mana_cost, card.is_land()
+VALID Card API (use ONLY these — everything else will crash):
+  card.name (str), card.cmc (float), card.mana_cost (str)
+  card.is_land() -> bool
   card.has(Tag.CREATURE), card.has(Tag.INSTANT), card.has(Tag.SORCERY)
-  card.power, card.toughness
+  card.power (str or None), card.toughness (str or None)
 
-VALID GameState (gs) API:
-  gs.hand(), gs.zones.battlefield, gs.mana_pool.can_cast(mana_cost, cmc)
-  gs.cast_spell(card), gs.play_land(card), gs.turn, gs._log(msg)
+VALID GameState (gs) API (use ONLY these):
+  gs.hand() -> list[Card]
+  gs.zones.battlefield -> list[Card]
+  gs.mana_pool.can_cast(mana_cost, cmc) -> bool
+  gs.cast_spell(card), gs.play_land(card)
+  gs.turn (int), gs._log(msg)
 
-EXEMPLAR:
+DO NOT USE (these do not exist and will crash):
+  card.is_tapped(), card.tapped, card.can_target(), card.is_creature()
+  card.is_removal(), card.is_spell(), card.type_line
+  gs.battlefield (no parens), gs.hand (no parens)
+
+CRITICAL RULE: NEVER reference the outer loop variable inside a list comprehension.
+WRONG:  for card in sorted([c for c in hand if card.has(Tag.CREATURE)], ...):
+RIGHT:  for c in sorted([x for x in hand if x.has(Tag.CREATURE)], ...):
+
+EXEMPLAR (follow exactly — use `c` for loop variable, `x` for comprehension items):
 
     def main_phase(self, gs):
         self._play_land_if_able(gs)
         hand = gs.hand()
-        for card in sorted([c for c in hand if not c.is_land()], key=lambda c: c.cmc):
-            if gs.mana_pool.can_cast(card.mana_cost, card.cmc):
-                gs.cast_spell(card)
+        for c in sorted([x for x in hand if not x.is_land()], key=lambda x: x.cmc):
+            if gs.mana_pool.can_cast(c.mana_cost, c.cmc):
+                gs.cast_spell(c)
                 break
 
     def main_phase2(self, gs):
@@ -357,7 +435,7 @@ EXEMPLAR:
 
 Write the two methods only. No class definition, no imports, no explanation.
 """
-    return _call_ollama(prompt, model=model, temperature=0.2, max_tokens=600)
+    return _call_ollama(prompt, model=model, temperature=0.1, max_tokens=600)
 
 
 def _indent(code: str, spaces: int = 4) -> str:
@@ -367,11 +445,13 @@ def _indent(code: str, spaces: int = 4) -> str:
                      for line in code.splitlines())
 
 
-def _assemble_apl(deck_name: str, keep_code: str, mainphase_code: str) -> str:
+def _assemble_apl(deck_name: str, keep_code: str, mainphase_code: str,
+                   key_cards: str = "") -> str:
     """Assemble three generated pieces into a complete APL file.
 
     Strips any markdown fences, ensures methods are indented 4 spaces
-    inside the class body regardless of what indentation Gemma generated.
+    inside the class body regardless of what indentation Qwen generated.
+    Injects KEY_CARDS as a module-level set so keep() references don't crash.
     """
     class_name = "".join(w.capitalize() for w in
                          deck_name.replace("-", " ").replace("'", "").split()) + "APL"
@@ -401,8 +481,17 @@ def _assemble_apl(deck_name: str, keep_code: str, mainphase_code: str) -> str:
         "        pass"
     )
 
+    # Build KEY_CARDS set from classification so keep() references don't crash
+    if key_cards:
+        cards = [c.strip().strip('"\'') for c in key_cards.split(",") if c.strip()]
+        key_cards_literal = "{" + ", ".join(f'"{c}"' for c in cards) + "}"
+    else:
+        key_cards_literal = "set()"
+
     return f"""from data.card import Card, Tag
 from apl.base_apl import BaseAPL
+
+KEY_CARDS = {key_cards_literal}
 
 
 class {class_name}(BaseAPL):
@@ -504,6 +593,39 @@ Use ONLY card names that appear in the decklist above.
 Output ONLY valid Python code. No markdown fences, no explanation."""
 
 
+def _patch_invalid_api_calls(code: str) -> str:
+    """Fix known invalid Card/GameState API patterns that models generate despite instructions.
+
+    Applied after generation, before syntax check. Targeted replacements only —
+    never changes game logic, only fixes method signatures and attribute names.
+    """
+    import re
+
+    # cast_spell with keyword args -> strip extra args (only accepts one positional card arg)
+    code = re.sub(r'gs\.cast_spell\((\w+),\s*target\s*=\s*[^)]+\)', r'gs.cast_spell(\1)', code)
+    code = re.sub(r'gs\.cast_spell\((\w+),\s*[^)]+\)', r'gs.cast_spell(\1)', code)
+
+    # is_tapped() -> getattr pattern
+    code = re.sub(r'(\w+)\.is_tapped\(\)', r'getattr(\1, "tapped", False)', code)
+
+    # is_creature() -> has(Tag.CREATURE)
+    code = re.sub(r'(\w+)\.is_creature\(\)', r'\1.has(Tag.CREATURE)', code)
+
+    # is_spell() -> not is_land()
+    code = re.sub(r'(\w+)\.is_spell\(\)', r'not \1.is_land()', code)
+
+    # .type_line (bare attribute, not via getattr) — wrap safely
+    code = re.sub(r'(?<!getattr\()(\w+)\.type_line(?!\s*,)', r'(getattr(\1, "type_line", "") or "")', code)
+
+    # gs.hand (no parens) -> gs.hand()
+    code = re.sub(r'gs\.hand(?!\(\))', r'gs.hand()', code)
+
+    # gs.battlefield (no parens) -> gs.zones.battlefield
+    code = re.sub(r'gs\.battlefield\b', r'gs.zones.battlefield', code)
+
+    return code
+
+
 def _save_apl_code(deck_name, code, method="gemma"):
     """Clean, syntax-check, and save generated APL code to apl/auto_apls/."""
     safe = _safe_slug(deck_name)
@@ -519,6 +641,9 @@ def _save_apl_code(deck_name, code, method="gemma"):
     if code.startswith("```"):
         lines = code.splitlines()
         code = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+    # Patch known invalid API patterns from any generation path
+    code = _patch_invalid_api_calls(code)
 
     import ast as _ast
     try:
@@ -547,8 +672,9 @@ def _ollama_model_available(model_name: str) -> bool:
 
 # Model preference order for APL code generation.
 # qwen2.5-coder is a code-specialized model; better at structured Python than general-purpose Gemma.
-# Falls back to gemma4:26b (larger, more capable), then gemma4 (12B, always available).
-_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:14b", "gemma4:26b", "gemma4"]
+# Falls back to gemma4 (8B, always available). gemma4:26b dropped (C1): at 17 GB
+# it cannot fit a 10 GB card and runs at heavy CPU offload (near-unusable).
+_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]
 
 
 def _pick_apl_model() -> str:
@@ -595,8 +721,12 @@ def _generate_via_gemma(deck_name, format_name="modern"):
         log("    Step 3/3: generating main_phase methods...")
         mainphase_code = _generate_mainphase_methods(classification, deck_name, decklist or "", model)
 
-        # Assemble the three pieces
-        code = _assemble_apl(deck_name, keep_code, mainphase_code)
+        # Assemble the three pieces (pass key_cards so KEY_CARDS constant is injected)
+        key_cards = classification.get("key_cards", "")
+        code = _assemble_apl(deck_name, keep_code, mainphase_code, key_cards=key_cards)
+
+        # Patch known invalid API patterns before syntax check
+        code = _patch_invalid_api_calls(code)
 
         # Syntax check — fall back to monolith if assembly produced broken code
         import ast as _ast
@@ -605,7 +735,8 @@ def _generate_via_gemma(deck_name, format_name="modern"):
         except SyntaxError as _se:
             log(f"    Assembly SyntaxError: {_se.msg} -- falling back to monolith", "WARN")
             code = _call_ollama(_build_apl_prompt(deck_name, format_name),
-                                model=model, temperature=0.3, max_tokens=4096)
+                                model=model, temperature=0.1, max_tokens=4096,
+                                num_ctx=8192)
 
         _save_apl_code(deck_name, code, method=f"decomposed-{model.split(':')[0]}")
         return {"status": "draft", "deck": deck_name, "cost": 0.0,
@@ -615,7 +746,8 @@ def _generate_via_gemma(deck_name, format_name="modern"):
         # Monolith fallback: original single-shot approach
         try:
             code = _call_ollama(_build_apl_prompt(deck_name, format_name),
-                                model=model, temperature=0.3, max_tokens=4096)
+                                model=model, temperature=0.1, max_tokens=4096,
+                                num_ctx=8192)
             _save_apl_code(deck_name, code, method=f"monolith-{model.split(':')[0]}")
             return {"status": "draft", "deck": deck_name, "cost": 0.0,
                     "method": f"monolith-{model}"}
@@ -988,7 +1120,8 @@ Keep it concise and actionable."""
     body = json.dumps({
         "model": "gemma4", "prompt": prompt,
         "system": "You are an expert MTG competitive guide writer.",
-        "stream": False, "options": {"temperature": 0.4, "num_predict": 4096}
+        "stream": False, "keep_alive": "30m",
+        "options": {"temperature": 0.4, "num_predict": 4096}
     }).encode()
     
     try:
