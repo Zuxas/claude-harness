@@ -97,6 +97,16 @@ Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test).
 **Status:** RESOLVED (local generator) — qwen-7b generates fast (95 tok/s) + valid + PILOTING Modern APLs; the smoke gate + _patch_invalid_api_calls loop catches & fixes the residual API hallucinations. Remaining work is APL *tuning quality* (gauntlet WR), not generator viability. Combo-kill decks remain a structural ENGINE limit, not a model limit.
 **Created:** 2026-04-28
 
+### warp-cost-unbraced-no-op (NEW 2026-06-27; found while modeling Izzet Affinity)
+**What's not perfect:** `engine/game_state.py:_WARP_CARDS` warp costs are written UNBRACED ("1U", "1W", ...), but `engine/mana.parse_cost` only reads BRACED `{...}` pips (`_PIP_RE`). So `parse_cost("1U") == {generic:0}` and `can_cast("1U", N)` returns True on an EMPTY pool -> every legacy warp card warp-casts for FREE (cost never validated or paid). The warp ENTRY (the stated main correctness win) works; the COST is a no-op. **Impact:** Quantum Riddler + the EOE warp cycle in any deck that warp-casts (Jeskai Blink, Izzet Looting). **Fix (deferred):** brace all `_WARP_CARDS` cost strings; re-validate affected decks (changes their warp from free->costed = non-byte-identical). NOT done now to avoid shifting other decks' scores mid-session. **Mitigation:** Pinnacle Emissary (added 2026-06-27) uses the BRACED form `"{U/R}"`, so its warp cost validates + pays correctly.
+**Status:** OPEN (documented; scoped fix deferred)
+**Created:** 2026-06-27
+
+### izzet-affinity-counters-stage-b (NEW 2026-06-27)
+**What's not perfect:** Izzet Affinity's warp is now modeled (Stage A: gate `unmodelable` -> `low`), but its 3 Metallic Rebuke counters are NOT routed through the R1 priority stack, so the deck sits at `low` confidence (gauntletable, not auto-promoted) instead of `high`. Reason: `IzzetAffinityMatchAPL` extends `MatchAPL` (whose `priority_action` is a no-op stub), not `AwareMatchAPL` (which holds the real R1 `priority_action`/`_r1_choose_counter`). **Fix (Stage B):** re-base IzzetAffinityMatchAPL on AwareMatchAPL (or port the counter logic), set `WANTS_PRIORITY_STACK = True`, and add `"Metallic Rebuke"` to `engine/counter_resolver.COUNTER_VALIDITY`. Risk: re-basing changes the deck's OTHER behavior -> re-validate. Deferred as its own careful task.
+**Status:** OPEN (Stage B; Stage A warp modeling done + verified: 21 warp-casts / 9 recasts over 16 matches, unmodelable->low)
+**Created:** 2026-06-27
+
 ### mulligan-logic-portfolio-gap (NEW 2026-04-28; surfaced by user note + cross-APL audit)
 
 **Source:** User observation 2026-04-28 ("boros energy is the only APL that feels close to right; mulligan logic could be better"). Cross-APL audit at `harness/knowledge/tech/mulligan-audit-2026-04-28.md`.
