@@ -631,6 +631,36 @@ def _patch_invalid_api_calls(code: str) -> str:
     return code
 
 
+# Security deny-list: primitives a legitimate game-state APL NEVER needs. The
+# generated code is imported + EXECUTED unsandboxed by the smoke gate, in a process
+# holding API keys (OPENAI/ANTHROPIC/GEMINI), and the gen prompt can include
+# untrusted scraped card oracle text -> an injection->RCE/exfil path. Fail closed.
+_DANGEROUS_CODE_PATTERNS = [
+    r"\bos\.", r"\bsys\.", r"\bsubprocess\b", r"\bsocket\b",
+    r"\burllib\b", r"\brequests\b", r"\bhttpx\b", r"\bftplib\b",
+    r"\b__import__\b", r"\beval\s*\(", r"\bexec\s*\(", r"\bcompile\s*\(",
+    r"\bopen\s*\(", r"\bshutil\b", r"\bpickle\b", r"\bmarshal\b",
+    r"\bbreakpoint\s*\(", r"\bglobals\s*\(", r"\blocals\s*\(",
+    r"__(globals|builtins|subclasses|bases|mro|code)__",
+    r"\bimport\s+os\b", r"\bimport\s+sys\b", r"\bimport\s+subprocess\b",
+]
+
+
+def _scan_generated_code(code):
+    """Static deny-list scan of model-generated APL code BEFORE it is written or
+    executed. Returns (ok, reason). A legitimate APL only touches game state via
+    gs.* / card attrs / stdlib data ops; it never needs os/sys/subprocess/network/
+    eval/exec/file-IO/dunder-escape. Fail-closed: the smoke gate executes this code
+    unsandboxed in a key-holding process and the gen prompt can carry untrusted
+    scraped card text, so anything matching is refused (injection->RCE defense)."""
+    import re as _re
+    for pat in _DANGEROUS_CODE_PATTERNS:
+        m = _re.search(pat, code)
+        if m:
+            return False, "dangerous primitive %r (deny-list %r)" % (m.group(0), pat)
+    return True, ""
+
+
 def _save_apl_code(deck_name, code, method="gemma"):
     """Clean, syntax-check, and save generated APL code to apl/auto_apls/."""
     safe = _safe_slug(deck_name)
@@ -649,6 +679,14 @@ def _save_apl_code(deck_name, code, method="gemma"):
 
     # Patch known invalid API patterns from any generation path
     code = _patch_invalid_api_calls(code)
+
+    # SECURITY: refuse to write/execute code reaching for RCE/exfil/filesystem
+    # primitives. The smoke gate imports + runs this unsandboxed in a key-holding
+    # process, and the gen prompt can include untrusted scraped card text.
+    ok, reason = _scan_generated_code(code)
+    if not ok:
+        log(f"  SECURITY: refusing generated APL for {deck_name} -- {reason}")
+        raise ValueError(f"generated APL failed security scan: {reason}")
 
     import ast as _ast
     try:

@@ -107,6 +107,16 @@ Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test).
 **Status:** OPEN (Stage B; Stage A warp modeling done + verified: 21 warp-casts / 9 recasts over 16 matches, unmodelable->low)
 **Created:** 2026-06-27
 
+### arl-generated-code-exec-unsandboxed (NEW 2026-06-27; from prompt-injection review)
+**What's not perfect:** The ARL imports + EXECUTES model-generated APL code (`_smoke_test_apl`) in-process, unsandboxed, in a process holding API keys (OPENAI/ANTHROPIC/GEMINI), and the gen prompt can include untrusted scraped card oracle text -> an injection -> RCE / key-exfil path (a poisoned card text could induce code that runs commands or leaks keys). **Mitigation (added 2026-06-27):** `_scan_generated_code` deny-list gate in `auto_pipeline._save_apl_code` -- refuses to write/execute any generated APL containing os/sys/subprocess/socket/network/eval/exec/compile/open/pickle/dunder-escape primitives, BEFORE save or smoke. Verified: 0 false positives across 18 generated APLs, rejects 6/6 RCE/exfil samples. Fail-closed (raises). **Residual:** deny-list, not a sandbox -- a novel primitive could slip past. **Full fix (OPEN):** run smoke execution in a subprocess with a stripped env (no API keys) and/or a restricted-import sandbox.
+**Status:** MITIGATED (deny-list gate live); full sandbox OPEN
+**Created:** 2026-06-27
+
+### mcp-rule-of-two-interactive (NEW 2026-06-27; from prompt-injection review)
+**What's not perfect:** Interactive Claude Code sessions hold the lethal trifecta -- [A] untrusted input (scraped decklists, web research, emails), [B] private data (Gmail/Calendar/Drive MCP), [C] external action (MCP send-email/create-Drive + bash). The git-push guardrail + pre-push PII scrub already cut git-based leak paths, but MCP external-comms remain. **Policy (Rule of Two, Meta/Willison):** a session should satisfy <=2 of {A,B,C}. The AUTONOMOUS harness is already compliant (local Ollama + sim + files + external LLM APIs for code-gen only; NO Gmail/Drive private data; push blocked). For INTERACTIVE sessions: do NOT auto-invoke external-comms MCP (send email, create/share Drive) when untrusted content is in context -- require explicit user confirmation. **Fix (OPEN):** codify in AGENTS.md + (optional) a PreToolUse guard on external-comms MCP.
+**Status:** OPEN (policy documented; guard not yet enforced)
+**Created:** 2026-06-27
+
 ### mulligan-logic-portfolio-gap (NEW 2026-04-28; surfaced by user note + cross-APL audit)
 
 **Source:** User observation 2026-04-28 ("boros energy is the only APL that feels close to right; mulligan logic could be better"). Cross-APL audit at `harness/knowledge/tech/mulligan-audit-2026-04-28.md`.
