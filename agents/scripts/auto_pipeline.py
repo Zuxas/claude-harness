@@ -611,6 +611,11 @@ def _patch_invalid_api_calls(code: str) -> str:
     # is_creature() -> has(Tag.CREATURE)
     code = re.sub(r'(\w+)\.is_creature\(\)', r'\1.has(Tag.CREATURE)', code)
 
+    # Tag.BLOCKER / Tag.ATTACKER -> Tag.CREATURE. No combat-role tags exist (valid
+    # tags: CREATURE/INSTANT/SORCERY/ENCHANTMENT/ARTIFACT); a blocker/attacker IS a
+    # creature. Fixes runtime "type object 'Tag' has no attribute 'BLOCKER'".
+    code = re.sub(r'Tag\.(BLOCKER|ATTACKER)\b', r'Tag.CREATURE', code)
+
     # is_spell() -> not is_land()
     code = re.sub(r'(\w+)\.is_spell\(\)', r'not \1.is_land()', code)
 
