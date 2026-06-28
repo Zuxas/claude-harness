@@ -35,3 +35,14 @@
 | mtg/strategy/card-advantage | strategy | 2026-05-12 | CA taxonomy -- raw/virtual/tempo/quality/ratios |
 | mtg/strategy/threat-answer-density | strategy | 2026-05-12 | Density math + sweepers + 60-card budget |
 | mtg/strategy/format-standard-spring-2026 | strategy | 2026-05-12 | Pillar archetypes' strategic identity (snapshot 2026-05-12) |
+
+| mtg/sim-esper-blink | mtg | 2026-05-12 | apl-tuner-agent |
+| mtg/sim-izzet-affinity | mtg | 2026-05-13 | apl-tuner-agent |
+| mtg/sim-ruby-storm | mtg | 2026-05-16 | apl-tuner-agent |
+| mtg/sim-azorius-momo | mtg | 2026-05-17 | apl-tuner-agent |
+| mtg/sim-roaming-elementals | mtg | 2026-05-18 | apl-tuner-agent |
+| mtg/sim-azorius-aggro | mtg | 2026-05-25 | apl-tuner-agent |
+| mtg/sim-sultai-control | mtg | 2026-05-27 | apl-tuner-agent |
+| mtg/sim-superior-doomsday | mtg | 2026-06-02 | apl-tuner-agent |
+| mtg/sim-uw-control | mtg | 2026-06-09 | apl-tuner-agent |
+| tech/github-discovery-backlog-2026-06-26 | tech | 2026-06-26 | Ranked GitHub integration backlog synthesized from 4 digs; top-3 do-next + unmodelable-gap closure map |

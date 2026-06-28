@@ -165,6 +165,7 @@ def ask_gemma(prompt, model="gemma4", max_tokens=4096):
         "model": model, "prompt": prompt,
         "system": "You are an expert MTG simulator engineer. Write precise Python code.\n\n" + APL_COOKBOOK,
         "stream": False,
+        "keep_alive": "30m",
         "options": {"temperature": 0.2, "num_predict": max_tokens}
     }).encode()
     try:

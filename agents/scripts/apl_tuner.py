@@ -52,6 +52,7 @@ def ask_gemma(question: str, context: str = "", model: str = "gemma4") -> str:
         "prompt": prompt,
         "system": "You are an expert MTG competitive analyst. Answer concisely with specific, actionable advice.",
         "stream": False,
+        "keep_alive": "30m",
         "options": {"temperature": 0.3, "num_predict": 2048}
     }).encode()
     
