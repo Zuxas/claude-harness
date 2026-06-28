@@ -1,6 +1,6 @@
 ---
 title: R6 Hidden Information (card-advantage / inevitability) - Implementation Design
-status: PROPOSED
+status: INCREMENT-1 SHIPPED 2026-06-28 (mtg-sim e6c60c9) -- scaffold + Phase 1 timeout tiebreaker (both runners) + arl_profile crediting; proof modelability_proofs/r6-hidden-info-2026-06-28.json; byte-identical-OFF, composition green. Phase 2 (mid-game concession + Lessons de-inversion) DEFERRED (risky lever, own WR gate).
 created: 2026-06-27
 project: mtg-sim
 related_findings:
