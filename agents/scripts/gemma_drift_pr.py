@@ -57,14 +57,20 @@ except Exception:
     pass
 
 # Paths
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+HARNESS_ROOT = Path(os.environ.get("HARNESS_ROOT", "E:/vscode ai project/harness"))
 SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
 INBOX_DIR = HARNESS_ROOT / "inbox"
 STATE_DIR = HARNESS_ROOT / "state"
 KNOWLEDGE_TECH = HARNESS_ROOT / "knowledge" / "tech"
 SPECS_DIR = HARNESS_ROOT / "specs"
 LOG_DIR = HARNESS_ROOT / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+# Import-time guard: only create logs/ when the harness root actually exists, so
+# importing this module in a severed checkout doesn't poison the cwd. Override via HARNESS_ROOT.
+try:
+    if HARNESS_ROOT.exists():
+        LOG_DIR.mkdir(exist_ok=True)
+except OSError:
+    pass
 
 # Add agent_hardening to path
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))
@@ -206,6 +212,7 @@ def ask_gemma(prompt, system="", model="gemma4", max_tokens=4096, temperature=0.
         "prompt": prompt,
         "system": system,
         "stream": False,
+        "keep_alive": "30m",
         "options": {"temperature": temperature, "num_predict": max_tokens}
     }).encode()
     
