@@ -28,11 +28,17 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 # Paths
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+HARNESS_ROOT = Path(os.environ.get("HARNESS_ROOT", "E:/vscode ai project/harness"))
 META_ANALYZER = Path("E:/vscode ai project/mtg-meta-analyzer")
 SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
 LOG_DIR = HARNESS_ROOT / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+# Import-time guard: only create logs/ when the harness root actually exists, so
+# importing this module in a severed checkout doesn't poison the cwd. Override via HARNESS_ROOT.
+try:
+    if HARNESS_ROOT.exists():
+        LOG_DIR.mkdir(exist_ok=True)
+except OSError:
+    pass
 
 # Add meta-analyzer to path for imports
 sys.path.insert(0, str(META_ANALYZER))
