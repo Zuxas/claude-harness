@@ -29,6 +29,11 @@ agents/temp/
 *.pyc
 *.pyo
 
+# ── Auto-generated drift findings (daily; drift-detect -RouteFindings) ───────
+# These pile up daily and are working artifacts, not curated knowledge. (One
+# early file, drift-2026-04-28.md, was committed before this rule; leave it.)
+knowledge/tech/drift-*.md
+
 # ── Editor / OS ──────────────────────────────────────────────
 .vscode/
 *.swp

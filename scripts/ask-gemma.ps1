@@ -34,6 +34,7 @@ $Body = @{
     prompt = $Prompt
     system = "Answer concisely and accurately. No preamble."
     stream = $false
+    keep_alive = "30m"
     options = @{
         temperature = 0.4
         num_predict = 2048
