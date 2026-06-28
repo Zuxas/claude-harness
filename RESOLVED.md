@@ -692,3 +692,73 @@ All 3 tests pass; took ~3.3s for the concurrent case (16ms/op under serializatio
 **Imports verified:** `generate_matchup_data`, `parallel_launcher`, `parallel_sim`, `auto_pipeline` all import cleanly post-refactor. The harness-side import works because `auto_pipeline.py` already does `sys.path.insert(0, str(SIM_ROOT))`.
 
 **Known residual gap:** `auto_pipeline.py` `load_memory→mutate→save_memory` is still a logical RMW that's only atomic-write-safe at the save step. Currently no concurrent violator (sequential nightly per format). If `auto_pipeline.py --format modern` and `--format standard` ever run concurrently, the memory file write would last-writer-wins. Documented in `save_memory` docstring.
+
+---
+
+## Resolved 2026-06-27 (registry reconciliation pass)
+
+The following entries were verified fixed by direct grep/ls in the codebase and moved here from IMPERFECTIONS.md during the 2026-06-27 reconciliation pass.
+
+### gauntlet-bypasses-match-apl-when-no-sb-plan
+
+Source spec: (Decision 2, UW Control tuning, 2026-06-26)
+What was not perfect: run_matchup.py::_run_fair routed to the REAL match-APL Bo3 path only when get_sb_plan returned a non-empty SB plan (the has_our_sb gate). Decks with a real MATCH_APL but no SB plan (e.g. UW Control) silently fell back to the goldfish/Generic shim Path B, so the gauntlet FWR did not measure the real match APL.
+Concrete fix: route to Path A whenever a real MATCH_APL exists, defaulting to an empty SB plan.
+**Resolved 2026-06-27:** run_matchup.py:148-162 now computes `has_our_match_apl = _normalize_key(our_deck) in MATCH_APL_REGISTRY` and Path A fires on `if has_our_sb or has_our_match_apl:` (line 162). The MATCH_APL_REGISTRY membership test is the exact canonical-vs-shim test get_match_apl() makes internally. Verified by reading run_matchup.py.
+
+### celestial-colonnade-not-in-restless-lands
+
+Source spec: (Decision 2, UW Control tuning, 2026-06-26)
+What was not perfect: engine/game_state.py _RESTLESS_LANDS omitted Celestial Colonnade, so UW Control's primary manland finisher could not be animated/attack in the sim.
+Concrete fix: add Celestial Colonnade to _RESTLESS_LANDS with correct activation cost + P/T/keywords.
+**Resolved 2026-06-27:** engine/game_state.py:926 `"Celestial Colonnade": (5, 4, 4, ("flying", "vigilance")),  # {3}{W}{U} 4/4 flying vigilance` is present in _RESTLESS_LANDS (dict at line 913). Verified by reading game_state.py. (Note: a broader manland audit per the original entry was NOT performed; only Colonnade confirmed.)
+
+### card-specs-tier-2-extraction-pending
+
+Source spec: `harness/specs/2026-04-29-card-specs-framework.md`
+What was not perfect: Tier 2 cards (Quantum Riddler, Teferi Time Raveler, Consign to Memory, Wrath of the Skies) were still inlined in apl/jeskai_blink*.py rather than extracted into apl/card_specs/.
+**Resolved 2026-06-27:** All four files exist in apl/card_specs/: quantum_riddler.py, teferi_time_raveler.py, consign_to_memory.py, wrath_of_the_skies.py. Verified by ls. (Entry title already noted this resolution at fdbf153; Status field had simply never been flipped.)
+
+### sim-py-hardcoded-humans-apl
+
+Source: Investigation 2026-04-28.
+What was not perfect: sim.py:50 was hardcoded to HumansAPL() regardless of --deck, making goldfish kill-turn numbers for non-Humans decks noise.
+Concrete fix: auto-resolve APL from APL_REGISTRY based on --deck filename with HumansAPL fallback.
+**Resolved 2026-06-27:** sim.py:31 defines `_resolve_apl_from_deck(deck_path, override)`; main() (line 73) calls it at line 94 (`apl_instance, apl_label = _resolve_apl_from_deck(args.deck, override=args.apl)`) and passes apl_instance to the run. HumansAPL only used as fallback (line 70). Verified by reading sim.py. (Entry title already noted this; Status field never flipped.)
+
+### no-match-apl-jeskai-control
+
+Source: MTGGoldfish 30-day Modern meta 2026-04-29; Jeskai Control had GoldfishAdapter fallback only.
+Concrete fix: write JeskaiControlMatchAPL.
+**Resolved 2026-06-27:** apl/jeskai_control_match.py defines `class JeskaiControlMatchAPL(MatchAPL)` (line 44); registered in apl/__init__.py MATCH_APL_REGISTRY ("jeskaimodern" -> JeskaiControlMatchAPL, line 301). Verified by grep. (Original fix landed 2026-04-29 at 938cb18 per the related jeskaicontrol-key-mismapping entry; Status field never flipped.)
+
+### affinity-never-blocks
+
+Source: apl/affinity_match.py.
+What was not perfect: declare_blockers returned {} -- Affinity (9.0% real meta) never assigned blockers as opponent, inflating opposing win rates.
+Concrete fix: implement declare_blockers to assign largest creatures (Kappa, Ravager) to attackers.
+**Resolved 2026-06-27:** apl/affinity_match.py:250 declare_blockers now builds an untapped/non-summoning-sick creature list, sorts blockers by toughness and attackers by power, and assigns blockers (lines 254-265). No longer returns {} unconditionally. Verified by reading affinity_match.py.
+
+### no-apl-belcher
+
+Source: MTGGoldfish 30-day Modern meta 2026-04-29; Belcher 3.5%, not in canonical field.
+Concrete fix: combo-kill-sampler match APL.
+**Resolved 2026-06-27:** apl/belcher_match.py (52 lines, BelcherMatchAPL) + decks/belcher_modern.txt exist; registered in both APL_REGISTRY (line 66/67, aliases belcher + goblincharbelcher) and MATCH_APL_REGISTRY (line 294/295). Verified by grep + ls. (Absence complaint negated by registered, importable APL + deck file.)
+
+### no-apl-neobrand
+
+Source: MTGGoldfish 30-day Modern meta 2026-04-29; Neobrand 3.2%, not in canonical field.
+Concrete fix: combo-kill-sampler match APL.
+**Resolved 2026-06-27:** apl/neobrand_match.py (50 lines, NeobrandMatchAPL) + decks/neobrand_modern.txt exist; registered in APL_REGISTRY (line 68) and MATCH_APL_REGISTRY (line 296). Verified by grep + ls.
+
+### no-apl-grixis-reanimator
+
+Source: MTGGoldfish 30-day Modern meta 2026-04-29; Grixis Reanimator 2.3%, not in canonical field.
+Concrete fix: match APL similar to Goryo's.
+**Resolved 2026-06-27:** apl/grixis_reanimator_match.py (197 lines, GrixisReanimatorMatchAPL) + decks/grixis_reanimator_modern.txt exist; registered in APL_REGISTRY (line 69) and MATCH_APL_REGISTRY (line 297). Verified by grep + ls.
+
+### standard-field-missing-dimir-excruciator-azorius-blink
+
+Source: PT SOS final field update 2026-05-03. Dimir Excruciator (3.1%) and Azorius Blink (2.5%) were in field config but had no deck files or APLs registered -> 5.6% of the Standard field returned ERROR in gauntlet runs.
+Concrete fix: build deck files + register APLs for both.
+**Resolved 2026-06-27:** Both deck files exist (decks/dimir_excruciator_standard.txt, decks/azorius_blink_standard.txt) and both are registered with dedicated match APLs: apl/azorius_blink_standard_match.py (AzoriusBlinkStandardMatchAPL, registry line 329) and apl/dimir_excruciator_standard_match.py (DimirExcruciatorStandardMatchAPL, registry line 334). APL_REGISTRY entries at lines 195/166. Verified by grep + ls. (mtg-sim/CLAUDE.md also lists both as named archetypes with dedicated MatchAPLs.)

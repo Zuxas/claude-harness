@@ -1,6 +1,6 @@
 # harness/IMPERFECTIONS.md -- Annotated Imperfections Registry
 
-Created: 2026-04-27 Last updated: 2026-04-28
+Created: 2026-04-27 Last updated: 2026-06-27
 
 This file is the durable list of "we tried, here's what's left, here's how to fix it next." Every entry is a concrete next-session-implementable spec fragment, NOT a vague TODO.
 
@@ -25,6 +25,7 @@ Estimated effort: Status: OPEN | EXECUTING | RESOLVED Created: YYYY-MM-DD
 
 These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-a-glance visibility:
 
+- **2026-06-27 reconciliation pass (10 moved to RESOLVED.md):** `gauntlet-bypasses-match-apl-when-no-sb-plan` (run_matchup.py Path A gate now keys on MATCH_APL_REGISTRY membership), `celestial-colonnade-not-in-restless-lands` (game_state.py:926), `card-specs-tier-2-extraction-pending` (4 files in apl/card_specs/), `sim-py-hardcoded-humans-apl` (sim.py:_resolve_apl_from_deck), `no-match-apl-jeskai-control` (JeskaiControlMatchAPL registered), `affinity-never-blocks` (affinity_match.py:250 assigns blockers), `no-apl-belcher` / `no-apl-neobrand` / `no-apl-grixis-reanimator` (all 3 match APLs + decks + registry), `standard-field-missing-dimir-excruciator-azorius-blink` (both deck files + dedicated match APLs registered). Also flipped 5 engine-gap entries to SUPERSEDED in place: `sim-no-stack-priority` (R1), `sim-no-instant-speed-combat` (R2), `engine-fidelity-gaps-warp-mechanic-not-modeled` (R4), `planeswalker-loyalty-not-tracked` + `planeswalker-loyalty-inert-in-match-mode` (R5) -- each with residual = per-deck WANTS_* wiring.
 - `oauth-vs-raw-v1-messages-compat-unverified` -- RESOLVED 2026-04-29 (re-probe). **CORRECTED: OAuth WORKS.** 2026-04-29 probe returned HTTP 200 with valid completion (model=claude-haiku-4-5-20251001) using `sk-ant-oat01...` OAuth token, no `ANTHROPIC_API_KEY` set. Prior 2026-04-28 finding (HTTP 401 "OAuth authentication is currently not supported") appears to have been a transient Anthropic policy state — policy changed between the two probes. Implication: Claude path in auto-pipeline is free under Claude Max; no console API key required. This unblocks Option 2 in `gemma-apl-quality-low-for-smoke-gate` as a zero-cost fix candidate.
 - `drift-detect-arch-staleness-false-positive-on-non-canonical-runs` -- RESOLVED 2026-04-28. `Check-StaleArchitecture` now reads `n_per_matchup` from each `parallel_results_*.json` and only considers runs with N >= `CanonicalNThreshold` (default 10000) as baseline-shifting. Sub-threshold experimental runs (N=200/500/1000) are skipped. Verified clean on current state: drift-detect returns 0 errors / 0 warnings (was 1 WARN every run on the experimental gauntlet from 16:50 today).
 - `sim-matchup-matrix-rmw-race` -- RESOLVED 2026-04-28. New `engine/atomic_json.py` provides cross-platform sentinel-lockfile RMW (works on Windows where fcntl.flock does not). Applied at all 3 sites: `generate_matchup_data.py:update_real_matrix` (also corrected from full-overwrite to RMW-merge — was silently erasing other-deck rows), `parallel_launcher.py:144`, `parallel_sim.py:217`. Regression test: `tests/test_atomic_json.py` (8 threads x 25 ops = 200 entries, all preserved).
@@ -45,30 +46,12 @@ These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-
 
 ## Open imperfections
 
-### gauntlet-bypasses-match-apl-when-no-sb-plan (NEW 2026-06-26; surfaced by Decision-2 UW Control tuning)
-
-Source spec: (Decision 2, UW Control tuning, 2026-06-26)
-Source commit: (diagnostic only; no code committed)
-What is not perfect: run_matchup.py::_run_fair routes a deck to the REAL match-APL Bo3 path (engine.bo3_match.run_bo3_set -> match_engine.run_match, the ONLY path that honors WANTS_PRIORITY_STACK / R1) ONLY when get_sb_plan(deck, opp) returns a non-empty SB plan (the has_our_sb gate). For "UW Control" get_sb_plan returns ([],[]) for every opponent, so it silently falls back to Path B which uses the GOLDFISH apl.uw_control.UWControlAPL (GenericAPL shim) -- the hand-written match APL + R1 priority stack are dead code. Net: the gauntlet's FWR for such decks does NOT measure the deck's real match APL, so promote/discard verdicts on them are untrustworthy.
-Why not fixed: Decision 2 was scoped to APL tuning; this is a pipeline-routing gap that editing the APL cannot fix.
-Concrete fix: (a) register SB plans for match-APL decks (UW Control + audit ALL MATCH_APL_REGISTRY decks for the same silent bypass), OR (b) change _run_fair's gate to route to Path A whenever a real MATCH_APL exists for the deck (not only when an SB plan exists), defaulting to an empty SB plan. Add a lint/audit that flags any MATCH_APL deck whose gauntlet path resolves to a Goldfish/Generic shim.
-Estimated effort: 1-2h (gate fix + audit) Status: OPEN Created: 2026-06-26
-
-### celestial-colonnade-not-in-restless-lands (NEW 2026-06-26; surfaced by Decision-2)
-
-Source spec: (Decision 2, UW Control tuning, 2026-06-26)
-Source commit: (diagnostic only)
-What is not perfect: engine/game_state.py _RESTLESS_LANDS (L815-825) omits Celestial Colonnade, so UW Control's primary manland finisher cannot be animated/attack in the sim. Empirically the deck deals ~0 average damage across fair matchups and only wins on opponent self-kill/timeout. (Likely other manlands are also missing -- audit the list vs the format's real manlands.)
-Why not fixed: engine-side change; Decision 2 was APL-only (an APL clock workaround was prototyped but the underlying land isn't engine-modeled as an attacker).
-Concrete fix: add Celestial Colonnade (and audit other Modern/Standard manlands: Mutavault, Mishra's Factory, restless/creature-lands, etc.) to _RESTLESS_LANDS with correct activation cost + resulting P/T/keywords; verify it can attack via match_engine; re-baseline. Small per-land, high payoff for control/midrange clocks.
-Estimated effort: 30-60 min for Colonnade + a manland audit. Status: OPEN Created: 2026-06-26
-
 ### planeswalker-loyalty-inert-in-match-mode (NEW 2026-06-26; relates to planeswalker-loyalty-not-tracked)
 
 Source spec: (Decision 2, 2026-06-26)
 What is not perfect: in match mode, main_phase_match casts planeswalkers via _cast_all_castable but never ticks loyalty / activates abilities / reaches ultimates -- the PW pile is inert (cast in 100+/120 games yet contributes ~0). This is the match-mode face of the existing `planeswalker-loyalty-not-tracked` imperfection (R5 ladder rung) and a major reason control/superfriends score far below real WR.
 Concrete fix: see modelability-ladder R5 (planeswalker loyalty over turns + attackable PWs); ensure the match turn loop activates a PW ability each turn and tracks loyalty/ultimate.
-Estimated effort: L (R5 rung). Status: OPEN Created: 2026-06-26
+Estimated effort: L (R5 rung). Status: SUPERSEDED 2026-06-27 by shipped R5 -- residual: per-deck WANTS_PW_LOYALTY wiring (this is the match-mode face of planeswalker-loyalty-not-tracked; same R5 rung). WANTS_PW_LOYALTY + engine/planeswalkers.py + engine/match_runner.py; proof modelability_proofs/r5-planeswalker-loyalty-2026-06-26.json. Created: 2026-06-26
 
 ### engine-apl-nondeterminism-id-based-ordering (NEW 2026-06-26; surfaced by R2 spike)
 
@@ -130,17 +113,6 @@ Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test).
 **Tonight's partial:** tuning Jeskai Blink directly captures a SHIM-to-real-keep migration as a worked example; observations inform the framework spec.
 **Status:** OPEN
 **Created:** 2026-04-28
-
-### card-specs-tier-2-extraction-pending (RESOLVED -- all 4 files exist with complete content + exported in __init__.py; goldfish APL imports QR + Teferi; imperfection was already resolved by fdbf153)
-
-**Source spec:** `harness/specs/2026-04-29-card-specs-framework.md` (POC SHIPPED 2026-04-29)
-**Source finding:** `harness/knowledge/tech/jeskai-blink-card-specs-2026-04-28.md`
-**What's not perfect:** Phase 3 of card_specs framework only extracted Tier 1 cards (Phlage, Ragavan, Phelia, Ephemerate). Tier 2 cards (Quantum Riddler, Teferi Time Raveler, Consign to Memory, Wrath of the Skies) are still inlined in `apl/jeskai_blink.py` and `apl/jeskai_blink_match.py`. Reuse footprint: Quantum (JB+UWB), Teferi TR (JB+UWB+EsperBlink), Consign (JB+UWB+EsperBlink), Wrath (JB+Boros sideboard). Tier 3 (Casey Jones, Fable, Prismatic, March) is deck-specific enough that staying inline is fine.
-**Why not fixed in source spec:** POC scope was limited to ADDITIVE Phlage + 3 friends (Ragavan, Phelia, Ephemerate) for shape validation. Tier 2 batch deferred to keep POC scope manageable.
-**Concrete fix:** ~60-90 min to extract 4 Tier 2 cards into `apl/card_specs/quantum_riddler.py`, `teferi_time_raveler.py`, `consign_to_memory.py`, `wrath_of_the_skies.py`. Each follows the Phlage template: NAME constant + cast/special-action functions + opponent-aware skips.
-**Estimated effort:** 60-90 min.
-**Status:** OPEN
-**Created:** 2026-04-29
 
 ### card-specs-phase-b-migration-pending (NEW 2026-04-29; from card_specs POC)
 
@@ -269,7 +241,7 @@ The pattern: **maturity correlates with oracle fidelity**. Boros Energy (1115L, 
 6. Make blink break the warped state (Ephemerate / Phelia)
 
 **Estimated effort:** 3-4 hours engine + per-deck APL update + bit-stable validation per affected APL. Probably a 2-day spec given the scope.
-**Status:** OPEN
+**Status:** SUPERSEDED 2026-06-27 by shipped R4 -- residual: per-deck WANTS_WARP wiring. Warp is now modeled engine-side: engine/game_state.py _WARP_CARDS (dict at line 718) + WANTS_WARP wired in apl/jeskai_blink_match.py + apl/affinity_match.py + engine/match_runner.py (proof modelability_proofs/r4-warp-2026-06-26.json). The "engine has zero warp infrastructure" gap is closed; only per-deck opt-in wiring remains. NOTE: the SEPARATE warp-cost-unbraced-no-op trap (warp cost strings written unbraced -> cost not validated/paid) is still OPEN -- see its own entry above.
 **Created:** 2026-04-29
 
 ### engine-fidelity-gaps-jeskai-blink-cards (NEW 2026-04-29; surfaced by 8-combo audit)
@@ -329,7 +301,7 @@ These are not spec-derived imperfections — they are architectural limits of th
 **Concrete fix:** Wire `engine/stack.py` into `_run_player_turn`. Before each spell resolves: check if opponent APL has open mana + counterspell in hand; if yes, call `apl.want_to_counter(spell, gs, opp)` (new method on MatchAPL base class with default `return False`). Start with `apl/uw_control.py` + `apl/jeskai_control.py` as the first two callers; all other APLs inherit default `False`. This makes the system correct for the most important cases immediately without requiring all 38 APLs to implement the method upfront.
 **Affected matchups:** UW Control, Jeskai Control, Jeskai Blink, Amulet Titan (post-board Pact), any modern matchup where one player holds up interaction. Roughly 40% of competitive Modern field.
 **Estimated effort:** 2–3 weeks (engine wiring + control APL implementation + bit-stable re-baseline for all affected matchups).
-**Status:** OPEN
+**Status:** SUPERSEDED 2026-06-27 by shipped R1 -- residual: per-deck WANTS_PRIORITY_STACK wiring. Engine now ships a real priority/counter pass: engine/priority_stack.py + WANTS_PRIORITY_STACK wired in apl/uw_control_modern_match.py (proof modelability_proofs/r1-stack-priority-2026-06-26.json). The structural "counterspells are declarative mana reservations" gap is closed engine-side; only per-control-deck opt-in wiring remains.
 **Created:** 2026-04-30
 
 ---
@@ -363,7 +335,7 @@ The current Mutagenic Growth implementation is a special-case carve-out in burst
 **Why not fixed:** Requires a proper priority system during the combat phase (declare-attackers window, declare-blockers window, combat-damage-assignment window). Architecturally coupled to sim-no-stack-priority above — both need a priority pass framework.
 **Concrete fix:** Build `CombatPhase` as a stepped process with explicit priority windows: (1) declare attackers + immediate ETB/trigger window, (2) declare blockers + priority window for instant-speed interaction, (3) combat damage + priority window. Fold existing Mutagenic Growth burst-turn code into the general instant-speed system. Best done as a single spec alongside sim-no-stack-priority since both need the same priority-pass infrastructure.
 **Estimated effort:** Part of the 2–3 week stack/priority project (harness/ROADMAP.md Phase 3).
-**Status:** OPEN
+**Status:** SUPERSEDED 2026-06-27 by shipped R2 -- residual: per-deck WANTS_INSTANT_COMBAT wiring. Combat now has instant-speed response windows: WANTS_INSTANT_COMBAT wired in apl/murktide_match.py + engine/match_engine.py/match_runner.py (proof modelability_proofs/r2-instant-combat-2026-06-26.json). The synchronous one-pass combat gap is closed engine-side; only per-deck opt-in remains.
 **Created:** 2026-04-30
 
 ---
@@ -431,77 +403,11 @@ These are design gaps, not bugs — the code works but the quality ceiling is lo
 **Status:** RESOLVED 2026-04-29 at 938cb18 (JeskaiControlMatchAPL written + registered; `jeskaicontrol` entry points correctly in MATCH_APL_REGISTRY)
 **Created:** 2026-04-29
 
-### sim-py-hardcoded-humans-apl (RESOLVED -- auto-resolve already implemented in sim.py:_resolve_apl_from_deck; imperfection was stale)
-
-**Source:** Investigation 2026-04-28 of why sim.py output didn't reflect changes to `apl/jeskai_blink.py`.
-**What's not perfect:** `mtg-sim/sim.py:50` is hardcoded to `apl=HumansAPL()` regardless of the `--deck` argument. Output is "HumansAPL piloting whatever-deck's-cards", not "the deck's actual APL piloting its cards". Makes sim.py misleading for any deck except Humans. All goldfish "kill turn" measurements via sim.py for non-Humans decks are noise.
-**Why not fixed in source:** Latent since the script's creation. Not surfaced before because most goldfish testing went through `apl_tuner.py` (which DOES use the deck's APL via APL_REGISTRY).
-**Concrete fix:** Add `--apl` arg OR auto-resolve from `APL_REGISTRY` based on `--deck` filename. Roughly:
-```python
-from apl import APL_REGISTRY, _normalize_key, _load_class
-deck_basename = os.path.basename(args.deck).replace('_modern.txt','').replace('_legacy.txt','')...
-key = _normalize_key(deck_basename)
-if key in APL_REGISTRY:
-    module_path, class_name, _ = APL_REGISTRY[key]
-    apl_cls = _load_class(module_path, class_name)
-else:
-    apl_cls = HumansAPL  # fallback
-```
-**Estimated effort:** 15-20 min (auto-resolve + fallback + smoke test).
-**Status:** OPEN
-**Created:** 2026-04-28
-
-### affinity-never-blocks (NEW 2026-04-29; real-meta field audit)
-
-**Source:** `apl/affinity_match.py:156` — `declare_blockers` returns `{}`.
-**What's not perfect:** Affinity (9.0% real meta, #3 deck) never assigns blockers as opponent. Results in 96.9% BE win rate which is clearly inflated — Kappa Cannoneer (ward 4, grows every artifact ETB) and Arcbound Ravager should be difficult blockers. No blocking means every attacking creature hits for free.
-**Why not fixed:** Affinity match APL was thin (180L) and blocking logic was deferred.
-**Concrete fix:** Implement `declare_blockers` to assign Kappa (ward 4, 4/4+) and large Ravager targets. ~30-60 min.
-**Estimated effort:** 30-60 min.
-**Status:** OPEN
-**Created:** 2026-04-29
-
 ### goryo-solitude-white-pitch-bug (RESOLVED 2026-04-29 -- same fix as JB ce492dc)
 
 **Source:** `apl/goryos_match.py:101` — same Solitude evoke white-pitch bug as pre-fix Jeskai Blink.
 **Fix:** Added `'W' in (getattr(x, 'colors', []) or [])` filter. 1-line fix, same pattern as JB.
 **Status:** RESOLVED 2026-04-29
-**Created:** 2026-04-29
-
-### no-apl-belcher (NEW 2026-04-29; real-meta field audit)
-
-**Source:** MTGGoldfish 30-day Modern meta 2026-04-29. Belcher 3.5% (82 decks), not in canonical field.
-**What's not perfect:** No APL or match APL for Goblin Charbelcher / Landless Belcher. Key cards: Goblin Charbelcher, Sea Gate Restoration, Disrupting Shoal. Combo kill T2-3 via Belcher activation with 0 lands in deck. Not in canonical field, missing 3.5% coverage.
-**Concrete fix:** Combo-kill-sampler match APL (same pattern as Neobrand/Goryo's). Kill distribution T2: 20%, T3: 50%, T4: 30%. ~45-60 min to write + register.
-**Estimated effort:** 45-60 min.
-**Status:** OPEN
-**Created:** 2026-04-29
-
-### no-apl-neobrand (NEW 2026-04-29; real-meta field audit)
-
-**Source:** MTGGoldfish 30-day Modern meta 2026-04-29. Neobrand 3.2% (76 decks), not in canonical field.
-**What's not perfect:** No APL for Neobrand (Griselbrand + Summoner's Pact + Neoform combo). Key: Neoform into Griselbrand T1 on play, draw 14, win. Kill T1: 30%, T2: 50%, T3: 20%. Summoner's Pact upkeep loss is a real failure mode Consign counters. Not in field, missing 3.2% coverage.
-**Concrete fix:** Combo-kill-sampler match APL. ~45-60 min. Key interaction to model: Summoner's Pact upkeep trigger (opponent can Consign to counter it → Neobrand loses the game).
-**Estimated effort:** 45-60 min.
-**Status:** OPEN
-**Created:** 2026-04-29
-
-### no-apl-grixis-reanimator (NEW 2026-04-29; real-meta field audit)
-
-**Source:** MTGGoldfish 30-day Modern meta 2026-04-29. Grixis Reanimator 2.3% (55 decks), not in canonical field.
-**What's not perfect:** No APL for Grixis Reanimator (Abhorrent Oculus / Archon of Cruelty via Unmarked Grave + Persist). Kill T2-3. Not in field, missing 2.3% coverage.
-**Concrete fix:** Match APL similar to Goryo's (both cheat large creatures). ~45-60 min. Differentiate: no Solitude, different reanimation targets (Oculus, Archon).
-**Estimated effort:** 45-60 min.
-**Status:** OPEN
-**Created:** 2026-04-29
-
-### no-match-apl-jeskai-control (RESOLVED 2026-04-29 at 938cb18)
-
-**Source:** MTGGoldfish 30-day Modern meta 2026-04-29. Jeskai Control 2.2% (52 decks). Has GoldfishAdapter fallback only.
-**What's not perfect:** Jeskai Control (Teferi, Orim's Chant, Narset, Solitude) uses GoldfishAdapter — plays like an aggro deck instead of a tap-out control deck. Critical oracle failure: Orim's Chant can stop attacks entirely; Narset prevents drawing; Teferi locks sorcery-speed. None of this is modeled in goldfish fallback.
-**Concrete fix:** Write JeskaiControlMatchAPL (~150-200L). Key behaviors: Teferi lock, Narset anti-draw, Orim's Chant in declare-blockers to prevent attacks, Solitude removal with white-pitch filter. ~60-90 min.
-**Estimated effort:** 60-90 min.
-**Status:** OPEN
 **Created:** 2026-04-29
 
 ### no-apl-temur-prowess (NEW 2026-04-29; real-meta field audit)
@@ -538,7 +444,7 @@ else:
 **Why not fixed in source spec:** Planeswalker loyalty tracking requires persistent per-permanent state not currently in Card or GameState. Structural multi-turn refactor; out of scope for a handler batch.
 **Concrete fix:** Add `loyalty_counters` attribute to Card (default None for non-PWs). In `_run_player_turn`, fire loyalty-ability activations each main phase per registered PW handler. ETB sets starting loyalty. Model +2/0/-3 choices per game state (life totals, board presence). ~3-4 hr spec to cover all PWs currently in Standard field.
 **Estimated effort:** 3-4 hours.
-**Status:** OPEN
+**Status:** SUPERSEDED 2026-06-27 by shipped R5 -- residual: per-deck WANTS_PW_LOYALTY wiring. Planeswalker loyalty is now tracked engine-side: WANTS_PW_LOYALTY wired in apl/eldrazi_tron_match.py + engine/planeswalkers.py + engine/match_runner.py (proof modelability_proofs/r5-planeswalker-loyalty-2026-06-26.json). The "loyalty counters not tracked / one-shot activation only" gap is closed engine-side; only per-deck opt-in wiring remains.
 **Created:** 2026-05-02
 
 ### maestro-opus-trigger-apl-deferred (NEW 2026-05-02; PT SOS handler batch)
@@ -558,16 +464,6 @@ else:
 **Why not fixed in source spec:** Standard match APLs require full hand-tracking, combat sequencing, and removal logic. Each is a multi-hour build. Not scoped in any current spec.
 **Concrete fix:** Build match APLs for the Top 4 Standard decks in priority order: (1) Selesnya Landfall (best deck, 63.81% WR), (2) Mono-Green Landfall (55.45%), (3) Izzet Spellementals (50.87%), (4) Izzet Prowess (49.80%). Each needs RemovalAwareGoldfishAdapter or equivalent. ~3-4h per deck. Izzet Lessons specifically needs lesson/learn cycle modeling.
 **Estimated effort:** 12-16h total for all 4. Can be done incrementally.
-**Status:** OPEN
-**Created:** 2026-05-03
-
-### standard-field-missing-dimir-excruciator-azorius-blink (NEW 2026-05-03; PT SOS field update)
-
-**Source:** PT SOS final field update 2026-05-03. Dimir Excruciator (3.1%) and Azorius Blink (2.5%) in field config but no deck files or APLs registered.
-**What's not perfect:** 5.6% of the Standard field returns ERROR in gauntlet runs. FWR slightly inflated because those percentages are excluded from the weighted average.
-**Why not fixed:** New archetypes identified from PT SOS — decklist not yet in sim.
-**Concrete fix:** (1) Fetch Dimir Excruciator decklist from PT SOS MTGDecks data in DB. (2) Build deck file. (3) Register GenericAPL or build stub. Repeat for Azorius Blink. ~30 min each.
-**Estimated effort:** 1h total.
 **Status:** OPEN
 **Created:** 2026-05-03
 
