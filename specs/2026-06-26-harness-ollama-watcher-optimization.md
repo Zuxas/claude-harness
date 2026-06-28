@@ -1,12 +1,12 @@
 ---
 title: "Harness + Ollama + Watcher/Controller Optimization"
-status: PROPOSED
+status: SHIPPED
 created: 2026-06-26
 updated: 2026-06-26
 project: harness
 estimated_time: 180
 related_findings: []
-related_commits: []
+related_commits: ["f86f799"]
 supersedes: []
 superseded_by: []
 ---
@@ -275,3 +275,4 @@ E5 (nightly wall-clock cap).**
 ## Changelog
 - 2026-06-26: PROPOSED. Authored from read-only audit + live Ollama probes (0.30.10,
   qwen 16% CPU spill @4096, gemma default ctx 131072, no OLLAMA_* env set).
+- Reconciled 2026-06-27: verified complete; status was stale after the ~2026-05-16 cadence lapse.

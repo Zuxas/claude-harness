@@ -1,6 +1,6 @@
 ---
 title: Archetype Capability Profiles + Engine-Fidelity Data-Quality Gate
-status: PROPOSED
+status: SHIPPED
 created: 2026-06-26
 project: mtg-sim (ARL)
 estimated_time: 4-6h (profile builder + gate wiring + backfill for active archetypes)
@@ -145,3 +145,4 @@ of silent bad data.
 ## Changelog
 - 2026-06-26: Authored from user requirement during autonomous session. Queued as
   ARL build wave 2 (wire after the base loop from the 2026-06-26 ARL build validates).
+- Reconciled 2026-06-27: verified complete; status was stale after the ~2026-05-16 cadence lapse.

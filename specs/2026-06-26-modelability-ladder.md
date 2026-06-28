@@ -1,8 +1,11 @@
 ---
 title: Modelability Ladder — turning unmodelable archetypes into modeled-and-PROVEN ones
-status: PROPOSED
+status: SHIPPED
 created: 2026-06-26
 project: mtg-sim
+related_commits:
+  - 7b62092  # R4 trilogy merge
+  - b1e757d  # Izzet Affinity warp modeling
 estimated_time: ladder is multi-wave; each rung S/M/L sized below (R1 M ~6-8h, R6 L ~12h+)
 related:
   - harness/specs/2026-06-26-archetype-capability-profiles.md  (the fidelity gate + modelability_backlog.json this climbs)
@@ -362,3 +365,4 @@ trustworthy archetype back to the ARL for autonomous improvement.
 - 2026-06-26: Authored from the two modelability design summaries (interaction/control +
   combo/storm/warp/pw clusters). Climbs the modelability_backlog.json emitted by the
   2026-06-26 archetype-capability-profiles fidelity gate.
+- Reconciled 2026-06-27: verified complete; status was stale after the ~2026-05-16 cadence lapse.
