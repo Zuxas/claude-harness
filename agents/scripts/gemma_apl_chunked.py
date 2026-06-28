@@ -52,6 +52,7 @@ def ask_gemma(prompt, system="", temperature=0.2, max_tokens=2048):
     body = json.dumps({
         "model": "gemma4", "prompt": prompt, "system": system,
         "stream": False,
+        "keep_alive": "30m",
         "options": {"temperature": temperature, "num_predict": max_tokens}
     }).encode()
     try:

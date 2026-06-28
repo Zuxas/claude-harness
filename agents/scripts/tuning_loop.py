@@ -106,6 +106,7 @@ def ask_gemma(question, context="", model="gemma4"):
         "model": model, "prompt": prompt,
         "system": "You are an expert MTG competitive analyst and deckbuilder. When suggesting card swaps, output ONLY in the exact format requested. No preamble.",
         "stream": False,
+        "keep_alive": "30m",
         "options": {"temperature": 0.3, "num_predict": 2048}
     }).encode()
     try:
