@@ -1,5 +1,5 @@
 # harness/specs/ -- Spec Index
-# Last updated: 2026-05-12
+# Last updated: 2026-06-27
 
 Chronological list of all execution specs by status. Newest first within
 each status. After a spec ships, it stays in this index forever.
@@ -29,11 +29,6 @@ each status. After a spec ships, it stays in this index forever.
   oracle fidelity, strategic decisions, keep/mulligan.
   **Status:** Spec drafted 2026-04-30. Scheduled post-PT.
 
-- `2026-04-30-event-hub.md` — Full Event Hub GUI for mtg-meta-analyzer: calendar,
-  bookmarks, My Events, My Stores, .ics export, MTGO calendar, premier events 2026.
-  **Status:** Session 1 shipped (calendar + bookmarks + MTGO). Session 2 pending
-  (RC countdown, drive time, conflict detection, post-event enrichment).
-
 - `2026-04-29-jeskai-blink-oracle-fidelity-audit.md` — Per-card oracle re-read for
   every nonland in `decks/jeskai_blink_modern.txt`. Found 3 prior-commit misreads.
   Plus 11 engine-level gaps.
@@ -53,6 +48,29 @@ each status. After a spec ships, it stays in this index forever.
 (retroactively populated -- see harness/specs/RETROACTIVE.md for the 14
 commits from 2026-04-26/2026-04-27 session that pre-date this directory)
 
+- `2026-06-26-modelability-ladder.md` — R1-R5+warp engine-capability ladder on
+  mtg-sim main (priority_stack.py, game_state.py _WARP_CARDS, modelability_proofs/
+  r1/r2/r4/r5 JSON). Reconciled 2026-06-27: status was stale after the ~2026-05-16
+  cadence lapse. related_commits: 7b62092 (R4 trilogy merge), b1e757d (Izzet
+  Affinity warp modeling).
+- `2026-06-26-archetype-capability-profiles.md` — Capability-profile system built:
+  scripts/arl_profile.py writes docs/archetype_profiles/*.{md,json} (boros_energy,
+  amulet_titan, eldrazi_ramp, izzet_affinity, izzet_prowess, jeskai_control,
+  domain_zoo present). Reconciled 2026-06-27: status was stale after the ~2026-05-16
+  cadence lapse.
+- `2026-06-26-harness-ollama-watcher-optimization.md` — C2 marked DONE in-spec;
+  qwen2.5-coder:7b wired into auto_pipeline.py _APL_CODE_MODEL_PREFERENCE.
+  Reconciled 2026-06-27: status was stale after the ~2026-05-16 cadence lapse.
+  related_commits: f86f799.
+- `2026-05-02-pt-sos-handler-batch.md` — 4 SOS handlers (Tablet of Discovery,
+  Molten-Core Maestro, Professor Dellian Fel, Bloom Tender) in
+  card_handlers_verified.py + registered; izzet_prowess_standard.txt has Flow State
+  + Colorstorm Stallion. Reconciled 2026-06-27: status was stale after the
+  ~2026-05-16 cadence lapse.
+- `2026-04-30-event-hub.md` — Full Event Hub GUI for mtg-meta-analyzer: calendar,
+  bookmarks, My Events, My Stores, .ics export. Session 2 features confirmed in
+  gui/tabs/event_hub_tab.py (drive time L81, RC countdown L1428). Reconciled
+  2026-06-27: status was stale after the ~2026-05-16 cadence lapse.
 - `2026-05-12-mtg-strategy-knowledge-base-slice-a.md` — Shipped 2026-05-12 at
   commit a8d6bc9. 6 strategy blocks under harness/knowledge/mtg/strategy/:
   _overview, chapin-principles, role-theory, card-advantage,

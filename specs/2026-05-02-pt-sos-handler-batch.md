@@ -1,6 +1,6 @@
 ---
 title: "PT SOS handler batch + Izzet Prowess deck update"
-status: "EXECUTING"
+status: "SHIPPED"
 created: "2026-05-02"
 updated: "2026-05-02"
 project: "mtg-sim"
@@ -102,3 +102,4 @@ Two entries:
 
 ## Changelog
 - 2026-05-02: Created (EXECUTING). Advisor review before code.
+- Reconciled 2026-06-27: verified complete; status was stale after the ~2026-05-16 cadence lapse.
