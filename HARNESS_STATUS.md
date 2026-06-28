@@ -1,8 +1,42 @@
 # HARNESS_STATUS.md — Current System State & Roadmap
 # For: Claude Code context loading
-# Updated: 2026-04-15
+# Updated: 2026-06-27 (current-state addendum added; everything below it is the original 2026-04 build log)
 # Read this file to understand what the harness IS, what it DOES today,
 # and what each future layer adds.
+
+---
+
+## CURRENT STATE (2026-06-27) — read this first; the sections below are the original 2026-04 build log
+
+The harness has moved well past the 2026-04-18 "6 layers complete" snapshot below. Major additions since:
+
+- **Autonomous Research Loop (ARL)** — `scripts/arl_*.py` in mtg-sim: a loop_state.json-driven
+  generate -> smoke -> register -> gauntlet -> evaluate -> promote/mutate/discard cycle with a
+  **fidelity gate** that routes unmodelable archetypes to `data/modelability_backlog.json` instead
+  of fabricating scores. Supersedes the Layer-3 "tuning loop" described below.
+- **Local code-gen model: `qwen2.5-coder:7b`** (replaced gemma / qwen-14b). The 2026-04-28
+  "0/3 Gemma smoke" note in Layer 5 below is SUPERSEDED — the Modern generator is now proven
+  end-to-end (generate -> compile -> smoke -> pilot+win) at ~95 tok/s. See IMPERFECTIONS
+  `gemma-apl-quality-low-for-smoke-gate` (RESOLVED, local generator).
+- **Engine-fidelity ladder R1-R5 + warp** (mtg-sim, behind `WANTS_*` capability gates; gate-OFF is
+  byte-identical): R1 stack/priority, R2 instant combat, R5 planeswalker loyalty, R4 warp. Lets the
+  fidelity gate MODEL decks it used to shelve (e.g. Izzet Affinity warp: unmodelable -> low).
+- **Security: generated-code deny-list gate** in `auto_pipeline._save_apl_code` (injection->RCE/exfil
+  defense, fail-closed) + a documented MCP Rule-of-Two policy. See IMPERFECTIONS
+  `arl-generated-code-exec-unsandboxed` and `mcp-rule-of-two-interactive`.
+
+**Authoritative current sources** (trust these over the historical log below):
+- `harness/IMPERFECTIONS.md` — live tracked issues + recent resolutions
+- `harness/specs/` — recent execution specs (2026-06-26: R1/R2/R4/R5, ollama, data-acquisition, modelability)
+- mtg-sim `CLAUDE.md` + `data/modelability_backlog.json`
+
+**Known lapse:** the daily-rhythm cadence (`plan-<date>-execution-chain.md`) lapsed after 2026-05-16
+— the harness has been driven interactively since, not on the scripted daily chain.
+
+**On the build log below:** it is the original 2026-04-14 -> 2026-04-29 history, kept as-is. The files
+it references (HARNESS_GUIDE.txt, dashboard.md, planner.md, evaluator.md, etc.) DO exist on the
+workstation; a cloud audit that reported them "missing" was reading a severed/gitignored-stripped
+clone, not the canonical workstation.
 
 ---
 

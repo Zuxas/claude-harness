@@ -19,9 +19,16 @@ from datetime import datetime, date
 from functools import wraps
 import urllib.request
 
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+HARNESS_ROOT = Path(os.environ.get("HARNESS_ROOT", "E:/vscode ai project/harness"))
 STATE_DIR = HARNESS_ROOT / "state"
-STATE_DIR.mkdir(exist_ok=True)
+# Import-time guard: only create state/ when the harness root actually exists, so
+# importing this module in a severed checkout (Linux CI / cloud clone) does NOT
+# poison the cwd with a literal "E:" directory tree. Override via HARNESS_ROOT env.
+try:
+    if HARNESS_ROOT.exists():
+        STATE_DIR.mkdir(exist_ok=True)
+except OSError:
+    pass
 
 # ---------------------------------------------------------------------------
 # Circuit Breaker
