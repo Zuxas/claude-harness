@@ -46,6 +46,15 @@ MEMORY_FILE = HARNESS_ROOT / "agents" / "optimization_memory.json"
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(META_ANALYZER))
 
+# ARL hardening trio (mtg-sim/scripts): write-discipline + approval gate. Guarded so
+# auto_pipeline still runs if the modules are absent (e.g. a severed checkout).
+try:
+    from scripts.arl_write_verify import write_verified as _write_verified
+    from scripts.arl_approval import gate as _approval_gate
+except Exception:
+    _write_verified = None
+    _approval_gate = None
+
 TODAY = datetime.now().strftime("%Y-%m-%d")
 TIMESTAMP = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -695,7 +704,18 @@ def _save_apl_code(deck_name, code, method="gemma"):
         log(f"  SyntaxError at line {_se.lineno}: {_se.msg} -- saved anyway (smoke gate will catch)")
 
     header = f"# Auto-generated APL for {deck_name} ({method} draft)\n# {TODAY}\n\n"
-    cache_file.write_text(header + code, encoding="utf-8")
+    # Approval gate (Rule-of-Two) + write-verify (catch silent/partial write). cache_file
+    # is apl/auto_apls/<slug>.py (not engine/) so the gate is AUTO; the verify is the teeth.
+    if _approval_gate is not None:
+        allowed, tier, reason = _approval_gate("local_file_write", str(cache_file))
+        if not allowed:
+            log(f"  WRITE BLOCKED ({tier}): {reason}")
+            raise ValueError(f"APL write blocked by approval gate ({tier}): {reason}")
+    if _write_verified is not None:
+        if not _write_verified(cache_file, header + code, encoding="utf-8"):
+            raise IOError(f"WRITE-VERIFY FAILED for {cache_file}")
+    else:
+        cache_file.write_text(header + code, encoding="utf-8")
     log(f"  Saved: {cache_file}")
     return cache_file
 
