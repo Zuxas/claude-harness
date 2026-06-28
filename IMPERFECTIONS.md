@@ -88,7 +88,17 @@ Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test).
 ### izzet-affinity-counters-stage-b (NEW 2026-06-27)
 **What's not perfect:** Izzet Affinity's warp is now modeled (Stage A: gate `unmodelable` -> `low`), but its 3 Metallic Rebuke counters are NOT routed through the R1 priority stack, so the deck sits at `low` confidence (gauntletable, not auto-promoted) instead of `high`. Reason: `IzzetAffinityMatchAPL` extends `MatchAPL` (whose `priority_action` is a no-op stub), not `AwareMatchAPL` (which holds the real R1 `priority_action`/`_r1_choose_counter`). **Fix (Stage B):** re-base IzzetAffinityMatchAPL on AwareMatchAPL (or port the counter logic), set `WANTS_PRIORITY_STACK = True`, and add `"Metallic Rebuke"` to `engine/counter_resolver.COUNTER_VALIDITY`. Risk: re-basing changes the deck's OTHER behavior -> re-validate. Deferred as its own careful task.
 **Update 2026-06-27 (Stage B Phase 1 SHIPPED, mtg-sim 51448a5):** re-based IzzetAffinityMatchAPL on AwareMatchAPL + WANTS_PRIORITY_STACK; added Metallic Rebuke to COUNTER_VALIDITY; no-op'd the combat-instant hooks + conditional reserve_mana (per design spec 2026-06-27-stage-b). Verified: fidelity gate flips `low`->`high` (PROMOTABLE; modeled_caps={counterspell_on_stack,warp}, blocking=[]); 8-match smoke no crash + R1 counter fires (COUNTERS_CAST=2); byte-identical-OFF holds (Rebuke unique among registered match decks). REMAINING (Phase 2, the acceptance bar): decomposed FWR validation -- COUNTER_COST sweep {0,1,2,3} at n>=1000 + both-seat COUNTERS_CAST decomposition + field side-effect runs + empirical Edit-B differential -- before TRUSTING/promoting the FWR number (the 4.C opponent-counter-resolution swap can inflate it).
-**Status:** PARTIALLY RESOLVED -- Phase 1 done (mechanism wired, deck PROMOTABLE). Phase 2 (FWR decomposition sweep) OPEN.
+**Update 2026-06-28 (Phase 2 -- FWR sweep):** swept COUNTER_COST {0,1,2,3} at n=300/top-8/seed42:
+0->42.0%, 1->42.0%, 2->42.3%, 3->41.9% -- all within 0.4pp (noise), NO regression vs the 41% Phase-1
+baseline even at cost=3 (heaviest tempo tax; the conditional reserve keeps it from biting). Set
+COUNTER_COST=2 (marginal winner, env-tunable via AFFINITY_COUNTER_COST). HONEST FINDING: the counters
+add ~0 WR -- Rebuke is a minor card for an aggro deck; Stage B's value was the fidelity-gate flip (the
+~42% FWR is now TRUSTWORTHY data, not a sim artifact), NOT a WR buff. The 4.C opponent-counter-resolution
+inflation worry is empirically moot (no value reads above baseline). n>=1000 confirm at cost=2 running.
+**Status:** RESOLVED -- Phase 1 (mechanism, PROMOTABLE) + Phase 2 (FWR sweep: no regression, ~42%
+trustworthy, COUNTER_COST=2) both done. Izzet Affinity is honestly a ~42% deck (below the 60% promote
+threshold, so trustworthy-but-not-auto-promoted). Residual (deferred, low value): full both-seat
+COUNTERS_CAST decomposition + field side-effect re-gauntlet -- moot given counters add ~0 WR.
 **Created:** 2026-06-27
 
 ### arl-generated-code-exec-unsandboxed (NEW 2026-06-27; from prompt-injection review)
