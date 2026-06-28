@@ -2,7 +2,7 @@
 
 - Date: 2026-06-27
 - Format target: Modern
-- Status: SHIPPED 2026-06-28. Phase 1 (mtg-sim 51448a5): Edits A+B; gate low->high (PROMOTABLE), R1 counter fires, no crash, byte-identical-OFF. Phase 2 (FWR sweep): COUNTER_COST {0,1,2,3} all ~42% (no regression vs 41% baseline); set COUNTER_COST=2; honest finding = counters add ~0 WR, the value was the trustworthy-FWR gate flip not a WR buff. Izzet Affinity is honestly a ~42% deck (trustworthy, below promote threshold). Residual decomposition/field-side-effect deferred (moot -- counters add ~0 WR).
+- Status: SHIPPED 2026-06-28. Phase 1 (mtg-sim 51448a5): Edits A+B; gate low->high (PROMOTABLE), R1 counter fires, no crash, byte-identical-OFF. Phase 2 (FWR sweep): COUNTER_COST {0,1,2,3} all ~42% at n=300 (40.8% at n=1000, no regression vs 41% baseline); set COUNTER_COST=2; honest finding = counters add ~0 WR, the value was the trustworthy-FWR gate flip not a WR buff. Izzet Affinity is honestly a ~41% deck -- 40.8% at n=1000 (trustworthy, below promote threshold). Residual decomposition/field-side-effect deferred (moot -- counters add ~0 WR).
 - Front: make Izzet Affinity's 3 Metallic Rebukes route through the shipped R1
   stack-priority machinery so the fidelity gate credits `counterspell_on_stack`
   and the deck's profile confidence flips from `low` to `high` (PROMOTABLE =

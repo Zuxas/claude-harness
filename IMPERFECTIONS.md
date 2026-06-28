@@ -94,9 +94,11 @@ baseline even at cost=3 (heaviest tempo tax; the conditional reserve keeps it fr
 COUNTER_COST=2 (marginal winner, env-tunable via AFFINITY_COUNTER_COST). HONEST FINDING: the counters
 add ~0 WR -- Rebuke is a minor card for an aggro deck; Stage B's value was the fidelity-gate flip (the
 ~42% FWR is now TRUSTWORTHY data, not a sim artifact), NOT a WR buff. The 4.C opponent-counter-resolution
-inflation worry is empirically moot (no value reads above baseline). n>=1000 confirm at cost=2 running.
-**Status:** RESOLVED -- Phase 1 (mechanism, PROMOTABLE) + Phase 2 (FWR sweep: no regression, ~42%
-trustworthy, COUNTER_COST=2) both done. Izzet Affinity is honestly a ~42% deck (below the 60% promote
+inflation worry is empirically moot (no value reads above baseline). FINAL n=1000 confirm @ cost=2:
+40.8% FWR (7000 games) -- the trustworthy acceptance number (n=300 sweep read ~42%; the tighter n=1000
+settles at 40.8%, confirming no regression vs the 41% baseline).
+**Status:** RESOLVED -- Phase 1 (mechanism, PROMOTABLE) + Phase 2 (FWR sweep: no regression, 40.8% @
+n=1000 trustworthy, COUNTER_COST=2) both done. Izzet Affinity is honestly a ~41% deck (below the 60% promote
 threshold, so trustworthy-but-not-auto-promoted). Residual (deferred, low value): full both-seat
 COUNTERS_CAST decomposition + field side-effect re-gauntlet -- moot given counters add ~0 WR.
 **Created:** 2026-06-27
