@@ -2,7 +2,7 @@
 
 - Date: 2026-06-27
 - Format target: Modern
-- Status: DESIGN ONLY (no code edited by this spec)
+- Status: PHASE 1 SHIPPED 2026-06-27 (mtg-sim 51448a5) -- Edits A+B landed; gate flips low->high (PROMOTABLE), R1 counter fires (COUNTERS_CAST=2), no crash, byte-identical-OFF holds. Phase 2 (decomposed FWR validation -- COUNTER_COST sweep + field side-effects) OPEN.
 - Front: make Izzet Affinity's 3 Metallic Rebukes route through the shipped R1
   stack-priority machinery so the fidelity gate credits `counterspell_on_stack`
   and the deck's profile confidence flips from `low` to `high` (PROMOTABLE =
