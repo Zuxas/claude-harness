@@ -528,3 +528,14 @@ When closing an imperfection:
 **Concrete fix:** Add a scheduled task / calendar reminder to rewrite the format block monthly, or whenever a new set drops. Trigger criteria (already in block's "Decay tracking" section): 30+ days since format_snapshot, new set legalized, pillar archetype falls below 5% or new one rises above 5%, banning announcement affecting any pillar.
 
 **Estimated effort:** 20-30 min per refresh
+
+### selesnya-prowess-overshoot-declare-attackers-over-conservative (NEW 2026-06-29; calibration diagnosis)
+
+**Status:** OPEN (diagnosed; naive fix proven to over-correct -- needs deliberate calibration, NOT a forced number)
+
+**Source:** harness/knowledge/tech/standard-selesnya-prowess-calibration-2026-06-29.md (diagnosis-first calibration slice, spec 2026-06-29-next-structural-build.md)
+**What's not perfect:** AwareMatchAPL.declare_attackers (apl/aware_match_apl.py ~471-509) re-filters super()'s evasion/race-aware attacker list through an over-conservative ground-only trade loop: treats the opponent's single highest-power creature as a universal blocker for EVERY attacker, has no flying/evasion check, drops any 'dies-alone' attacker unless opp_dmg > my_dmg+8. Result: a tempo/aggro deck (Izzet Prowess) declares ZERO attackers vs a board with one big creature -- even an unblockable flyer -- so the sim over-rates the defender. Selesnya-Landfall vs Izzet-Prowess-Standard sims 77.0% Match vs PT-truth 62.9% (+14pp). Affects all 38 Standard match APLs (shared base).
+**Why not fixed now:** The naive fix (drop the re-filter, trust super()=MatchAPL.declare_attackers) OVER-corrects to 45.0% Match -- inverts Selesnya from a 63% PT favorite to a 45% underdog (Prowess-vs-MonoGreen 59.7%->90% corroborates over-aggression). Re-filter = 77% (over), pure-base = 45% (under), PT-truth = 62.9% (between); no clean localized rule lands there without tuning constants -> forbidden by the gate's 'do not force the number' clause.
+**Concrete fix:** Calibrated middle -- subtract only genuinely-bad trades while NEVER dropping evasive/unblocked attackers or a whole racing board; re-examine the base MatchAPL race heuristic; tune against PT 62.9% with a no-regression gate (Mono-Green de-inversion holds, aggro mirrors ~50%, Prowess's winning control matchups unchanged). HUMAN-REVIEW / deliberate calibration.
+**Estimated effort:** 2-4h (calibrated tuning + n>=300 no-regression sweep across tight-band Standard matchups)
+**Created:** 2026-06-29
