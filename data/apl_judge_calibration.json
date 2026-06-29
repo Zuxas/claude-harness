@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "schema": "harness/specs/2026-06-28-llm-as-judge-impl-plan.md (section G)",
+    "note": "Self-contained calibration fixtures: each carries an embedded code_snippet (read by the judge, NOT a live APL) and an expected_result. The plan's gate is judge-agrees-9/10; this seed has 4 (2 correct / 2 incorrect) and must be expanded to 10 before the live gate is meaningful. The 'Goryo pre-fix bug' from the spec is NOT used (it is fixed and not reproducible on disk -- plan G).",
+    "created": "2026-06-28"
+  },
+  "fixtures": [
+    {
+      "id": "calib_bolt_correct",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Lightning Bolt",
+      "grep_terms": ["Lightning Bolt"],
+      "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+      "expected": "PASS if the snippet deals exactly 3 damage to a target.",
+      "expected_result": "PASS",
+      "code_snippet": "LIGHTNING_BOLT = \"Lightning Bolt\"\n\ndef cast_lightning_bolt(self, gs, opp):\n    target = self.best_target(gs, opp)  # creature or player\n    if target.is_creature:\n        target.damage += 3\n    else:\n        opp.life -= 3\n"
+    },
+    {
+      "id": "calib_bolt_incorrect_damage",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Lightning Bolt",
+      "grep_terms": ["Lightning Bolt"],
+      "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+      "expected": "PASS only if the snippet deals exactly 3 damage.",
+      "expected_result": "FAIL",
+      "code_snippet": "LIGHTNING_BOLT = \"Lightning Bolt\"\n\ndef cast_lightning_bolt(self, gs, opp):\n    # BUG: deals 4 damage, oracle says 3\n    opp.life -= 4\n"
+    },
+    {
+      "id": "calib_solitude_correct",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Solitude",
+      "grep_terms": ["Solitude", "evoke"],
+      "oracle_text": "Flash. When Solitude enters, exile up to one target creature. Evoke -- Exile a white card from your hand.",
+      "expected": "PASS if the evoke cost exiles a white card from hand before resolving the ETB exile.",
+      "expected_result": "PASS",
+      "code_snippet": "SOLITUDE = \"Solitude\"\n\ndef cast_solitude_evoke(self, gs, opp):\n    white_card = self.find_white_card_in_hand()\n    self.hand.remove(white_card)   # evoke: exile a white card from hand\n    self.exile(white_card)\n    target = self.best_creature_target(gs, opp)\n    if target is not None:\n        self.exile(target)         # ETB: exile up to one target creature\n"
+    },
+    {
+      "id": "calib_solitude_incorrect_no_evoke_cost",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Solitude",
+      "grep_terms": ["Solitude", "evoke"],
+      "oracle_text": "Flash. When Solitude enters, exile up to one target creature. Evoke -- Exile a white card from your hand.",
+      "expected": "PASS only if the evoke cost (exile a white card from hand) is paid.",
+      "expected_result": "FAIL",
+      "code_snippet": "SOLITUDE = \"Solitude\"\n\ndef cast_solitude_evoke(self, gs, opp):\n    # BUG: never pays the evoke cost -- no white card exiled from hand\n    target = self.best_creature_target(gs, opp)\n    if target is not None:\n        self.exile(target)\n"
+    }
+  ]
+}

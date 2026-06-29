@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "schema": "harness/specs/2026-06-28-llm-as-judge-impl-plan.md (section C)",
+    "note": "Seed set authored alongside apl_judge.py. Targets the MATCH-aware boros_energy_match.py (not the boros_energy.py goldfish) per impl-plan gotcha 1. oracle_fidelity questions omit oracle_text so apl_judge fetches it live from CardDB. Full 30Q set (10/10/10) + live 9/10 calibration gate are the plan's research bulk and require a live gemma4; this seed is runnable and schema-conformant for expansion.",
+    "created": "2026-06-28"
+  },
+  "questions": [
+    {
+      "id": "oracle_lightning_bolt_target",
+      "type": "oracle_fidelity",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Lightning Bolt"],
+      "card_or_deck": "Lightning Bolt",
+      "expected": "PASS if the APL casts Lightning Bolt for 3 damage to any target (creature or player); FAIL if it deals the wrong amount or cannot target a creature."
+    },
+    {
+      "id": "oracle_galvanic_discharge",
+      "type": "oracle_fidelity",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Galvanic Discharge"],
+      "card_or_deck": "Galvanic Discharge",
+      "expected": "PASS if the APL models Galvanic Discharge dealing damage equal to its oracle (energy-scaling) to a creature; FAIL if cost/energy or damage is wrong."
+    },
+    {
+      "id": "strategic_bolt_creature_not_face",
+      "type": "strategic",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Lightning Bolt", "Guide of Souls"],
+      "card_or_deck": "Boros Energy",
+      "principle": "In a creature matchup, removal trades up: kill the opponent's value engine rather than burning their face.",
+      "board_state": "We are on the play, T2. Opponent has resolved Guide of Souls (a key energy/lifegain engine). We hold Lightning Bolt and have no pressing need to race.",
+      "expected": "PASS if the APL prefers pointing Lightning Bolt at the opposing creature (Guide of Souls) over going face in this spot; FAIL if it burns face by default."
+    },
+    {
+      "id": "strategic_bombardment_sac_for_lethal",
+      "type": "strategic",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Goblin Bombardment", "Bombardment"],
+      "card_or_deck": "Boros Energy",
+      "principle": "Never sacrifice to Goblin Bombardment unless it is lethal or saves a creature from removal; preserve board presence otherwise.",
+      "board_state": "Midgame, even board. Opponent at 6 life. We have Goblin Bombardment and 3 creatures; sacrificing 2 is lethal.",
+      "expected": "PASS if the APL only sacrifices to Bombardment when it secures lethal (or in a removal-response); FAIL if it sacrifices creatures for non-lethal chip damage."
+    },
+    {
+      "id": "mulligan_keep_two_lands_threat",
+      "type": "mulligan",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Boros Energy",
+      "hand": "Sacred Foundry, Plains, Guide of Souls, Lightning Bolt, Monastery Swiftspear, Ocelot Pride, Screaming Nemesis",
+      "on_play": true,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic keeps this hand (>= 2 lands, multiple one-drop threats and removal); FAIL if the code would mulligan a textbook keep."
+    },
+    {
+      "id": "mulligan_mull_zero_land",
+      "type": "mulligan",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Boros Energy",
+      "hand": "Guide of Souls, Lightning Bolt, Monastery Swiftspear, Ocelot Pride, Screaming Nemesis, Galvanic Discharge, Ragavan, Nimble Pilferer",
+      "on_play": true,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic mulligans this 0-land hand (lands == 0 -> return False); FAIL if it keeps a landless hand."
+    }
+  ]
+}
