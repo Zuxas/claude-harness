@@ -1,6 +1,6 @@
 # CLAUDE.md — Harness root instructions
 
-**Version:** 1.4 (2026-04-28)
+**Version:** 1.6 (2026-06-29)
 **Purpose:** Mandatory instructions and protocols for Claude (and Claude Code) when operating in this harness. This file is read at session start.
 
 ---
@@ -79,6 +79,12 @@ The 9-hour scope is a target ceiling, not a floor. Some days will be shorter (op
 ---
 
 ## KNOWLEDGE LOADING (MANDATORY)
+
+**Step 0 -- check the skill menu first.** Before loading domain
+knowledge blocks, read `harness/skills/_index.md`. If a skill matches the
+task, load ONLY that skill's listed files (~2-5 files). Fall back to the
+full domain blocks below ONLY if no skill matches. This is the
+context-reduction path; the per-domain loading below is the fallback.
 
 When working on a task, Claude MUST consult relevant knowledge blocks in `harness/knowledge/` before answering. The directory is structured by domain:
 
@@ -334,3 +340,4 @@ Daily flow:
 - 2026-04-27: v1.3 — Moved Zuxas-Harness-SessionSnapshot from 23:00 to 04:30 and Zuxas-Harness-DriftPR from 23:30 to 04:50. Rationale: handoff state freshest when user starts the day; nightly harness stays evening because it depends on 5pm meta-analyzer scraper. Added `-WakeToRun` to scheduled task settings so PC wakes from sleep to run the slots. Updated SESSION START PROTOCOL + CONVENTIONS + scheduled-tasks table to reflect new times.
 - 2026-04-30: v1.5 — Added DECK ANALYSIS PROTOCOL section (Karn context loading pattern from mtg-agents.com research). Rationale: structured context block before deck analysis questions produces qualitatively better output, equivalent to tool-access accuracy gains from external evaluation paper.
 - 2026-04-28: v1.4 — Added DAILY RHYTHM CHECK (SESSION START PROTOCOL step 6). Added DAILY RHYTHM section explaining the 9-hour scripted weekday convention. Added `harness/SUBPROJECTS.md` as canonical sub-project menu for morning pivot prompts. Added `harness/plan-<date>-execution-chain.md` as standing daily-chain convention. Updated CONVENTIONS + DIRECTORY STRUCTURE + scheduled-tasks daily-flow diagram accordingly. Rationale: each weekday should look structurally similar regardless of sub-project focus; morning pivot check is non-invasive but ensures yesterday's priorities still match today's reality.
+- 2026-06-29: v1.6 -- Added skill-menu gate at top of KNOWLEDGE LOADING. New harness/skills/ tree (mtg-sim-quality, meta-analysis, apl-generation, harness-ops) + skills/_index.md menu. Skills are additive; knowledge/ remains the fallback. Impl per specs/2026-06-28-skill-system-impl-plan.md.
