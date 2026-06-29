@@ -153,9 +153,12 @@ def call_llm(prompt: str, model: str = DEFAULT_MODEL, *,
              num_ctx: int = 4096, timeout: int = 300) -> str:
     """Guarded, lazy Ollama call. Returns the response string.
 
-    Streaming + 3-attempt retry (2s/8s backoff), accumulating tokens -- copied
-    from auto_pipeline._call_ollama because stream=False returns an empty
-    response for Gemma under load. urllib is imported here, not at module top,
+    Streaming + 5-attempt retry (2/5/10/20s backoff), accumulating tokens --
+    copied from auto_pipeline._call_ollama because stream=False returns an empty
+    response for Gemma under load. An empty streamed result is treated as a
+    retryable failure (not success), so calibration is deterministic run-to-run
+    even when gemma4 returns empties under concurrent load. urllib is imported
+    here, not at module top,
     so importing apl_judge never opens a socket. Raises LLMUnavailable when
     all attempts fail.
     """
@@ -170,7 +173,7 @@ def call_llm(prompt: str, model: str = DEFAULT_MODEL, *,
                     "num_ctx": num_ctx, "num_batch": 1024},
     }).encode()
 
-    backoffs = [2, 8]  # 3 attempts total
+    backoffs = [2, 5, 10, 20]  # 5 attempts total -- gemma4 empties under load need recovery time
     last_err = None
     for attempt in range(len(backoffs) + 1):
         try:
