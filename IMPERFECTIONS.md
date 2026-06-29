@@ -539,3 +539,13 @@ When closing an imperfection:
 **Concrete fix:** Calibrated middle -- subtract only genuinely-bad trades while NEVER dropping evasive/unblocked attackers or a whole racing board; re-examine the base MatchAPL race heuristic; tune against PT 62.9% with a no-regression gate (Mono-Green de-inversion holds, aggro mirrors ~50%, Prowess's winning control matchups unchanged). HUMAN-REVIEW / deliberate calibration.
 **Estimated effort:** 2-4h (calibrated tuning + n>=300 no-regression sweep across tight-band Standard matchups)
 **Created:** 2026-06-29
+
+### anthropic-sdk-not-installed-blocks-llm-judge-scorer (NEW 2026-06-29)
+
+**Status:** OPEN (one-line install; gates the Anthropic half of 2 specs)
+
+**Source:** specs/2026-06-29-evalite-eval-harness.md + 2026-06-29-harness-orchestration-contract.md
+**What's not perfect:** The evalite eval-harness's authoritative LLM-judge scorer wants Anthropic claude-opus-4-8, but the `anthropic` SDK is NOT installed (pydantic 2.13.4 IS). apl_judge currently uses gemma4 via Ollama (cheap local pre-filter). Until the SDK lands, the Anthropic-authoritative scorer half cannot run.
+**Concrete fix:** `pip install anthropic` + wire the API key; then the evalite spec's Anthropic scorer half is unblocked. gemma4 stays the local pre-filter.
+**Estimated effort:** 5 min install + per-spec wiring.
+**Created:** 2026-06-29

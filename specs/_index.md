@@ -13,6 +13,13 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
+- `2026-06-29-harness-orchestration-contract.md` — Adopt sandcastle's run()->RunResult domain model
+  as the harness orchestration contract (IsolationStrategy enum, fork() distinct-key invariant,
+  <promise>COMPLETE</promise> sentinel shared w/ Ralph, Output.object=Pydantic-retry). Build gated behind
+  ralph_executor landing. Source: matt-pocock-ai-eng-roadmap (sandcastle).
+- `2026-06-29-evalite-eval-harness.md` — evalite-shaped pytest eval harness (data->task->scorers[])
+  extending apl_judge via its llm= seam; Monte Carlo sim as a 0-1 scorer + Anthropic LLM-judge; CI gate on
+  mean(score). Anthropic half gated on the anthropic SDK install. Source: roadmap (evalite).
 - `2026-05-01-skill-system-harness.md` — Dynamic capability loading for the harness.
   Bundle knowledge + scripts + behavior rules into loadable skills (mtg-sim-quality,
   meta-analysis, apl-generation, harness-ops). ~78% context reduction per turn.
