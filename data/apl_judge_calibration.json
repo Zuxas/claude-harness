@@ -1,8 +1,10 @@
 {
   "_meta": {
     "schema": "harness/specs/2026-06-28-llm-as-judge-impl-plan.md (section G)",
-    "note": "Self-contained calibration fixtures: each carries an embedded code_snippet (read by the judge, NOT a live APL) and an expected_result. The plan's gate is judge-agrees-9/10; this seed has 4 (2 correct / 2 incorrect) and must be expanded to 10 before the live gate is meaningful. The 'Goryo pre-fix bug' from the spec is NOT used (it is fixed and not reproducible on disk -- plan G).",
-    "created": "2026-06-28"
+    "note": "10 self-contained calibration fixtures (5 known-correct PASS / 5 known-incorrect FAIL). Each carries an embedded code_snippet (read by the judge, NOT a live APL) and an expected_result. oracle_text on every fixture is verbatim from CardDB. Each snippet literally contains its grep_terms hit (a NAME constant) so grep context is non-empty (an empty PASS context would auto-FAIL and cost the gate). Incorrect fixtures are biased toward glaring wrong-value / wrong-restriction bugs (a 12B judge catches a wrong number or illegal target far more reliably than a subtly-missing line); one (solitude) is an absence-of-effect bug. The plan's gate is judge-agrees-9/10; remedy for a miss (prompt-tuning in apl_judge.py) is OUT of this data lane. The spec's 'Goryo pre-fix Solitude bug' is NOT used (fixed, not reproducible on disk -- plan G).",
+    "counts": {"correct_PASS": 5, "incorrect_FAIL": 5, "total": 10},
+    "created": "2026-06-28",
+    "expanded": "2026-06-29"
   },
   "fixtures": [
     {
@@ -13,7 +15,7 @@
       "oracle_text": "Lightning Bolt deals 3 damage to any target.",
       "expected": "PASS if the snippet deals exactly 3 damage to a target.",
       "expected_result": "PASS",
-      "code_snippet": "LIGHTNING_BOLT = \"Lightning Bolt\"\n\ndef cast_lightning_bolt(self, gs, opp):\n    target = self.best_target(gs, opp)  # creature or player\n    if target.is_creature:\n        target.damage += 3\n    else:\n        opp.life -= 3\n"
+      "code_snippet": "LIGHTNING_BOLT = \"Lightning Bolt\"\n\ndef cast_lightning_bolt(self, gs, opp):\n    # Lightning Bolt deals 3 damage to any target (creature or player).\n    target = self.best_target(gs, opp)\n    target.take_damage(3)   # deals exactly 3 damage to the chosen target\n"
     },
     {
       "id": "calib_bolt_incorrect_damage",
@@ -29,21 +31,81 @@
       "id": "calib_solitude_correct",
       "type": "oracle_fidelity",
       "card_or_deck": "Solitude",
-      "grep_terms": ["Solitude", "evoke"],
-      "oracle_text": "Flash. When Solitude enters, exile up to one target creature. Evoke -- Exile a white card from your hand.",
-      "expected": "PASS if the evoke cost exiles a white card from hand before resolving the ETB exile.",
+      "grep_terms": ["Solitude"],
+      "oracle_text": "Flash\nLifelink\nWhen this creature enters, exile up to one other target creature. That creature's controller gains life equal to its power.\nEvoke-Exile a white card from your hand.",
+      "expected": "PASS if the evoke cost exiles a white card from hand before resolving the ETB exile of a creature.",
       "expected_result": "PASS",
-      "code_snippet": "SOLITUDE = \"Solitude\"\n\ndef cast_solitude_evoke(self, gs, opp):\n    white_card = self.find_white_card_in_hand()\n    self.hand.remove(white_card)   # evoke: exile a white card from hand\n    self.exile(white_card)\n    target = self.best_creature_target(gs, opp)\n    if target is not None:\n        self.exile(target)         # ETB: exile up to one target creature\n"
+      "code_snippet": "SOLITUDE = \"Solitude\"\n\ndef cast_solitude_evoke(self, gs, opp):\n    white_card = self.find_white_card_in_hand()\n    self.hand.remove(white_card)   # evoke: exile a white card from hand\n    self.exile(white_card)\n    target = self.best_creature_target(gs, opp)\n    if target is not None:\n        self.exile(target)              # ETB: exile up to one target creature\n        opp.life += target.power        # controller gains life equal to its power\n"
     },
     {
       "id": "calib_solitude_incorrect_no_evoke_cost",
       "type": "oracle_fidelity",
       "card_or_deck": "Solitude",
-      "grep_terms": ["Solitude", "evoke"],
-      "oracle_text": "Flash. When Solitude enters, exile up to one target creature. Evoke -- Exile a white card from your hand.",
+      "grep_terms": ["Solitude"],
+      "oracle_text": "Flash\nLifelink\nWhen this creature enters, exile up to one other target creature. That creature's controller gains life equal to its power.\nEvoke-Exile a white card from your hand.",
       "expected": "PASS only if the evoke cost (exile a white card from hand) is paid.",
       "expected_result": "FAIL",
       "code_snippet": "SOLITUDE = \"Solitude\"\n\ndef cast_solitude_evoke(self, gs, opp):\n    # BUG: never pays the evoke cost -- no white card exiled from hand\n    target = self.best_creature_target(gs, opp)\n    if target is not None:\n        self.exile(target)\n"
+    },
+    {
+      "id": "calib_galvanic_correct",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Galvanic Discharge",
+      "grep_terms": ["Galvanic Discharge"],
+      "oracle_text": "Choose target creature or planeswalker. You get {E}{E}{E} (three energy counters), then you may pay any amount of {E}. Galvanic Discharge deals that much damage to that permanent.",
+      "expected": "PASS if casting grants three energy and then deals damage equal to the amount of energy paid (variable) to a creature or planeswalker.",
+      "expected_result": "PASS",
+      "code_snippet": "GALVANIC_DISCHARGE = \"Galvanic Discharge\"\n\ndef cast_galvanic_discharge(self, gs, target, amount):\n    # gain three energy on cast, then spend energy to deal that much damage\n    gs.energy += 3\n    gs.energy -= amount\n    target.damage += amount\n"
+    },
+    {
+      "id": "calib_galvanic_incorrect_fixed_damage",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Galvanic Discharge",
+      "grep_terms": ["Galvanic Discharge"],
+      "oracle_text": "Choose target creature or planeswalker. You get {E}{E}{E} (three energy counters), then you may pay any amount of {E}. Galvanic Discharge deals that much damage to that permanent.",
+      "expected": "PASS only if the damage equals the energy paid (variable) and three energy is gained; FAIL if it deals a flat fixed amount with no energy gained or paid.",
+      "expected_result": "FAIL",
+      "code_snippet": "GALVANIC_DISCHARGE = \"Galvanic Discharge\"\n\ndef cast_galvanic_discharge(self, gs, opp, target):\n    # BUG: deals a flat 5 damage; never gains {E}{E}{E} and never pays energy\n    target.damage += 5\n"
+    },
+    {
+      "id": "calib_goryos_correct",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Goryo's Vengeance",
+      "grep_terms": ["Goryo's Vengeance"],
+      "oracle_text": "Return target legendary creature card from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of the next end step.",
+      "expected": "PASS if it returns a LEGENDARY creature card from the graveyard with haste.",
+      "expected_result": "PASS",
+      "code_snippet": "GORYOS_VENGEANCE = \"Goryo's Vengeance\"\n\ndef cast_goryos_vengeance(self, gs):\n    legends = [c for c in gs.graveyard if c.is_creature and c.is_legendary]\n    if not legends:\n        return\n    target = legends[0]\n    gs.graveyard.remove(target)\n    gs.battlefield.append(target)\n    target.summoning_sickness = False        # gains haste\n    target.exile_at_next_end_step = True     # exile at the next end step\n"
+    },
+    {
+      "id": "calib_goryos_incorrect_nonlegendary",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Goryo's Vengeance",
+      "grep_terms": ["Goryo's Vengeance"],
+      "oracle_text": "Return target legendary creature card from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of the next end step.",
+      "expected": "PASS only if the target is restricted to LEGENDARY creatures; FAIL if it can reanimate any creature.",
+      "expected_result": "FAIL",
+      "code_snippet": "GORYOS_VENGEANCE = \"Goryo's Vengeance\"\n\ndef cast_goryos_vengeance(self, gs):\n    # BUG: reanimates ANY creature, oracle restricts to legendary creatures only\n    targets = [c for c in gs.graveyard if c.is_creature]\n    if not targets:\n        return\n    target = max(targets, key=lambda c: c.cmc)\n    gs.graveyard.remove(target)\n    gs.battlefield.append(target)\n    target.summoning_sickness = False\n"
+    },
+    {
+      "id": "calib_fatal_push_correct",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Fatal Push",
+      "grep_terms": ["Fatal Push"],
+      "oracle_text": "Destroy target creature if it has mana value 2 or less.\nRevolt - Destroy that creature if it has mana value 4 or less instead if a permanent left the battlefield under your control this turn.",
+      "expected": "PASS if it destroys the target only when its mana value is 2 or less (or 4 or less with revolt active).",
+      "expected_result": "PASS",
+      "code_snippet": "FATAL_PUSH = \"Fatal Push\"\n\ndef cast_fatal_push(self, gs, target):\n    cap = 4 if gs.revolt_active else 2\n    if target.cmc <= cap:\n        gs.battlefield.remove(target)\n        gs.graveyard.append(target)\n"
+    },
+    {
+      "id": "calib_fatal_push_incorrect_any_cmc",
+      "type": "oracle_fidelity",
+      "card_or_deck": "Fatal Push",
+      "grep_terms": ["Fatal Push"],
+      "oracle_text": "Destroy target creature if it has mana value 2 or less.\nRevolt - Destroy that creature if it has mana value 4 or less instead if a permanent left the battlefield under your control this turn.",
+      "expected": "PASS only if the mana-value restriction (2, or 4 with revolt) is enforced; FAIL if it destroys a creature of any mana value.",
+      "expected_result": "FAIL",
+      "code_snippet": "FATAL_PUSH = \"Fatal Push\"\n\ndef cast_fatal_push(self, gs, target):\n    # BUG: destroys any creature regardless of mana value (e.g. a 6-mana creature)\n    gs.battlefield.remove(target)\n    gs.graveyard.append(target)\n"
     }
   ]
 }

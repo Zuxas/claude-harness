@@ -1,8 +1,10 @@
 {
   "_meta": {
     "schema": "harness/specs/2026-06-28-llm-as-judge-impl-plan.md (section C)",
-    "note": "Seed set authored alongside apl_judge.py. Targets the MATCH-aware boros_energy_match.py (not the boros_energy.py goldfish) per impl-plan gotcha 1. oracle_fidelity questions omit oracle_text so apl_judge fetches it live from CardDB. Full 30Q set (10/10/10) + live 9/10 calibration gate are the plan's research bulk and require a live gemma4; this seed is runnable and schema-conformant for expansion.",
-    "created": "2026-06-28"
+    "note": "Full 30-question ground-truth set: 10 oracle_fidelity / 10 strategic / 10 mulligan. oracle_fidelity questions OMIT oracle_text so apl_judge fetches it live from CardDB (plan-sanctioned). All grep_terms were verified to appear in their target_apls' own source (so grep_apl_context is non-empty -> no auto-FAIL per impl-plan gotcha 7). Strategic questions grep the DECK's own cards, not the opponent's. Targets the MATCH-aware *_match.py files (not goldfish APLs) per gotcha 1. Boros (the reference-gate deck, gate 2 >= 85%) carries 14 of 30 questions. Live 9/10 calibration gate lives in apl_judge_calibration.json. Card names are exact CardDB-resolvable oracle names.",
+    "counts": {"oracle_fidelity": 10, "strategic": 10, "mulligan": 10, "total": 30},
+    "created": "2026-06-28",
+    "expanded": "2026-06-29"
   },
   "questions": [
     {
@@ -11,7 +13,7 @@
       "target_apls": ["boros_energy_match.py"],
       "grep_terms": ["Lightning Bolt"],
       "card_or_deck": "Lightning Bolt",
-      "expected": "PASS if the APL casts Lightning Bolt for 3 damage to any target (creature or player); FAIL if it deals the wrong amount or cannot target a creature."
+      "expected": "PASS if the APL casts Lightning Bolt for exactly 3 damage and can aim it at a creature (it kills creatures with toughness <= 3); FAIL if it deals the wrong amount or cannot target a creature."
     },
     {
       "id": "oracle_galvanic_discharge",
@@ -19,8 +21,73 @@
       "target_apls": ["boros_energy_match.py"],
       "grep_terms": ["Galvanic Discharge"],
       "card_or_deck": "Galvanic Discharge",
-      "expected": "PASS if the APL models Galvanic Discharge dealing damage equal to its oracle (energy-scaling) to a creature; FAIL if cost/energy or damage is wrong."
+      "expected": "PASS if the APL models Galvanic Discharge granting {E}{E}{E} on cast and then dealing damage equal to the energy paid (variable, energy-scaling) to a creature; FAIL if the damage is a fixed number that ignores energy, or if no energy is gained on cast."
     },
+    {
+      "id": "oracle_static_prison_maintenance",
+      "type": "oracle_fidelity",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Static Prison"],
+      "card_or_deck": "Static Prison",
+      "expected": "PASS if Static Prison exiles a nonland permanent on ETB and gives {E}{E} (two energy), AND the APL pays {E} at its first main phase each turn or sacrifices it (returning the exiled card); FAIL if either the ETB exile/energy or the upkeep maintenance cost is missing."
+    },
+    {
+      "id": "oracle_phlage_etb_sacrifice",
+      "type": "oracle_fidelity",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Phlage"],
+      "card_or_deck": "Phlage, Titan of Fire's Fury",
+      "expected": "PASS if a hardcast Phlage deals 3 damage and gains 3 life on entry and is then SACRIFICED (it stays only when cast via Escape); FAIL if a hardcast Phlage remains on the battlefield as a creature, or if the 3 damage / 3 life ETB is missing."
+    },
+    {
+      "id": "oracle_ragavan_combat_trigger",
+      "type": "oracle_fidelity",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Ragavan"],
+      "card_or_deck": "Ragavan, Nimble Pilferer",
+      "expected": "PASS if Ragavan's combat-damage-to-a-player trigger creates a Treasure token AND exiles the top card of that player's library; FAIL if it creates Treasure without the exile, or fires without dealing combat damage to a player."
+    },
+    {
+      "id": "oracle_solitude_evoke",
+      "type": "oracle_fidelity",
+      "target_apls": ["goryos_match.py", "jeskai_blink_match.py"],
+      "grep_terms": ["Solitude"],
+      "card_or_deck": "Solitude",
+      "expected": "PASS if casting Solitude via Evoke exiles a white card from hand as the cost AND the ETB exiles a target creature with that creature's controller gaining life equal to its power; FAIL if the evoke cost (exiling a white card from hand) is not paid, or if the controller does not gain life equal to the exiled creature's power."
+    },
+    {
+      "id": "oracle_goryos_vengeance",
+      "type": "oracle_fidelity",
+      "target_apls": ["goryos_match.py"],
+      "grep_terms": ["Goryo's Vengeance"],
+      "card_or_deck": "Goryo's Vengeance",
+      "expected": "PASS if Goryo's Vengeance returns a LEGENDARY creature card from the graveyard to the battlefield with haste; FAIL if it can reanimate non-legendary creatures, or does not grant haste. (The end-step exile is mitigated by Ephemerate in this deck and is not required to pass.)"
+    },
+    {
+      "id": "oracle_ephemerate_rebound",
+      "type": "oracle_fidelity",
+      "target_apls": ["jeskai_blink_match.py"],
+      "grep_terms": ["Ephemerate"],
+      "card_or_deck": "Ephemerate",
+      "expected": "PASS if Ephemerate exiles a creature you control and returns it to the battlefield (re-triggering its ETB), AND the APL models Rebound (a free recast at the next upkeep); FAIL if it does not blink/return the creature or never models the Rebound recast."
+    },
+    {
+      "id": "oracle_consign_to_memory_counter",
+      "type": "oracle_fidelity",
+      "target_apls": ["jeskai_blink_match.py"],
+      "grep_terms": ["Consign to Memory"],
+      "card_or_deck": "Consign to Memory",
+      "expected": "PASS if Consign to Memory is used to counter a triggered ability or a colorless spell; FAIL if the APL uses it to counter an arbitrary colored spell (e.g. a generic monocolored creature/instant), which it cannot legally do."
+    },
+    {
+      "id": "oracle_lava_dart_flashback",
+      "type": "oracle_fidelity",
+      "target_apls": ["izzet_prowess_match.py"],
+      "grep_terms": ["Lava Dart"],
+      "card_or_deck": "Lava Dart",
+      "expected": "PASS if Lava Dart deals 1 damage to any target and its Flashback is paid by sacrificing a Mountain (then the card is exiled); FAIL if the flashback cost is wrong (e.g. paid with generic mana) or Lava Dart deals the wrong amount of damage."
+    },
+
     {
       "id": "strategic_bolt_creature_not_face",
       "type": "strategic",
@@ -29,7 +96,7 @@
       "card_or_deck": "Boros Energy",
       "principle": "In a creature matchup, removal trades up: kill the opponent's value engine rather than burning their face.",
       "board_state": "We are on the play, T2. Opponent has resolved Guide of Souls (a key energy/lifegain engine). We hold Lightning Bolt and have no pressing need to race.",
-      "expected": "PASS if the APL prefers pointing Lightning Bolt at the opposing creature (Guide of Souls) over going face in this spot; FAIL if it burns face by default."
+      "expected": "PASS if the APL prefers pointing Lightning Bolt at the opposing creature (e.g. Guide of Souls) over going face in this spot; FAIL if it burns face by default while a relevant creature is on board."
     },
     {
       "id": "strategic_bombardment_sac_for_lethal",
@@ -37,10 +104,91 @@
       "target_apls": ["boros_energy_match.py"],
       "grep_terms": ["Goblin Bombardment", "Bombardment"],
       "card_or_deck": "Boros Energy",
-      "principle": "Never sacrifice to Goblin Bombardment unless it is lethal or saves a creature from removal; preserve board presence otherwise.",
-      "board_state": "Midgame, even board. Opponent at 6 life. We have Goblin Bombardment and 3 creatures; sacrificing 2 is lethal.",
-      "expected": "PASS if the APL only sacrifices to Bombardment when it secures lethal (or in a removal-response); FAIL if it sacrifices creatures for non-lethal chip damage."
+      "principle": "Never sacrifice to Goblin Bombardment unless it is lethal, the creature is dying anyway (Mobilize tokens at end step), or it saves a creature; preserve board presence otherwise.",
+      "board_state": "Midgame, even board. Opponent at 6 life. We have Goblin Bombardment and 3 real creatures plus no expendable tokens; sacrificing 2 real creatures would be only 2 damage (not lethal).",
+      "expected": "PASS if the APL only sacrifices to Bombardment when it secures lethal or sacrifices tokens that are dying anyway; FAIL if it sacrifices real creatures for non-lethal chip damage."
     },
+    {
+      "id": "strategic_static_prison_best_threat",
+      "type": "strategic",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Static Prison"],
+      "card_or_deck": "Boros Energy",
+      "principle": "Spend hard removal on the opponent's most threatening creature first.",
+      "board_state": "Opponent controls a 4/4 threat and a 1/1 token. We hold Static Prison and have mana to cast it.",
+      "expected": "PASS if Static Prison is aimed at the opponent's highest-power / most threatening creature (the 4/4) rather than a trivial token; FAIL if it exiles the weakest creature or chooses arbitrarily."
+    },
+    {
+      "id": "strategic_skip_one_toughness_vs_burn",
+      "type": "strategic",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["facing_burn", "Ocelot Pride"],
+      "card_or_deck": "Boros Energy",
+      "principle": "Vs a burn/prowess shell with free pingers (Lava Dart), do not deploy fragile 1-toughness creatures that die for free; lead on 2+ toughness bodies and the lifegain engine.",
+      "board_state": "Opponent is Izzet Prowess (Monastery Swiftspear, Lava Dart on board). We can deploy Guide of Souls (1/2), Ocelot Pride (1/1), or Ajani (2/1-class engine).",
+      "expected": "PASS if the APL detects the burn matchup and avoids deploying 1-toughness creatures into free removal, prioritizing safer bodies / the lifegain engine; FAIL if it deploys 1-toughness creatures indiscriminately into Lava Dart."
+    },
+    {
+      "id": "strategic_blood_moon_vs_nonbasics",
+      "type": "strategic",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["Blood Moon"],
+      "card_or_deck": "Boros Energy",
+      "principle": "Blood Moon is devastating against nonbasic-heavy manabases (Amulet Titan, Domain, Eldrazi) and low-impact vs basic-heavy aggro (Prowess). Deploy it when the opponent leans on nonbasics.",
+      "board_state": "Opponent is Amulet Titan and controls multiple nonbasic lands (bounce lands, Urza's Saga). We hold Blood Moon.",
+      "expected": "PASS if the APL deploys Blood Moon when the opponent controls multiple nonbasic lands; FAIL if it ignores Blood Moon against a nonbasic-heavy board or fires it where it has no effect."
+    },
+    {
+      "id": "strategic_goryos_target_priority",
+      "type": "strategic",
+      "target_apls": ["goryos_match.py"],
+      "grep_terms": ["Goryo's Vengeance", "Atraxa"],
+      "card_or_deck": "Goryos Vengeance",
+      "principle": "Reanimate the highest-impact legendary available (Atraxa for card advantage / Griselbrand for card draw) rather than a small body.",
+      "board_state": "Graveyard contains both Atraxa, Grand Unifier and a smaller legendary creature. We resolve Goryo's Vengeance.",
+      "expected": "PASS if the APL prioritizes reanimating the highest-impact legendary target (e.g. the highest mana value, Atraxa/Griselbrand) over a lesser creature; FAIL if it reanimates an arbitrary or weaker target."
+    },
+    {
+      "id": "strategic_solitude_evoke_on_threat",
+      "type": "strategic",
+      "target_apls": ["goryos_match.py"],
+      "grep_terms": ["Solitude"],
+      "card_or_deck": "Goryos Vengeance",
+      "principle": "Free Solitude evoke is best spent exiling a real opposing threat; do not waste it when there is no meaningful creature to remove.",
+      "board_state": "Opponent controls a 3/3 attacker (power >= 2). We hold Solitude and a spare white card to pitch.",
+      "expected": "PASS if the APL evokes Solitude to exile the opponent's significant creature (power >= 2) when one is present; FAIL if it never uses Solitude against a real threat or evokes it with no worthwhile target."
+    },
+    {
+      "id": "strategic_izzet_removal_on_engine",
+      "type": "strategic",
+      "target_apls": ["izzet_prowess_match.py"],
+      "grep_terms": ["Lava Dart", "Unholy Heat", "Lightning Bolt"],
+      "card_or_deck": "Izzet Prowess",
+      "principle": "Use cheap removal (Lava Dart, Unholy Heat, Lightning Bolt) to kill the opponent's key creature / blocker rather than burning their face during setup turns.",
+      "board_state": "Opponent has a problematic blocker/engine creature on board. We have Lava Dart and Unholy Heat available and are not in a position to race to lethal this turn.",
+      "expected": "PASS if the APL aims its burn/removal at the opposing creature when killing it is correct (not yet lethal on board), rather than throwing damage at the opponent's face by default; FAIL if it always burns face regardless of board."
+    },
+    {
+      "id": "strategic_amulet_ramp_to_titan",
+      "type": "strategic",
+      "target_apls": ["amulet_titan_match.py"],
+      "grep_terms": ["Primeval Titan", "Amulet of Vigor"],
+      "card_or_deck": "Amulet Titan",
+      "principle": "The deck's plan is to accelerate (Amulet of Vigor + bounce lands) toward casting Primeval Titan and fetching combo/utility lands as fast as possible.",
+      "board_state": "Early turns with Amulet of Vigor available and lands to deploy. The goal is to ramp toward Primeval Titan.",
+      "expected": "PASS if the APL uses Amulet of Vigor and land drops to accelerate mana and resolve Primeval Titan as the primary game plan; FAIL if it ignores acceleration or never works toward casting Primeval Titan."
+    },
+    {
+      "id": "strategic_domain_leyline_binding_threat",
+      "type": "strategic",
+      "target_apls": ["domain_zoo_match.py"],
+      "grep_terms": ["Leyline Binding"],
+      "card_or_deck": "Domain Zoo",
+      "principle": "Leyline Binding is cheap catch-all removal; spend it on the opponent's most dangerous nonland permanent.",
+      "board_state": "Opponent controls a large threat and a minor permanent. We hold Leyline Binding with domain online (cost reduced).",
+      "expected": "PASS if the APL aims Leyline Binding at the opponent's most threatening nonland permanent; FAIL if it exiles a trivial permanent or chooses arbitrarily while a real threat is present."
+    },
+
     {
       "id": "mulligan_keep_two_lands_threat",
       "type": "mulligan",
@@ -50,7 +198,7 @@
       "hand": "Sacred Foundry, Plains, Guide of Souls, Lightning Bolt, Monastery Swiftspear, Ocelot Pride, Screaming Nemesis",
       "on_play": true,
       "role": "aggro",
-      "expected": "PASS if the keep() logic keeps this hand (>= 2 lands, multiple one-drop threats and removal); FAIL if the code would mulligan a textbook keep."
+      "expected": "PASS if the keep() logic keeps this hand (2 lands, multiple one-drop threats and removal -> a textbook aggro keep under the 2-1-2 rule); FAIL if the code would mulligan it."
     },
     {
       "id": "mulligan_mull_zero_land",
@@ -62,6 +210,94 @@
       "on_play": true,
       "role": "aggro",
       "expected": "PASS if the keep() logic mulligans this 0-land hand (lands == 0 -> return False); FAIL if it keeps a landless hand."
+    },
+    {
+      "id": "mulligan_boros_mull_flooded",
+      "type": "mulligan",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Boros Energy",
+      "hand": "Sacred Foundry, Plains, Mountain, Arena of Glory, Inspiring Vantage, Lightning Bolt, Guide of Souls",
+      "on_play": true,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic mulligans this flooded 5-land hand (lands > 4 -> return False); FAIL if it keeps a hand with five lands and only two spells."
+    },
+    {
+      "id": "mulligan_boros_ragavan_one_land",
+      "type": "mulligan",
+      "target_apls": ["boros_energy_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Boros Energy",
+      "hand": "Sacred Foundry, Ragavan, Nimble Pilferer, Lightning Bolt, Guide of Souls, Ocelot Pride, Galvanic Discharge, Goblin Bombardment",
+      "on_play": true,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic keeps this hand (Ragavan with at least 1 land is an explicit snap-keep in the APL); FAIL if it mulligans a Ragavan-plus-land aggro hand."
+    },
+    {
+      "id": "mulligan_goryos_combo_keep",
+      "type": "mulligan",
+      "target_apls": ["goryos_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Goryos Vengeance",
+      "hand": "Swamp, Island, Goryo's Vengeance, Atraxa, Grand Unifier, Ephemerate, Thoughtseize, Psychic Frog",
+      "on_play": true,
+      "role": "combo",
+      "expected": "PASS if the keep() logic keeps this assembled combo hand (Goryo's + a reanimation target + 2 lands, plus Ephemerate); FAIL if it mulligans a complete combo hand."
+    },
+    {
+      "id": "mulligan_goryos_zero_land_mull",
+      "type": "mulligan",
+      "target_apls": ["goryos_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Goryos Vengeance",
+      "hand": "Goryo's Vengeance, Atraxa, Grand Unifier, Ephemerate, Psychic Frog, Quantum Riddler, Thoughtseize, Solitude",
+      "on_play": true,
+      "role": "combo",
+      "expected": "PASS if the keep() logic mulligans this 0-land hand (lands == 0 -> return False); FAIL if it keeps a landless hand even though it contains the combo pieces."
+    },
+    {
+      "id": "mulligan_izzet_one_land_threat_fuel",
+      "type": "mulligan",
+      "target_apls": ["izzet_prowess_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Izzet Prowess",
+      "hand": "Steam Vents, Monastery Swiftspear, Expressive Iteration, Preordain, Mishra's Bauble, Lightning Bolt, Murktide Regent",
+      "on_play": false,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic keeps this 1-land hand (1 land + a threat + multiple card-advantage/cantrip fuel is an explicit keep in the APL); FAIL if it mulligans a 1-land hand loaded with cantrips and a one-drop threat."
+    },
+    {
+      "id": "mulligan_izzet_no_threat_mull",
+      "type": "mulligan",
+      "target_apls": ["izzet_prowess_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Izzet Prowess",
+      "hand": "Steam Vents, Island, Mountain, Preordain, Expressive Iteration, Lightning Bolt, Unholy Heat",
+      "on_play": true,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic mulligans this threat-light hand on the first decision (no prowess creatures / threats present -> return False before 2 mulligans); FAIL if it keeps a hand with zero threats."
+    },
+    {
+      "id": "mulligan_amulet_amulet_bounce_keep",
+      "type": "mulligan",
+      "target_apls": ["amulet_titan_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Amulet Titan",
+      "hand": "Amulet of Vigor, Simic Growth Chamber, Forest, Primeval Titan, Arboreal Grazer, Summoner's Pact, Urza's Saga",
+      "on_play": true,
+      "role": "combo",
+      "expected": "PASS if the keep() logic keeps this hand (Amulet of Vigor + a bounce land + 2+ lands is an explicit snap-keep, and it also has a threat); FAIL if it mulligans a textbook Amulet acceleration hand."
+    },
+    {
+      "id": "mulligan_domain_no_pressure_mull",
+      "type": "mulligan",
+      "target_apls": ["domain_zoo_match.py"],
+      "grep_terms": ["keep", "bottom", "mulligan"],
+      "card_or_deck": "Domain Zoo",
+      "hand": "Tropical Island, Sacred Foundry, Stomping Ground, Stubborn Denial, Prismatic Ending, Tribal Flames, Mishra's Bauble",
+      "on_play": true,
+      "role": "aggro",
+      "expected": "PASS if the keep() logic mulligans this hand (no creatures/threats and no Leyline of the Guildpact -> return False); FAIL if it keeps a hand with no pressure."
     }
   ]
 }
