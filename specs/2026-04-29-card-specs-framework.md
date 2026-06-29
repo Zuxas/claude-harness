@@ -1,6 +1,6 @@
 ---
 title: "card_specs framework: extract per-card decision logic from APLs"
-status: "PROPOSED"
+status: "STEPS 1-4 SHIPPED 2026-06-28 (mtg-sim d5603bb, apl/card_specs/solitude.py + galvanic_discharge.py + test_card_specs PASS); Phase B deferred"
 created: "2026-04-29"
 updated: "2026-04-29"
 project: "mtg-sim"

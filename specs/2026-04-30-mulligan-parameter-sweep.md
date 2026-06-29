@@ -1,6 +1,6 @@
 ---
 title: Mulligan parameter sweep — empirically derive optimal keep() thresholds
-status: PROPOSED
+status: TRACK-A SHIPPED 2026-06-28 (mtg-sim d5603bb, scripts/mulligan_sweep.py goldfish threshold sweep); Tracks B/C deferred (B blocked on engine human-mull prerequisite, C on apply)
 created: 2026-04-30
 updated: 2026-04-30
 project: mtg-sim

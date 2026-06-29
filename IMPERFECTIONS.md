@@ -60,7 +60,7 @@ Source commit: (pre-existing; not introduced by R1/R2 -- predates both)
 What is not perfect: The Amulet Titan goldfish APL and the Boros Energy *match* APL exhibit cross-process nondeterminism NOT controlled by the RNG seed -- e.g. Boros match a_wins varies 39-55 at the SAME seed/branch-point with R2 absent. Root cause is id()-based ordering (object-identity-dependent iteration) somewhere in those APL/engine paths, which is not stabilized by the global-random save/seed/restore that fixed the event-bus determinism (stage-1.7). R1/R2 bit-identity verification had to pin PYTHONHASHSEED and substitute a deterministic Golgari mirror for the design's named-but-nondeterministic Boros mirror.
 Why not fixed in source spec: Out of R2's bounded scope (R2 proves instant-combat modelable + no-regression; this is a pre-existing latent issue it merely exposed). Fixing it is an engine/APL determinism pass, not an R2 deliverable.
 Concrete fix: Find the id()-based or set-iteration ordering in the Amulet goldfish APL and Boros match APL paths (grep for `set(` iteration, `id(`, dict-insertion-order assumptions on object keys); replace with a stable sort key (card name / a stable index). Add to tests/test_determinism.py a cross-process same-seed assertion for Amulet goldfish + Boros match (currently only event-bus determinism is covered). Verify max-dev 0.00pp across processes at a pinned + at an unpinned PYTHONHASHSEED.
-Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test). Status: OPEN Created: 2026-06-26
+Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test). Status: RESOLVED 2026-06-28 (d5603bb, blitz id-determinism lane) Created: 2026-06-26
 
 ### gemma-apl-quality-low-for-smoke-gate (NEW 2026-04-28; surfaced by S4 T.7; updated 2026-04-28 post-OAuth-probe)
 
@@ -82,7 +82,7 @@ Estimated effort: 1-2h (locate + stabilize ordering) + 30 min (regression test).
 
 ### warp-cost-unbraced-no-op (NEW 2026-06-27; found while modeling Izzet Affinity)
 **What's not perfect:** `engine/game_state.py:_WARP_CARDS` warp costs are written UNBRACED ("1U", "1W", ...), but `engine/mana.parse_cost` only reads BRACED `{...}` pips (`_PIP_RE`). So `parse_cost("1U") == {generic:0}` and `can_cast("1U", N)` returns True on an EMPTY pool -> every legacy warp card warp-casts for FREE (cost never validated or paid). The warp ENTRY (the stated main correctness win) works; the COST is a no-op. **Impact:** Quantum Riddler + the EOE warp cycle in any deck that warp-casts (Jeskai Blink, Izzet Looting). **Fix (deferred):** brace all `_WARP_CARDS` cost strings; re-validate affected decks (changes their warp from free->costed = non-byte-identical). NOT done now to avoid shifting other decks' scores mid-session. **Mitigation:** Pinnacle Emissary (added 2026-06-27) uses the BRACED form `"{U/R}"`, so its warp cost validates + pays correctly.
-**Status:** OPEN (documented; scoped fix deferred)
+**Status:** RESOLVED 2026-06-28 (a39acfc -- braced 4 real warp cards; 165 casts, 0 free)
 **Created:** 2026-06-27
 
 ### izzet-affinity-counters-stage-b (NEW 2026-06-27)
@@ -431,7 +431,7 @@ These are design gaps, not bugs — the code works but the quality ceiling is lo
 **What's not perfect:** No APL for Temur Prowess (Slickshot Show-Off, Cori-Steel Cutter, DRC). Different from Izzet Prowess — adds green for Questing Druid / Become Immense. Missing 1.7% coverage. Our Izzet Prowess APL does not map to this deck.
 **Concrete fix:** New match APL or extend IzzetProwessMatchAPL with Temur sideboard. ~45-60 min.
 **Estimated effort:** 45-60 min.
-**Status:** OPEN
+**Status:** RESOLVED 2026-06-28 (94f7ac8 -- TemurProwessMatchAPL built + registered, smoke ~64%)
 **Created:** 2026-04-29
 
 ### no-apl-sultai-midrange (NEW 2026-04-29; real-meta field audit)
@@ -440,7 +440,7 @@ These are design gaps, not bugs — the code works but the quality ceiling is lo
 **What's not perfect:** No APL for Sultai Midrange (Abhorrent Oculus, Subtlety, Sink into Stupor). Missing 1.6% coverage.
 **Concrete fix:** Match APL similar to Dimir Midrange but with green (Subtlety + Oculus as key threats). ~45-60 min.
 **Estimated effort:** 45-60 min.
-**Status:** OPEN
+**Status:** RESOLVED 2026-06-28 (94f7ac8 -- SultaiMidrangeMatchAPL built + registered)
 **Created:** 2026-04-29
 
 ### no-apl-grixis-midrange (NEW 2026-04-29; real-meta field audit)
@@ -449,7 +449,7 @@ These are design gaps, not bugs — the code works but the quality ceiling is lo
 **What's not perfect:** No APL for Grixis Midrange (Orcish Bowmasters, Subtlety, Thoughtseize). Missing 1.5% coverage.
 **Concrete fix:** Match APL. Likely shares most logic with Dimir Midrange (swap Psychic Frog for Orcish Bowmasters + red interaction). ~30-45 min once Dimir Midrange match APL is audited as a template.
 **Estimated effort:** 30-45 min.
-**Status:** OPEN
+**Status:** RESOLVED 2026-06-28 (94f7ac8 -- GrixisMidrangeMatchAPL built + registered)
 **Created:** 2026-04-29
 
 ### planeswalker-loyalty-not-tracked (NEW 2026-05-02; PT SOS handler batch)
@@ -469,7 +469,7 @@ These are design gaps, not bugs — the code works but the quality ceiling is lo
 **Why not fixed in source spec:** Opus trigger requires APL-level hook on each cast_spell call. Pattern exists (Colorstorm Stallion uses same hook in `apl/izzet_prowess_standard.py`). Deferred because Izzet Maestro APL is deferred until Constructed results land.
 **Concrete fix:** When building Izzet Maestro APL, add `_fire_opus_triggers(gs)` helper (pattern: for each card on bf with Opus, check if last-cast spell cost >= 5, increment counters, add mana). Call from `cast_spell` post-cast hook. Mirror Colorstorm Stallion's existing APL implementation.
 **Estimated effort:** 20-30 min as part of Maestro APL build.
-**Status:** OPEN
+**Status:** RESOLVED 2026-06-28 (d5603bb -- Opus trigger wired, fires in match play)
 **Created:** 2026-05-02
 
 ### standard-apl-goldfish-only-no-match-quality (NEW 2026-05-03; PT SOS gauntlet run)
