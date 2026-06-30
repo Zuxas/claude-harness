@@ -531,13 +531,43 @@ When closing an imperfection:
 
 ### selesnya-prowess-overshoot-declare-attackers-over-conservative (NEW 2026-06-29; calibration diagnosis)
 
-**Status:** OPEN (diagnosed; naive fix proven to over-correct -- needs deliberate calibration, NOT a forced number)
+**Status:** RESOLVED 2026-06-29 -- calibrated fix landed. HONEST seat-symmetric re-measure (Selesnya as A half / B half, n=1000 seeded) = **60.7% +/- 1.5pp (CI [57.7, 63.7])**, IN BAND [60,71.5] (just above floor), PT 62.9 inside CI. (The first-pass 65.3% at n=300 was seat-A-only and ~4-5pp optimistic; the mirror-seat-bias flag was noise -- Prowess mirror 51.0% at n=500.) The fix is conservative-to-accurate vs PT, not an overshoot. Fix = AwareMatchAPL.declare_attackers per-blocker subtraction (never drops evasive/unblocked attackers; knob DEAD_TRADE_HOLD_MARGIN=0 left neutral) + selesnya_landfall_standard_match.py super() delegation. No-regression re-measured (none inverted; movements directionally consistent with the fix + the coupled fetch-landfall engine change): Prowess mirror 58.5, Prowess-vs-Jeskai 85.5 (fix makes aggro beat control harder), Selesnya-vs-MonoGreen 87.0 (CHANGE-2 narrowing). Validation: harness/knowledge/tech/boros-energy-postban-validation-2026-06-29.md. Mild residual: mirror 58.5 vs ideal 50 (seat-bias; re-seed check deferred).
 
 **Source:** harness/knowledge/tech/standard-selesnya-prowess-calibration-2026-06-29.md (diagnosis-first calibration slice, spec 2026-06-29-next-structural-build.md)
 **What's not perfect:** AwareMatchAPL.declare_attackers (apl/aware_match_apl.py ~471-509) re-filters super()'s evasion/race-aware attacker list through an over-conservative ground-only trade loop: treats the opponent's single highest-power creature as a universal blocker for EVERY attacker, has no flying/evasion check, drops any 'dies-alone' attacker unless opp_dmg > my_dmg+8. Result: a tempo/aggro deck (Izzet Prowess) declares ZERO attackers vs a board with one big creature -- even an unblockable flyer -- so the sim over-rates the defender. Selesnya-Landfall vs Izzet-Prowess-Standard sims 77.0% Match vs PT-truth 62.9% (+14pp). Affects all 38 Standard match APLs (shared base).
 **Why not fixed now:** The naive fix (drop the re-filter, trust super()=MatchAPL.declare_attackers) OVER-corrects to 45.0% Match -- inverts Selesnya from a 63% PT favorite to a 45% underdog (Prowess-vs-MonoGreen 59.7%->90% corroborates over-aggression). Re-filter = 77% (over), pure-base = 45% (under), PT-truth = 62.9% (between); no clean localized rule lands there without tuning constants -> forbidden by the gate's 'do not force the number' clause.
 **Concrete fix:** Calibrated middle -- subtract only genuinely-bad trades while NEVER dropping evasive/unblocked attackers or a whole racing board; re-examine the base MatchAPL race heuristic; tune against PT 62.9% with a no-regression gate (Mono-Green de-inversion holds, aggro mirrors ~50%, Prowess's winning control matchups unchanged). HUMAN-REVIEW / deliberate calibration.
 **Estimated effort:** 2-4h (calibrated tuning + n>=300 no-regression sweep across tight-band Standard matchups)
+**Created:** 2026-06-29
+
+### grixis-reanimator-match-apl-crashes-every-turn (NEW 2026-06-29; lowcurve gauntlet)
+
+**Status:** CRASH RESOLVED 2026-06-29 (commit pending; tests/test_grixis_reanimator_no_crash.py PASS). MATCHUP-INVERSION still OPEN, but the real cause is NOT the crash. Fix: GrixisReanimatorMatchAPL DOUBLE-implemented Persist -- the engine (_persist_spell in cast_spell) already moves the creature GY->BF, the APL then re-removed it (value-based .remove on an already-pulled card) -> list.remove crash -> turn aborted. Now: let the engine own the move, fire ETB identity-guarded. Crashes 29/200->0; matchup 81%->75.0% (toward primer 25-38% but STILL inverted). Real inversion cause = combo-decks-not-sampled-in-gauntlet-run_match (see that entry). Adjacent left: Archon hardcast double-ETB, Thoughtseize double-modeled.
+
+**Source:** harness/knowledge/tech/boros-energy-postban-validation-2026-06-29.md (Grixis gauntlet stream + control test)
+**What's not perfect:** GrixisReanimatorMatchAPL raises `list.remove(x): x not in list` (post-copy card-identity drift in its Thoughtseize/Persist/Archon logic) on essentially every turn and falls back to the engine's degraded `_simple_play_turn`, so Grixis never executes its T2-T4 reanimator combo. Effect: borosenergylowcurve vs Grixis sims ~70-81% in OUR favor; the primer calls Grixis Reanimator a KNOWN DOG for Boros (~25-38%, we are the dog) -- a full inversion. A control test (neutralizing on_landfall) left the crash firing and WR unchanged, confirming it is independent of the engine changes under test. Corrupts any field-level ranking that includes Grixis.
+**Why not fixed now:** Out of scope for the Boros-validation slice; needs a focused pass on the Grixis APL's card-identity handling (likely a copy.copy(card) vs identity-equality mismatch when removing from a zone list).
+**Concrete fix:** Trace the `list.remove` site in apl/grixis_reanimator_match.py; switch zone removal from value-equality `.remove()` to identity (`[c for c in zone if c is not card]`) or fix the stale reference after per-game card copy. Re-run lowcurve-vs-Grixis to confirm the matchup de-inverts toward the primer's ~25-38%.
+**Estimated effort:** 1-2h
+**Created:** 2026-06-29
+
+### combo-decks-not-sampled-in-gauntlet-run_match (NEW 2026-06-29; high-value, broad)
+
+**Status:** OPEN (the unified root cause behind 3 lowcurve-gauntlet divergences)
+**Source:** harness/knowledge/tech/boros-energy-postban-validation-2026-06-29.md
+**What's not perfect:** The gauntlet uses engine/match_runner.py::run_match (singular path), which NEVER routes combo/fast decks through ComboKillSampler -- that sampler fires only in the Bo3 run_match_set / _run_single_match path. So combo opponents (Grixis Reanimator, Goryo's Vengeance, Living End, the new Gruul Broodscale stub) get PLAYED OUT by hand-coded/weak APLs that under-assemble their kill instead of having a realistic kill-turn sampled. Net: Grixis INVERTS (sim 75% Boros vs primer 25-38%), Goryo's/Living End INFLATE (sim 84/96). Same mechanism; corrupts any field WR whose field contains combo decks.
+**Why not fixed now:** Shared-engine change (match_runner.run_match) with broad blast radius across every gauntlet matchup -- needs its own TDD pass + locked-baseline + calibration no-regression gate. Per-deck APL combo-speedups instead = modeling-by-fudging.
+**Concrete fix:** Route ARCHETYPE=="combo" opponents through ComboKillSampler in the singular run_match path (mirror run_match_set), keyed on the deck's format_config kill distribution. Re-run lowcurve gauntlet; confirm Grixis de-inverts toward 25-38% and Goryo's/Living End settle toward primer. Gate on borosenergy-vs-izzetaffinity + Selesnya-vs-Prowess holding.
+**Estimated effort:** 3-5h (ultracode; shared-engine + no-regression sweep)
+**Created:** 2026-06-29
+
+### locked-modern-boros-affinity-baseline-stale-63.5 (NEW 2026-06-29)
+
+**Status:** OPEN (documentation/calibration -- NOT a regression from recent commits)
+**Source:** harness/knowledge/tech/boros-energy-postban-validation-2026-06-29.md (parent-vs-commit measurement)
+**What's not perfect:** The "locked Modern baseline" Boros-Energy-vs-Affinity ~63.5% does NOT reproduce. Measured identically (match_runner, n=200, seeded) it reads 88.5% at BOTH parent 4151e86 AND commit 5f016c0 -- so 5f016c0 did NOT move it (borosenergy doesn't inherit AwareMatchAPL and has no landfall/battle-cry payoffs -> the Pyrosurfer/calibration work is byte-identical for this matchup). The 88.5 is a PRE-EXISTING sim-vs-reality gap (Affinity's clock undermodeled). The historical 63.5 was likely a different seed/n/path or a since-changed Affinity APL.
+**Concrete fix:** Improve apl/affinity_match.py's clock (overlaps combo-decks-not-sampled + a general Affinity offense pass); re-baseline the locked doc number. Until then treat 88.5% as the current sim value, ~63.5% as an unverified legacy target.
+**Estimated effort:** 2-3h
 **Created:** 2026-06-29
 
 ### anthropic-sdk-not-installed-blocks-llm-judge-scorer (NEW 2026-06-29)
