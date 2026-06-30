@@ -34,6 +34,11 @@ agents/temp/
 # early file, drift-2026-04-28.md, was committed before this rule; leave it.)
 knowledge/tech/drift-*.md
 
+# ── Future-workflow handoff primers (local planning seeds, not curated) ──────
+# One self-contained primer per session-sized workflow idea; picked up later.
+# Gitignored on purpose: working seeds, authored ad hoc, not shared state.
+handoffs/
+
 # ── Editor / OS ──────────────────────────────────────────────
 .vscode/
 *.swp
