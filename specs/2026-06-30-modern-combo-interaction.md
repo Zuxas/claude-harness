@@ -1,8 +1,8 @@
 ---
 title: Interaction-Aware Modern Combo Opponents (handoff #2)
-status: PROPOSED
+status: EXECUTING
 created: 2026-06-30
-updated: 2026-06-30 (rev 2 -- adversarial review responses incorporated)
+updated: 2026-06-30 (rev 3 -- SPINE increment executed: Component 2 Site 1 + Component 1 inert layer)
 project: mtg-sim
 estimated_time: 8-12 working sessions (see Estimated time; rev 2 honest re-estimate)
 related_findings:
@@ -683,3 +683,148 @@ temur_crashcade) + landless_belcher are a separable second wave.
 - **landless_belcher fidelity caveat:** if aliased to the rebuilt belcher (which adds Sea Gate land
   drops), the genuinely-landless variant is misrepresented; preferred path is a thin landless variant.
   Either way the `MATCH_APL_REGISTRY` key must be registered (currently `get_match_apl` returns None).
+
+---
+
+## Mid-execution Amendment 1 (2026-06-30) -- SPINE increment executed
+
+Executed the SPINE ONLY (Component 2 Site 1 + Component 1 inert layer + the ruby_storm
+Step-2.0 diagnostic). NO per-deck combo assembly; NO combo APL opts into interaction yet.
+Branch `modern-postban-arc`. All numbers on the PRIMARY single-hero driver
+`run_match_set` (boros seat A / opp seat B), n=500 seed=42 n_workers=1 mix_play_draw, against
+the pre-#2 lock in `mtg-sim/data/combo_spine_baseline_2026-06-30.txt`.
+
+### What landed
+- **Component 2 Site 1 (engine fix).** `MatchAPL.WANTS_BURN = False` added next to the
+  `WANTS_*` block. `match_runner._simple_play_turn` L276 gate generalized to
+  `WANTS_STORM or WANTS_BURN`. `MonoRedMatchAPL.WANTS_BURN = True` (the ONLY deck flagged
+  this increment -- not boros, not the anchors, not any combo opponent).
+- **Site 2 (end-step propagation): DROPPED** per its construction gate. The Step-2.0
+  diagnostic found NO in-scope deck that kills at the opponent's end step (ruby_storm casts
+  Grapeshot exclusively on its own main phase; all other modeled combos kill on their active
+  main or in combat). No dead code written. The end_step SEAM remains available for cascade
+  TIMING (Component 3) -- that is orthogonal to Site 2 and needs no damage propagation.
+- **Component 1 (inert interaction layer).** New `engine/combo_interaction.py`
+  (`ComboEvent`, `InteractionResult`, `offer_interaction`, `AnswerComboMixin.answer_combo`),
+  double-gated (structural: only a combo APL calls `offer_interaction`; capability:
+  `WANTS_COMBO_INTERACTION`, default False everywhere). `MatchAPL.WANTS_COMBO_INTERACTION =
+  False` added. `BorosEnergyMatchAPL` now inherits `AnswerComboMixin` but keeps the opt-in
+  OFF -> behaviorally inert. New `tests/test_combo_interaction_inert.py` proves the layer is
+  a no-op (gate-off + opted-in-pass both mutate nothing; Boros gate stays off).
+
+### Step-2.0 ruby_storm diagnostic finding -> Stop condition 4 FIRED (re-scoped, not aborted)
+Instrumented boros-vs-ruby_storm (N=200, baseline seeds). ruby_storm wins 1/200 (0.5%).
+Grapeshot is cast in only 28% of games (1 maindeck copy; Wish-fetch is NOT modeled), and when
+cast the storm count averages 1.98 (max 7) -> Grapeshot deals ~3 face dmg, NEVER near 20 (zero
+one-shot-lethal casts). ruby_storm ALREADY sets `WANTS_STORM=True`, so the damage it DOES deal
+already propagates via Site 1's gate (its baseline 496 is byte-identical post-fix, confirming
+the generalization is a no-op for storm decks). **Conclusion: ruby_storm's ~0% is PAYOFF
+REACHABILITY + storm-count sequencing, NOT the damage channel.** Per Stop condition 4, the #2
+fix is NOT claimed to unblock ruby_storm; its closing is re-scoped into Component 3 (model the
+Wish->Grapeshot/Empty fetch + maximal single-turn storm chain via Past in Flames / Ral). A
+still-blocked ruby_storm with this documented reason is the accepted outcome (harness Rule 4:
+honest-model outcome -> amend + proceed; NOT an abort).
+
+### Validation results (run_match_set, n=500 seed=42 n_workers=1)
+- **mono_red: 481 -> 395 a_wins (our_WR 96.20% -> 79.00%; mono_red WR 3.80% -> 21.00%).**
+  Direction correct and MATERIAL (+17.2pp to mono_red). Instrumentation confirms avg 6.24 face
+  dmg/game now reaches the match life total (matches the spec's ~6.1 dmg/game estimate) -- the
+  engine fix is mechanically correct, NOT a bug. HOWEVER mono_red lands BELOW the predicted
+  [35,45] band (21%). Per Stop condition 2 this is NOT tuned (no inflating mono_red's damage):
+  the residual is boros's lifegain engine (Guide of Souls / Ocelot Pride) + boros's own clock
+  absorbing the now-counted burn. Closing to [35,45] is per-deck CALIBRATION (mono_red full
+  clock and/or boros lifegain modeling), out of scope for the spine. Documented as an honest
+  residual; mono-red burn IMPERFECTION partially addressed (damage no longer dropped) but the
+  cell is not yet in band.
+- **8 non-combo anchors: byte-identical** to the lock (eldrazi_tron 192, uw_control 447,
+  dimir_murktide 344, amulet_titan 384, humans 125, sultai_midrange 287, izzet_prowess 318,
+  selesnya_vs_prowess 267). selesnya-vs-prowess unchanged (lock holds; Stop condition 3 not
+  triggered). Held through BOTH phases (engine fix AND the inert layer, incl. boros now
+  carrying the mixin as seat A in 7 cells).
+- **ruby_storm: 496 byte-identical** post-fix (storm gate short-circuits the generalization).
+- **Stop condition 1 (gating leak): NOT triggered** -- every cell that must be byte-identical
+  is, at the same seed/n/workers, after the inert layer.
+- Tests: `tests/test_combo_interaction_inert.py` PASS; `tests/test_grixis_reanimator_no_crash.py`
+  PASS (50/50, no regression).
+
+### Deferred to later increments (unchanged scope)
+Component 3 per-deck assembly for all 13 decks; flipping `WANTS_COMBO_INTERACTION` on boros;
+wiring `offer_interaction` callers; ruby_storm payoff-reachability fix; mono_red [35,45]
+calibration. Site 2 remains dropped unless a future in-scope deck needs an end-step kill.
+
+---
+
+## Mid-execution Amendment 2 (2026-06-30) -- yawgmoth cell (Component 3, leverage #2)
+
+Executed the yawgmoth per-deck cell. Branch `modern-postban-arc`. Commit `cf2cf32`
+(`feat(apl): yawgmoth combo assembly + drain reroute (Cauldron/Ballista)`). All
+match numbers on the PRIMARY single-hero driver `run_match_set` (boros seat A /
+yawgmoth seat B), n=500 seed=42 n_workers=1 mix_play_draw, against the pre-#2 lock.
+
+### Root cause (list mismatch -- the audit's "cheap list-align")
+`decks/yawgmoth_modern.txt` is the Agatha's Soul Cauldron / Walking Ballista build
+(xerk, MTGO Modern Challenge 2026-04-29). It runs **ZERO Blood Artist / Zulaport /
+Geralf's Messenger**. The APL's `DRAINS = {Blood Artist, Zulaport}` and
+`UNDYING = {Young Wolf, Geralf's Messenger}` named cards the list does not contain,
+so `_check_combo_kill`'s `drain_on_board` was ALWAYS False and the combo fired
+**0/50** (avg kill T8.9 = pure beatdown). Fixed: `UNDYING = {Young Wolf,
+Strangleroot Geist}`, `DRAINS = set()` (no drain payoff in this variant),
+`deploy_order` rebuilt from the real list (+Strangleroot, +Ballista). `_check_combo_kill`
+rewritten for the actual kill: Yawgmoth + 2 undying + Cauldron on board + Ballista
+reachable (board/GY) -> Cauldron grants Ballista's ping to the +1/+1-countered
+undying bodies; the Yawgmoth sac-loop feeds unbounded counters -> lethal.
+
+### Damage reroute (the part the audit's 1-2h estimate omitted)
+The kill is DIRECT DAMAGE, so a scalar `opponent.life -= X` is dropped (spine #3).
+Rerouted the combo damage AND the standalone Ballista pings through `gs.damage_dealt`
+and set `WANTS_BURN = True`, so `_simple_play_turn` propagates it to the match life
+total, mirroring `MonoRedMatchAPL`. A forced-board unit test proves >=20 routed via
+`gs.damage_dealt` with `opponent.life` untouched.
+
+### Measured result -- Stop condition 2 FIRED (stays FLAGGED, honest fail-low)
+| metric | before | after |
+|---|---|---|
+| combo-fires (P_assemble) | 0/500 (0.0%) | 49/500 (9.8%) |
+| our WR (boros) | 269/500 = 53.8% | 245/500 = 49.0% |
+| avg game length | T8.85 | T8.36 |
+
+Both **structural asserts PASS**: combo-fires 49/500 >= 1/50, and the reroute reaches
+match life (our WR drops 53.8% -> 49.0% as the combo converts games to boros losses;
+forced-board test confirms the channel). **But the cell FAILS LOW** (49.0% < band
+floor 55) and **CANNOT be brought into [55,80] by any faithful work**: our no-combo
+`race_baseline` is already ~53.8% because the APL plays as an over-strong generic
+creature deck (yawgmoth wins ~46%/game on COMBAT with NO combo). Combo assembly is
+monotonic-DOWN on our WR (it only ADDS yawgmoth win conditions), so 53.8% is a
+CEILING -- the now-correct combo can only lower it. The spec's [55,80] was computed
+assuming a high race_baseline the measured data contradicts; the binding constraint
+is the combat model, not assembly. Per Stop condition 2 the cell is **LEFT FLAGGED**
+in `mismodeled_matchups.py` (new `yawgmoth` entry, DEFLATED) rather than tuned --
+re-modeling yawgmoth's beatdown (same "synthetic-creature-stub over-credits combat"
+class as broodscale / temur_crashcade) is OUT OF SCOPE here. This is harness Rule 4
+honest-model outcome (amend + proceed), not an abort.
+
+### Interaction decision: LEFT OFF (instruction-compliant, not load-bearing)
+Boros maindeck carries 2x Thraben Charm, whose mode 3 ("Exile any number of target
+players' graveyards") could snipe Walking Ballista from the yard and deny the Cauldron
+line -- a genuine G1 answer, noted honestly. It is NOT wired: it is situational (one
+of three charm modes), redundant-combo-resilient (4 Cauldron + 3 Ballista + Malevolent
+Rumble refills), and making G1 interaction load-bearing is forbidden (Component 1
+Critical-constraint + Stop condition 2). The ceiling argument also shows even a generous
+Thraben Charm model cannot reach the band. `WANTS_COMBO_INTERACTION` stays False on
+boros, so `offer_interaction` is not wired for yawgmoth and every OTHER combo cell's
+byte-identical guarantee (boros seat A, no opt-in) holds trivially.
+
+### Validation
+- 8 non-combo anchors **byte-identical post-edit** (re-ran eldrazi_tron 192, humans 125,
+  uw_control 447 -- all match the lock). Edits are isolated to `apl/yawgmoth_match.py`;
+  WANTS_BURN on yawgmoth only affects cells where yawgmoth is the active seat.
+- `tests/test_yawgmoth_combo_fires.py` PASS: forced-board reroute proof + 4 missing-piece
+  negative cases + combo-fires >= 1/50 in BOTH seat orientations (seat B 7/50, seat A
+  4/50 vs uw_control), SIM_DEBUG=1 (0 crashes, incl. yawgmoth piloting seat A).
+- `tests/test_grixis_reanimator_no_crash.py` PASS (50/50, no regression).
+
+### IMPERFECTION
+The `yawgmoth-combo-drain-list-mismatch` imperfection is RESOLVED for its literal scope
+(list aligned + combo assembles + damage reaches life). A NEW residual remains: the
+yawgmoth APL over-credits generic creature combat (race_baseline ~53.8%), keeping the
+cell below the [55,80] band. Tracked via the new `mismodeled_matchups.py` yawgmoth entry.
