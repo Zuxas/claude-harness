@@ -932,3 +932,64 @@ state-based-action recompute in the engine), staying APL-local if possible. Re-m
 **Estimated effort:** 1-2h.
 **Status:** OPEN
 **Created:** 2026-07-01
+
+---
+
+## Arc #6 Boros build-off findings (NEW 2026-07-01)
+
+All from the #6 build-off (`harness/knowledge/tech/boros-build-off-2026-07-01.md`, workflow wf_810be6e4-b0a).
+The build-off could not fairly settle "best Boros build" because 2 of 3 candidate builds carry unmodeled key
+cards; these entries are the modeling gaps that gate a real answer. See the memo for the full recommendation
+(Low Curve, PROVISIONAL).
+
+### umezawas-jitte-unmodeled-no-equip-engine (NEW 2026-07-01; HIGH; gates any Jitte build)
+**Source:** #6 build-off setup Jitte-fidelity gate (verdict UNMODELED).
+**What's not perfect:** Umezawa's Jitte (Legendary Equipment, newly unbanned May 2026) is entirely unmodeled.
+No `Umezawa's Jitte` key in `engine/card_handlers_verified.py`; equipment handlers are uniformly log-only stubs
+(Batterskull/Cranial Plating/etc.) with NO generic equip step, NO equipped-creature stat layer, and NO
+charge-counter-on-combat-damage hook in the combat path; none of the three modes (+2/+2 EOT, -1/-1, gain 2 life)
+exist. The only "Jitte" handler is `_lost_jitte_etb` (a DIFFERENT card). So a Jitte build's 3 Jitte are cast-inert
+dead blanks and its gauntlet WR reads strictly low (measured ~66% field-weighted = ~57-card deck + 3 blanks).
+Also `apl/death_and_taxes_match.py` concedes it "does NOT model Jitte counter accrual" — the D&T field stub is
+affected too.
+**Why not fixed now:** #6 scope was the build-off, not engine work (primer explicitly OUT).
+**Concrete fix:** (1) Umezawa's Jitte constant + artifact/equip cast path in `BorosEnergyMatchAPL` (and D&T);
+(2) a generic equip step + equipped-creature stat layer in the engine; (3) charge-counter-on-combat-damage hook
+in the combat path; (4) the three activated modes. Then re-run the #6 Jitte gauntlet for a believable number.
+**Estimated effort:** 6-10h (engine equip framework is the bulk; reusable for all Equipment).
+**Status:** OPEN
+
+### fable-mirror-breaker-unmodeled-in-boros-apl (NEW 2026-07-01; MEDIUM; gates the Fable build)
+**Source:** #6 build-off setup (advisor-surfaced second-order finding).
+**What's not perfect:** Fable of the Mirror-Breaker is not a card `BorosEnergyMatchAPL` casts — no constant and
+it is not a creature, so the section-8 fill-curve `Tag.CREATURE` gate never fires it. The 2 maindeck Fable in the
+Fable-consensus build are cast-inert dead blanks (a milder version of the Jitte gap; visible as the 49% mirror
+cell), so that build reads low (~61% vs paper). This is why the build-off's Fable ranking is not a fair read.
+**Why not fixed now:** #6 was the build-off; APL/engine change was OUT of scope.
+**Concrete fix:** Add a Fable of the Mirror-Breaker branch to `BorosEnergyMatchAPL` (Saga: chapter I Reflection
+of Kiki-Rikki treasure-rummage token, chapter II rummage, chapter III becomes Reflection = copy-a-creature).
+Re-measure the Fable build.
+**Estimated effort:** 2-3h.
+**Status:** OPEN
+
+### voice-of-victory-cast-lock-only-partial (NEW 2026-07-01; LOW-MEDIUM)
+**Source:** #6 build-off tuning lens (confounded the Voice-trim experiment).
+**What's not perfect:** Voice of Victory's "opponents can't cast spells during your turn" lock is only partially
+modeled — `engine/match_runner.py:1498` gates just the opponent END-STEP window, not the full during-your-turn
+lock. Voice is therefore under-credited, which inflated the Voice-4→3 tuning delta (made it look like a safe cut
+when it may not be). The Guide-of-Souls tuning call (which doesn't touch Voice) was the fidelity-clean one.
+**Why not fixed now:** Surfaced as a tuning confound; not #6's scope to fix.
+**Concrete fix:** Extend the cast-lock gate to cover the full controller-turn window (all opponent priority
+windows during your turn), then re-run the Voice-count A/B.
+**Estimated effort:** 1-2h + re-measure.
+**Status:** OPEN
+
+### mismodel-lookup-apostrophe-miss (NEW 2026-07-01; RESOLVED same day)
+**Source:** #6 build-off (three independent measure agents hit it).
+**What's not perfect:** `mismodeled_matchups._norm` lowercased + stripped hyphens but NOT apostrophes, while the
+stored key is apostrophe-less (`"goryos vengeance"`), so `lookup("Goryo's Vengeance")` returned None — the
+INFLATED flag was silently omitted from every gauntlet row for that cell, defeating the down-weight-flagged-cells
+safety mechanism the whole analysis relies on.
+**Concrete fix:** DONE — `_norm` now strips straight + curly apostrophes (mtg-sim commit on `modern-postban-arc`).
+Verified Goryo's resolves INFLATED; Grixis/Affinity/Living End unchanged.
+**Status:** RESOLVED (2026-07-01)
