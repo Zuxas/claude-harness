@@ -37,15 +37,6 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
-- `2026-07-01-affinity-offense-rebaseline.md` — Arc #3: fix `apl/affinity_match.py` to DEVELOP A
-  BOARD by implementing the entirely-unimplemented Urza's Saga Construct engine to oracle text
-  (0 Constructs/100 games today) + Thoughtcast CA + Munitions fidelity. Root cause held in all
-  board-gen verdicts; combat path is fine (`_resolve_combat` auto-attacks). Corrects two cited
-  errors: 63.5% "Modern lock" is FICTION (Eldrazi Tron field WR misattributed); the lowcurve cell
-  is NOT stale (~81-88% at HEAD; the ~76-80% reframe was a deck-substitution). Rejects Galvanic/
-  Frogmite reach (phantoms — SB-only/not-in-deck). All edits confined to `apl/affinity_match.py`;
-  mechanism-gated, no tune-to-44. Authored from read-only workflow wf_a65d79db-35c. Est ~240 min.
-
 - `2026-06-29-harness-orchestration-contract.md` — Adopt sandcastle's run()->RunResult domain model
   as the harness orchestration contract (IsolationStrategy enum, fork() distinct-key invariant,
   <promise>COMPLETE</promise> sentinel shared w/ Ralph, Output.object=Pydantic-retry). Build gated behind
@@ -87,6 +78,16 @@ each status. After a spec ships, it stays in this index forever.
 
 (retroactively populated -- see harness/specs/RETROACTIVE.md for the 14
 commits from 2026-04-26/2026-04-27 session that pre-date this directory)
+
+- `2026-07-01-affinity-offense-rebaseline.md` — Arc #3: implemented the missing Urza's Saga
+  chapter/Construct engine (oracle-faithful) + Thoughtcast CA + Munitions WANTS_BURN fidelity +
+  honest Mox-metalcraft mana in `apl/affinity_match.py` ONLY. mtg-sim commit `ae9cb12`. **SHIPPED
+  PARTIAL:** mechanism moved (Constructs 0->~24%, board power up, kill T6->T5, all 3 Boros builds
+  down comparably, non-Affinity byte-identical, no tuning) but the pinned lowcurve cell reached only
+  ~76% Boros / ~24% Affinity (from ~85.7%), NOT the ~44-56 band. Residual honestly attributed to
+  mana model / opponent overmodel + the construct being present in only ~24% of games (early-Saga/
+  tight-mana; honest {2},{T} gate NOT relaxed); the `izzet affinity` cell stays flagged INFLATED
+  (trust-direction). NOT tune-to-44. The first execution attempt was a NO-OP (superseded).
 
 - `2026-06-26-modelability-ladder.md` — R1-R5+warp engine-capability ladder on
   mtg-sim main (priority_stack.py, game_state.py _WARP_CARDS, modelability_proofs/

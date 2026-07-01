@@ -1,6 +1,6 @@
 ---
 title: "Affinity Offense Rebaseline (arc #3) — implement the missing Urza's Saga Construct engine; no Boros nerf, no tune-to-44"
-status: PROPOSED
+status: SHIPPED (PARTIAL — mechanism moved + oracle-faithful, cell did not reach 44-56 band; residual honestly attributed, not tuned away)
 created: 2026-07-01
 updated: 2026-07-01
 project: mtg-sim
@@ -9,10 +9,11 @@ related_findings:
   - harness/knowledge/tech/modern-apl-fidelity-audit-2026-06-30.md
   - (this spec authored from a read-only diagnose+verify+design workflow, run wf_a65d79db-35c, 2026-07-01)
 related_imperfections:
-  - izzet-affinity-cell-sign-inverted (IMPERFECTIONS.md — PRIMARY target)
-  - locked-modern-boros-affinity-baseline-stale-63.5 (IMPERFECTIONS.md:573 — 63.5 is CONFIRMED FICTION; correct it)
-  - engine-mp1-damage-dealt-discarded-for-nonstorm-decks (IMPERFECTIONS.md:598 — Munitions is one instance)
-related_commits: []
+  - izzet-affinity-cell-sign-inverted (IMPERFECTIONS.md — PRIMARY target; stays OPEN at post-fix ~76% Boros)
+  - locked-modern-boros-affinity-baseline-stale-63.5 (IMPERFECTIONS.md:573 — 63.5 is CONFIRMED FICTION; corrected)
+  - engine-mp1-damage-dealt-discarded-for-nonstorm-decks (IMPERFECTIONS.md:638 — Munitions is one instance; affinity now sets WANTS_BURN, engine gate still OPEN)
+  - affinity-construct-pt-stale-between-recomputes (IMPERFECTIONS.md — NEW shipped limit from this arc)
+related_commits: [ae9cb1297041228ccfae77f970d189a8bc33103b]
 supersedes: []
 superseded_by: []
 branch: (to author on modern-postban-arc or a fresh branch when executed)
@@ -218,7 +219,69 @@ neither.
   by this APL fix; need a `parallel_launcher` re-run (out of scope) — do not read them as post-fix
   truth.
 
+## Execution Amendment (2026-07-01, re-run) — SHIPPED; mechanism moved, direction correct, no tuning
+
+Second execution attempt (after the no-op below) IMPLEMENTED the engine. Commit
+`ae9cb1297041228ccfae77f970d189a8bc33103b` on `modern-postban-arc`. All code confined to
+`apl/affinity_match.py` (+ a new isolated test `tests/test_affinity_saga_construct.py`); no
+shared engine path, deck file, or Boros APL touched (byte-identical guard held; a stray
+deck-file rewrite caused by the modern test suite's `get_deck` was reverted before commit).
+
+**Prediction was written to disk BEFORE the after-WR was read** (scratchpad PREDICTION.md):
+~1 Construct/game arriving ~T4-6, P/T=artifact count (2-4), present ~50-65% (flagged it might
+fall below 55-70% on the honest {2},{T} gate — a FINDING, not a knob), Boros ~85%->~55-70%,
+Munitions <=2pp, all-3-Boros-builds down comparably.
+
+Pinned harness (BorosEnergyLowCurve seat A vs IzzetAffinity seat B, `run_match`, seat-alternating
+on_play=(i%2==0), seed=42+i, PYTHONHASHSEED=0). NOTE: the seat=42+i pin alone is NOT deterministic —
+the engine leaks the global `random` module (only `gs.rng` is seeded), giving ~±4pp run-to-run.
+Pinning the global RNG per game (`random.seed(42+i)`) at n=300 makes it reproducible; before/after
+measured identically under that pin.
+
+- **Gate 1 (board development): moved, partial.** peak ATTACKING board power median 0.0->1.0,
+  mean 2.94->4.53; %games-zero-attacking-power-ever 53.3->43.3 (Boros control 0%). Median <3 and
+  %zero >20% because the clock is present in only ~24% of games — the faithful MODEST-clock reality,
+  not a tuning failure.
+- **Gate 2 (construct fidelity): oracle-faithful, presence BELOW band.** Constructs 0->24.3% present,
+  arrival median ~T3, P/T median 5 (dynamic = live artifact count, 1-10), summoning-sick, {2},{T}
+  paid from honest pool, Saga sacrificed at III. Present-rate 24% < predicted/gate 55-70% — the
+  early-Saga/tight-mana finding (Saga scored to T1, chapter II at T2 with <2 non-Saga mana). NOT
+  closed by relaxing the honest gate (verified >=3-pool-forgo-Saga-{C} is the correct threshold;
+  Saga produces 1 flex via add_land). Unit tests assert chapter I->II->III, tutor+sac, turn-guard,
+  P/T==artifact-count, summoning-sickness, {2} actually paid, dynamic recompute (all PASS).
+- **Gate 3 (match-path clock): met (direction).** kill-turn-when-Aff-wins median 6->5.
+- **Gate 4 (WR direction): met.** Boros 85.7->76.0 / Aff 14.3->24.0 (n=300), DOWN because gates 1-3
+  moved. Residual above 44-56 EXPECTED (mana model / opponent overmodel); NOT closed by inflating
+  constructs. No overshoot (Aff 24% << 56%, stop-condition 2 clear).
+- **Gate 5 (anti-tuning discriminator): PASS (strongest guard).** All 3 Boros builds vs Affinity move
+  down comparably (n=200): standard 75.5->62.0 (-13.5), lowcurve 85.0->75.5 (-9.5), variant_jermey
+  82.5->72.5 (-10.0). A real clock, not a constant tuned to one cell.
+- **Gate 6 (field regression): PASS.** Affinity seat B vs 5 modern opponents (canonical decks, n=120,
+  opp WR): AmuletTitan 43.3->34.2, Murktide 67.5->59.2, MonoRed 59.2->47.5, DomainZoo 74.2->59.2,
+  EldraziTron 80.8->66.7. Matchup-differentiated (-8..-15pp), NOT a uniform >15pp spike. (An earlier
+  measurement ran against decks the modern test-suite's get_deck had transiently rewritten; the
+  within-run delta was still valid but the numbers here are the canonical-deck re-run.)
+- **Gate 7 (non-Affinity byte-identical): holds.** Only `affinity_match.py` changed; IzzetAffinityMatchAPL
+  is instantiated only for the Affinity seat, so non-Affinity cells are untouched.
+- **Gate 8 (Munitions cap): PASS.** WANTS_BURN on/off isolated delta = +0.0pp at n=300 (global-RNG
+  pinned) -- the earlier "-2pp" was n=100 noise. 6b is faithful (deals 2 on LEAVING, beatdown-gated,
+  not a free per-turn dump) and does not move the cell; a true footnote.
+
+**tuning_detected = false.** No construct size/timing/present-rate/burn was exposed as a knob dialed
+toward 44; the one sequencing experiment (defer Saga behind the first land) showed NO clear benefit
+under noisy measurement (raised construct presence but did not improve board dev or WR direction) and
+was REVERTED to the simpler faithful default (Saga = priority land drop). The `AFFINITY_COUNTER_COST` env-sweep (L58-60)
+is pre-existing and was not touched. The honest Mox-mana routing (metalcraft {C} into gs.mana_pool) is
+the largest single contributor and is real mana, not a discount. Status -> stays EXECUTING pending
+user review; tracker updates (`mismodeled_matchups.py`, IMPERFECTIONS) intentionally deferred out of
+the code commit to preserve the byte-identical/scope guard — apply as a separate docs commit.
+
 ## Closing Amendment (2026-07-01) — arc #3 execution was a NO-OP; verdict FAIL (work-not-done, NOT tuning)
+
+> **[SUPERSEDED — this block describes the FIRST arc-#3 execution attempt (null implementer). A
+> SECOND execution RE-RAN and IMPLEMENTED the engine (mtg-sim commit `ae9cb12`, see the Execution
+> Amendment above and the Synthesis Amendment below). The final verdict is NOT FAIL — it is PARTIAL:
+> mechanism moved, oracle-faithful, no tuning. Read this block as history, not the current state.]**
 
 The arc #3 executor produced a **null implementer result**. `apl/affinity_match.py` is byte-identical
 to pre-spec HEAD (git last-modified 2026-06-28 commit `0f3f458`, predating this spec); the mtg-sim
@@ -264,7 +327,92 @@ measured lowcurve figure (~81%), strips the fictional "63.5% Modern lock", and s
 `locked-modern-boros-affinity-baseline-stale-63.5` carry a post-execution note that arc #3 was a no-op
 and they remain OPEN at the pre-fix ~81% baseline (no post-fix numbers exist to record).
 
+## Synthesis Amendment (2026-07-01, FINAL) — overall verdict PARTIAL; SHIPPED; no tuning; residual honest
+
+This is the last word on arc #3, reconciling the two amendments above. Chronology: Created (PROPOSED) ->
+first execution NO-OP (FAIL, work-not-done) -> **second execution IMPLEMENTED the engine (mtg-sim commit
+`ae9cb1297041228ccfae77f970d189a8bc33103b`)**. The NO-OP Closing Amendment is history; this block +
+the Execution Amendment are the shipped state.
+
+**Overall: PARTIAL** (against the rubric: PASS requires the cell to reach ~44-56 by mechanism; PARTIAL =
+mechanism moved + oracle-faithful but cell short of band with an honest residual; FAIL = no move / tuning /
+scope leak / divergent build / overshoot). PARTIAL is correct and is a legitimate SHIP under this spec's own
+acceptance ("mechanism + direction, NEVER landing on 44").
+
+Three independent validation lenses (mechanism/board-development, anti-tuning discriminator, regression) all
+re-measured the real ae9cb12~1 -> ae9cb12 delta under the pinned `run_match` harness and agree:
+
+- **Mechanism moved, independently reproduced.** Constructs 0 -> ~19-24% present (arrival ~T2-3), peak
+  attacking board power mean ~2.94 -> ~4.5-5.7, %games-zero-attacking-power-ever ~53 -> ~41-43, kill-turn-
+  when-Aff-wins median 6 -> 5, alongside the WR move. The board curve moved in proportion to WR — not a flat
+  board with a tuned number.
+- **Construct is oracle-faithful, not oversized/hasted/early.** 0/0 base token, P/T == live artifact count
+  EXACTLY at every recompute (0 mismatches in 137 recompute calls, counts itself), summoning-sick at
+  creation, `{2},{T}` paid from honest pool with `cost_reduction` forced to 0 and a `>=3` pool gate (no
+  affinity/improvise discount), Saga tutored-then-sacrificed at chapter III (unit tests + code verified).
+- **Anti-tuning discriminator (Gate 5, strongest guard): PASS.** All three Boros builds fall comparably vs
+  the fixed Affinity across two seed bases (seed 42 n=200: standard -13.5 / lowcurve -9.5 / variant_jermey
+  -10.0; seed 1000 n=200: -13.5 / -12.0 / -14.0). A genuine clock helps vs every build; a constant tuned to
+  the lowcurve cell would not. Diff scan for a fitted knob = NEGATIVE (every new literal is oracle-derived;
+  the one discretionary number, the `>=3` mana gate, holds construct presence DOWN to ~24% rather than
+  inflating it — the opposite of tuning toward 44). The presence-raising Saga-sequencing experiment was
+  explicitly REVERTED because it did not improve board dev or WR direction.
+
+**Gates NOT fully met (honest ship-partial, NOT tuned toward):**
+
+- **Gate 1 (board development): thresholds partially met.** peak attacking power median 1 (gate >=3), %zero
+  ~41-43% (gate <20%). Direction correct; magnitude short BECAUSE the faithful clock is present in only ~24%
+  of games — the early-Saga/tight-mana finding, NOT a tuning failure.
+- **Gate 2 (construct fidelity): faithful, presence BELOW the naive 55-70% band** (~24%) — same early-Saga/
+  tight-mana finding. The honest `{2},{T}` gate was NOT relaxed to hit the band (verified `>=3`-pool /
+  forgo-Saga-`{C}` is the correct honesty threshold).
+- **Gate 4 (WR direction): met, residual EXPECTED.** Boros ~85.7 -> ~76.0 (Aff ~14.3 -> ~24.0, n=300 pinned)
+  DOWN because Gates 1-3 moved. Residual above 44-56 attributed to mana model / opponent overmodel; no
+  overshoot (Aff 24% << 56%, Stop condition 2 clear).
+
+**Regression (Gate 6) — reported honestly, correcting the implementer's characterization.** There is NO
+uniform >15pp Affinity-favor spike / no runaway (that is what Gate 6's stop condition targets, and it is
+absent). But the implementer's "no cell >15pp" is TOO STRONG across the full 17-cell field: the regression
+lens measured 6 cells breaching +15pp (Grixis Reanimator +20.0, Eldrazi Ramp +20.0, Izzet Prowess +18.8,
+Jeskai Blink +18.7, Eldrazi Tron +17.6, Boros +16.2) in a **differentiated all-positive gradient** (min
++0.0, max +20.0, mean +11.8, 0 adverse cells). Verdict is PASS on the differentiated-no-runaway criterion.
+Attribution: the +11.8pp field-wide mean is substantially the **deck-wide honest Mox-mana routing**
+(implementer's own "largest single WR contributor", present EVERY game), NOT the construct alone (present
+only ~24% of games and unable to lift every matchup double-digits by itself). Gate 7 (non-Affinity
+byte-identical) holds — CR-normalized full-tree scan finds exactly ONE tracked content file changed
+(`apl/affinity_match.py`); spot-checked non-Affinity cells are bit-identical pre/post. Gate 8 (Munitions
+cap) PASS at +0.0pp isolated (global-RNG-pinned; the earlier -2pp was n=100 noise).
+
+**Shipped known limit (new IMPERFECTIONS entry):** Construct P/T is recomputed once per main phase rather
+than continuously, so between recomputes a Construct can transiently exceed the current artifact count when
+artifacts leave (~80/253 combat-time observations were stale). Confirmed to be timing staleness (P/T is
+EXACT at recompute), not an inflation bug, and only present in the ~24% of games with a Construct. Tracked as
+`affinity-construct-pt-stale-between-recomputes`.
+
+**tuning_detected = false. tune_to_44 avoided.** No construct size/timing/present-rate/burn magnitude was
+exposed as a knob dialed toward 44; the `AFFINITY_COUNTER_COST` env-sweep fingerprint (L58-60) is pre-existing
+and untouched. Status -> **SHIPPED (PARTIAL)**; the cell stays flagged INFLATED (trust-direction) in
+`mismodeled_matchups.py`; the two source IMPERFECTIONS stay OPEN at the post-fix ~76% baseline (mechanism
+moved, still out of band). No cell was reverse-fit.
+
 ## Changelog
+- 2026-07-01 (synthesis): Reconciled the two prior amendments. Second execution IMPLEMENTED the engine
+  (commit ae9cb12); the NO-OP Closing Amendment describes the FIRST attempt and is marked SUPERSEDED inline.
+  Overall verdict **PARTIAL** (mechanism moved + oracle-faithful, cell short of the 44-56 band, residual
+  honestly attributed to mana model / opponent overmodel, NOT tuned away). Status EXECUTING -> SHIPPED
+  (PARTIAL); related_commits += ae9cb12; _index.md moved PROPOSED -> SHIPPED. Landed honest tracker updates:
+  mismodeled_matchups.py['izzet affinity'] set to post-fix pinned ~85.7->76.0, kept INFLATED/trust-direction;
+  IMPERFECTIONS izzet-affinity-cell-sign-inverted + locked-...-63.5 carry post-fix numbers and stay OPEN; new
+  entry affinity-construct-pt-stale-between-recomputes. Corrected the implementer's "no cell >15pp" (6 cells
+  breach +15pp in a differentiated no-runaway gradient) and credited the field-wide lift substantially to the
+  honest Mox-mana routing, not the ~24%-present construct.
+- 2026-07-01 (re-run): Arc #3 IMPLEMENTED. Urza's Saga chapter/Construct engine + Thoughtcast +
+  Munitions WANTS_BURN/beatdown fidelity + honest Mox-mana routing, all in apl/affinity_match.py.
+  Commit ae9cb12. Pinned n=300 (global-RNG-pinned): Boros 85.7->76.0 (Aff 14.3->24.0); board-power
+  median 0->1 / mean 2.94->4.53; %zero 53.3->43.3; Constructs 0->24.3%; kill median 6->5. Anti-tuning
+  discriminator PASS (3 Boros builds down comparably); field regression PASS (no uniform >15pp spike);
+  Munitions isolated -2pp. Construct present-rate 24% (below 55-70% band) = early-Saga/tight-mana
+  finding, gate NOT relaxed. tuning_detected=false. See Execution Amendment.
 - 2026-07-01: Arc #3 execution attempt was a NO-OP (implementer null; working tree clean). All
   mechanism gates FAIL because nothing was implemented; not tuning. Reverted status EXECUTING->PROPOSED;
   added Closing Amendment; landed honest tracker updates (mismodel + IMPERFECTIONS notes). See amendment.

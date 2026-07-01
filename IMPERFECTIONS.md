@@ -597,6 +597,15 @@ mechanism did not move — measured pre-fix baseline via the pinned `run_match` 
 PYTHONHASHSEED=0) is **~81% Boros / ~19% Affinity**, peak attacking power median 1.0, ~46% of games with
 zero attacking power ever, 0 Constructs / 100 games. Treat ~81% (not 63.5, not 88.5) as the current sim
 value going forward; entry remains **OPEN** at the pre-fix baseline. No post-fix numbers exist to record.
+**POST-FIX (2026-07-01, arc #3 re-run — SUPERSEDES the no-op note above):** A second execution IMPLEMENTED
+the Urza's Saga Construct engine (mtg-sim commit `ae9cb12`; verdict PARTIAL, mechanism moved + oracle-faithful,
+no tuning). Under the SAME pinned harness with the global RNG also pinned (n=300), the lowcurve cell now reads
+**~76.0% Boros / ~24.0% Affinity**, down from **~85.7% Boros** pre-fix under that identical pin (-9.7pp). NOTE
+the apples-to-apples pin is 85.7->76.0; the legacy ~81% was an n=100 non-global-pinned figure — do NOT compare
+81 vs 76. Mechanism: Constructs 0->~24% present, peak attacking board power mean 2.94->4.53, %zero-attacking-
+power-ever 53->43, kill-turn median 6->5. The cell did NOT reach band, so the entry stays **OPEN** and INFLATED
+(trust-direction); the residual is attributed to the mana model / opponent overmodel, NOT tuned away. Treat
+~76% Boros as the current sim value.
 
 ### mull-routing-london-vancouver-asymmetry-artifact (NEW 2026-07-01)
 
@@ -641,7 +650,7 @@ All entries below sourced from `harness/knowledge/tech/modern-apl-fidelity-audit
 **Why not fixed now:** Audit was diagnosis-only; this is a shared-engine change with broad blast radius (touches every direct-damage deck) — needs a TDD pass + locked-baseline + no-regression gate.
 **Concrete fix:** Propagate `damage_dealt` from mp1 and end-step regardless of WANTS_STORM (or add a WANTS_BURN flag), validate against Mono Red (target ~35-45% vs Boros) and re-baseline affected decks (Izzet Prowess, Boros Energy mirrors shift slightly). Also unblocks Ruby Storm's closing step.
 **Estimated effort:** 2-4h (engine change + no-regression sweep across direct-damage decks).
-**Status:** PARTIAL (2026-06-30, commit b305b47, spec 2026-06-30-modern-combo-interaction Amendment 1). Site 1 DONE: added `WANTS_BURN` flag and generalized the `match_runner.py:276` mp1 gate to `WANTS_STORM or WANTS_BURN`; verified 6.24 dmg/game now propagates for mono_red, all both-unflagged cells byte-identical. Site 2 (end-step) intentionally NOT built (diagnostic found no end-step killer in scope). Still OPEN: only mono_red is flagged so far; other direct-damage decks (yawgmoth, belcher, neoform/neobrand burn lines) remain latent until Component 3 flags them.
+**Status:** PARTIAL (2026-06-30, commit b305b47, spec 2026-06-30-modern-combo-interaction Amendment 1). Site 1 DONE: added `WANTS_BURN` flag and generalized the `match_runner.py:276` mp1 gate to `WANTS_STORM or WANTS_BURN`; verified 6.24 dmg/game now propagates for mono_red, all both-unflagged cells byte-identical. Site 2 (end-step) intentionally NOT built (diagnostic found no end-step killer in scope). Still OPEN: only mono_red is flagged so far; other direct-damage decks (yawgmoth, belcher, neoform/neobrand burn lines) remain latent until Component 3 flags them. **UPDATE (2026-07-01, arc #3 commit `ae9cb12`):** `IzzetAffinityMatchAPL` now also sets `WANTS_BURN=True` so its Munitions leave-trigger damage propagates (was computed then discarded). Isolated effect +0.0pp (global-RNG-pinned n=300) — a true footnote, faithful (deals 2 on LEAVING, beatdown-gated). The general engine-level gate stays OPEN for the remaining latent decks.
 **Created:** 2026-06-30
 
 ### esper-blink-unguarded-battlefield-remove-crash (NEW 2026-06-30; CRASH; Grixis-template twin)
@@ -893,3 +902,33 @@ PYTHONHASHSEED=0); 0 Constructs / 100 games; mechanism did not move. Correction 
 the "Galvanic Blast reach" premise is a PHANTOM (Galvanic is sideboard-only with no handler; not a
 maindeck clock) and Frogmite is not in the deck — the confirmed root cause is the entirely-unimplemented
 Urza's Saga Construct engine, NOT burn reach. Stays OPEN, INFLATED, trust-direction; no post-fix numbers exist.
+**POST-FIX (2026-07-01, arc #3 re-run — SUPERSEDES the no-op note above):** A second execution IMPLEMENTED the
+Urza's Saga chapter/Construct engine + Thoughtcast CA + Munitions WANTS_BURN fidelity + honest Mox-metalcraft
+mana (mtg-sim commit `ae9cb12`, `apl/affinity_match.py` ONLY; verdict **PARTIAL**). Sign is STILL inverted but
+the mechanism moved and is oracle-faithful (0/0 Construct, P/T = live artifact count, summoning-sick, {2},{T}
+from honest pool, Saga sac at chapter III). Post-fix pinned cell (n=300, global RNG pinned): ~76.0% Boros /
+~24.0% Affinity (was ~85.7% under the same pin). Constructs 0->~24% present; all three Boros builds fall
+comparably (anti-tuning discriminator PASS); non-Affinity cells byte-identical (only `affinity_match.py`
+changed); no uniform >15pp field spike (differentiated gradient, max +20pp). The cell did NOT reach the
+~44-56 band — construct present in only ~24% of games (early-Saga/tight-mana; honest {2},{T} gate NOT
+relaxed) + mana-model/opponent overmodel residual, NOT tuned away. Stays **OPEN**, INFLATED, trust-direction.
+
+### affinity-construct-pt-stale-between-recomputes (NEW 2026-07-01; shipped limit from arc #3)
+**Source:** harness/specs/2026-07-01-affinity-offense-rebaseline.md (arc #3, mtg-sim commit `ae9cb12`);
+mechanism/board-development validation lens.
+**What's not perfect:** The Urza's Saga Construct's P/T (0/0 base +1/+1 per artifact you control) is recomputed
+once per MAIN PHASE via `_count_artifacts`, not continuously. Oracle text is a static-ability characteristic-
+defining P/T that should update the instant artifact count changes. Between recomputes — e.g. when an artifact
+leaves during combat — the Construct can transiently show more power/toughness than the live artifact count
+justifies. Measured: ~80/253 combat-time samples were stale (e.g. 4 power with 1 artifact). Confirmed to be
+TIMING STALENESS, not an inflation bug: P/T is EXACT at every recompute (0/137 mismatches at recompute), and
+this only occurs in the ~24% of games where a Construct exists. It did not cause an overshoot (cell stayed at
+~24% Affinity, well under 56%).
+**Why not fixed now:** Arc #3 scope was mechanism + direction; a continuous CDA recompute would need either a
+per-combat-event hook or a shared-engine state-based recompute pass, and the APL-local `apl/affinity_match.py`
+constraint (byte-identical guard for non-Affinity cells) kept the recompute at main-phase granularity.
+**Concrete fix:** Recompute the Construct P/T at combat-declare and on each artifact zone-change (or move to a
+state-based-action recompute in the engine), staying APL-local if possible. Re-measure the stale-sample rate to 0.
+**Estimated effort:** 1-2h.
+**Status:** OPEN
+**Created:** 2026-07-01
