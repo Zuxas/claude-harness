@@ -2,9 +2,9 @@
 title: Interaction-Aware Modern Combo Opponents (handoff #2)
 status: EXECUTING
 created: 2026-06-30
-updated: 2026-07-01 (Component-3 RE-SCOPE after the mulligan falsification -- see amendment at EOF; supersedes the old per-deck Leverage order)
+updated: 2026-07-01 (Component-3 RE-SCOPE after the mulligan falsification, COMPLETE structural version -- see amendment at EOF; adds the interaction-spine + sampler dead-end + highest-leverage structural framing; supersedes the old per-deck Leverage order AND the earlier structurally-blind re-scope authoring in harness 8c6b15d)
 project: mtg-sim
-estimated_time: ~10-13 working sessions remaining (see the 2026-07-01 re-scope amendment; the rev-2 8-12 estimate is superseded)
+estimated_time: ~10-11 working sessions remaining (see the 2026-07-01 re-scope amendment; the rev-2 8-12 estimate is superseded)
 related_findings:
   - harness/knowledge/tech/modern-apl-fidelity-audit-2026-06-30.md
   - harness/knowledge/tech/boros-energy-postban-validation-2026-06-29.md
@@ -962,10 +962,18 @@ IMPERFECTIONS.md + the updated `mismodeled_matchups.py` grixis entry.
 This amendment is ADDITIVE (harness Rule 6). It does NOT rewrite the Component 3 body, Component 5
 gates, or the Stop conditions -- all of those remain in force verbatim. It SUPERSEDES exactly one
 thing: the old per-deck ordering (Component 3 "Leverage order" L421-429 and Component 7 step 3
-L623-624, both now breadcrumbed SUPERSEDED). Status stays **EXECUTING**. Scope of this amendment is
-DIAGNOSE + RE-PLAN only: no `mtg-sim` code, no `mismodeled_matchups.py` edits, no
+L623-624, both already breadcrumbed SUPERSEDED). Status stays **EXECUTING**. Scope of this amendment
+is DIAGNOSE + RE-PLAN only: no `mtg-sim` code, no `mismodeled_matchups.py` edits, no
 `landlessbelcher` registration land here -- those are named as the FIRST work unit (BATCH I0) for
 the executor, not performed in this pass.
+
+> **AUTHORING NOTE (2026-07-01, complete version).** This re-scope REPLACES an earlier, incomplete
+> authoring (harness commit `8c6b15d`) that was written WITHOUT the structural lens (the structural
+> diagnosis was null at that time). This version is the complete replacement and now carries the
+> STRUCTURAL analysis: section (b) below adds (1) the three highest-leverage structural fixes with
+> their explicit sense-of-unblock, (2) the interaction-spine status (Component 1 built + firing but
+> deliberately NON-load-bearing at G1), and (3) the sampler-bypass dead-end analysis. It supersedes
+> `8c6b15d`'s content; do not read the two as cumulative.
 
 ### (a) The mulligan lever is FALSIFIED -- every combo cell now rests on its REAL per-cell cause
 
@@ -983,8 +991,11 @@ spec, high confidence, PYTHONHASHSEED=0 seed=42 n=500):
   the +1.89pp "mechanic-only" delta is a **London-vs-Vancouver asymmetry ARTIFACT**, not a real edge.
 
 Consequence: the mulligan is EXCLUDED as a lever for every remaining combo cell. Each cell's re-plan
-below is re-pinned to its REAL binding cause. Three STALE IMPERFECTIONS are corrected here (text
-only -- this amendment does not edit `IMPERFECTIONS.md`):
+below is re-pinned to its REAL binding cause. Cross-checking each cell against the falsification
+(task-mandated), only ONE stale IMPERFECTION in the stub cluster leaned on the mulligan; the other
+stub cells (belcher/neobrand/neoform/temur_breach/broodscale) never invoked it and are unaffected.
+Three STALE IMPERFECTIONS are corrected here (text only -- this amendment does not edit
+`IMPERFECTIONS.md`):
 
 - **grixis** `...assembly-capped-by-crude-mulligan`: part (a) "run_match's crude inline mulligan" is
   the FALSIFIED lever (+3pp, not the ~24pp implied). grixis's REAL cap = (b) the 66-card `audit:stub`
@@ -1007,15 +1018,102 @@ only -- this amendment does not edit `IMPERFECTIONS.md`):
 
 **No combo cell's disposition depends on the mulligan any more.** The MULLIGAN LEVER IS EXCLUDED
 FROM EVERY STEP BELOW: no step routes through `_KEEP_ROUTED_APLS` / `_mull_mode`. The closest-to-the
--line move is grixis's real-60 decklist (BATCH D), which changes deck COMPOSITION -- orthogonal to
-keep-routing -- not the mulligan mode.
+-line move is grixis's real-60 decklist (BATCH GRIXIS-DECK), which changes deck COMPOSITION --
+orthogonal to keep-routing -- not the mulligan mode.
 
-### Diagnosis map -- REAL cause + disposition per cell (11 remaining cells)
+### (b) Structural diagnosis -- highest-leverage fixes, the interaction spine, and the sampler dead-end
+
+This section is the STRUCTURAL lens that the `8c6b15d` authoring lacked. It reframes the batches
+below around SHARED SEAMS, states what each structural move actually unblocks, and closes out two
+architecture questions (interaction load-bearing-ness; sampler bypass) so no executor re-opens them.
+
+**Three highest-leverage structural moves (ranked by breadth of cells unblocked):**
+
+1. **BATCH F -- combat-over-credit CHARACTERIZATION spike (in-scope; CHARACTERIZE-ONLY).** The
+   synthetic-combat credit in `_resolve_combat` is the SHARED band-binding cause for the widest set
+   of cells: yawgmoth (too LOW -- over-credits the OPPONENT board), gruul_broodscale (too HIGH 89 vs
+   55 -- UNDER-credits the combo), and post-re-seam living_end + temur_crashcade. This arc
+   CHARACTERIZES magnitude + sign ONLY (measure credited combat damage vs oracle P/T for yawgmoth,
+   note the sign for the other three) WITHOUT editing the resolver. *Sense of unblock = MAGNITUDE-
+   trust:* it is the prerequisite that lets those four combat-kill cells be trusted in MAGNITUDE (not
+   merely direction) and is what CERTIFIES broodscale's `fixable_to_band [45,65]`. The actual
+   resolver EDIT is a separate, larger, explicitly OUT-OF-SCOPE pass (see section (f)-(C)). Highest
+   in-scope leverage because it gates the widest set of cells.
+2. **BATCH I0 -- interim honesty flags + landlessbelcher registration (non-structural, trust-
+   critical, RANKED FIRST to EXECUTE).** Add belcher(3.5%) + neobrand(2.0%) + temur_crashcade(3.4%)
+   + ruby_storm(4.1%) to `mismodeled_matchups.py` in the INFLATED/STUB pattern, and register
+   `landlessbelcher -> BelcherMatchAPL`-alias (Sea-Gate caveat) to cure
+   `get_match_apl('landlessbelcher') == None` (the silent 0/0 field skip). *Sense of unblock =
+   HONEST-IN-AGGREGATE:* it makes ~13% of the modeled field carry a down-weight warning, the
+   believable-in-aggregate FLOOR that unblocks arc #5's gauntlet deck-choice memo -- legitimate
+   BECAUSE the combat-over-credit distortion is MIXED-SIGN and partially self-cancels once every
+   corrupted row is warned. It moves NO cell to band; it converts silent inflation into flagged
+   honesty. (Ranked FIRST to execute even though F is higher-leverage, because I0 is the arc-#5 gate.)
+3. **BATCH A -- cascade instant-speed `end_step` seam (ONE seam, TWO cells).** Add a
+   `main_phase2_match` that does NOT auto-cast the MV-0 payload and fire the cascade only via the real
+   gate at INSTANT speed in `end_step_actions` (reactive seat, opp end step; match_runner L1471/L1557,
+   spine #2 zone-moves propagate) routed through `gs.cast_spell` (earns the counter window for free).
+   living_end re-wires its inline payload (L135-178); temur_crashcade builds the Crashing-Footfalls
+   Rhino payload on the same seam. *Sense of unblock = DIRECTION for 2 cells* (both move DOWN from the
+   inflated ~96); band-landing stays gated on fix #1's characterization since the resolver is
+   untouched. Both COMBAT kills -> no Site 2 / no WANTS_BURN.
+
+**Interaction spine (Component 1) -- structurally DELIVERED, deliberately NON-load-bearing at G1.**
+The goal's (b) half -- "OUR interaction can ANSWER a combo" -- is STRUCTURALLY delivered by the
+built Component-1 layer (`engine/combo_interaction.py`: `ComboEvent` + `InteractionResult` +
+`offer_interaction()`, shipped inert in Amendment 1), double-gated: (i) structural -- the layer is
+reached ONLY when a combo APL calls `offer_interaction` at its decisive step, so a non-combo matchup
+never imports/executes it (byte-identical by construction); (ii) capability -- `offer_interaction`
+early-returns a no-op unless `getattr(opp_apl, 'WANTS_COMBO_INTERACTION', False)`. When an answer
+fires it mutates the SHARED aliased zone lists (counter->spell to GY; remove->body to GY/exile;
+gy_hate->exile GY fuel; discard->hand to GY), which propagate via spine #2, so the combo step is
+genuinely aborted. FIRST real consumer (grixis, Amendment 3): grixis calls
+`offer_interaction(kind=RESOLVE_THREAT)` at the reanimation/hardcast step; Boros flipped
+`WANTS_COMBO_INTERACTION=True` with an `answer_combo` modeling its ACTUAL maindeck answers (Thraben
+Charm >=3 creatures, Galvanic if energy visible, Bolt only vs tgh<=3, Thraben mode-3 GY exile). PROOF
+the threat model works: grixis wins 82% when the Archon is online (recurring attack trigger via
+`gs.damage_dealt`+WANTS_BURN; body recurs through destroy-only removal; Thoughtseize strips our
+answer). **WHAT REMAINS to make interaction load-bearing: NOTHING can/should make it load-bearing for
+a G1 Boros gate** -- Component 1's Critical constraint + Stop condition 2(d) FORBID it (maindeck
+Boros G1 has ~zero GY-hate/counters/discard; leaning on them = reverse-fit). Empirically
+`answer_combo` fires only 1-3/500 G1 because cheap burn cannot kill a 5-6 tgh reanimated body, energy
+is invisible in the reactive window, there is NO maindeck GY-hate, and the body RECURS through our
+destroy-only removal even when answered. The band is reached by the threat's INTRINSIC fragility
+(self-exile / destroy-only recursion), never by our interaction. The layer becomes load-bearing ONLY
+in (a) Bo3 sideboard games where Boros brings Rest in Peace/Surgical/counters (built for that
+generality but UNVALIDATED -- needs a future SB-aware spec) or (b) future interaction decks (UW
+control counters, dedicated GY-hate) that opt in. Load-bearing validation is therefore correctly
+DEFERRED, not incomplete: the seam exists, fires, and mutates shared zones today; only its G1 EFFICACY
+is (by design) near-zero. This is the reason every batch below reaches band (if at all) by DECK/APL
+fidelity + intrinsic fragility, never by wiring more Boros answers.
+
+**Sampler bypass -- CONFIRMED DEAD-END, unblocks ZERO arc-#2 cells (do not revive).** Clarifying the
+"two sevens": (i) the ~7 keys hard-coded in `ComboKillSampler.KILL_DISTS` (match_runner L1375-1383:
+dimir reanimator, lotus combo, cephalid breakfast, sneak and show, mono red painter, doomsday, bant
+nadu) are all Standard/Legacy combos -- NONE are arc-#2 Modern decks. VERIFIED structural fact:
+`ComboKillSampler` is constructed ONLY in `_run_single_match` (L1820) and the inline loop of
+`run_match_set` (L1876) -- the Bo3 path. `run_match` itself (L1731-1809) has NO sampler reference, so
+`full_field_gauntlet` / `bo3_gauntlet` / `gauntlet_any_deck` play combos OUT via their APL, and the
+arc-#2 combos are not in KILL_DISTS anyway, so they are played out on BOTH paths. Adding Modern keys +
+routing `run_match` through the sampler was PROTOTYPED 2026-06-29 and REJECTED: byte-identical for
+non-combo (borosenergy-vs-affinity 88.5==88.5) but FLOORS every combo cell far below primer (grixis
+75->16.5, fully-fixed 24.5, vs primer 38; goryos 92->22.5 vs 73; broodscale 90->24 vs 55; living_end
+97->22.5). The played-out APL (inverted-high) and the fully-fixed sampler (too pessimistic) BRACKET
+the primer but NEITHER hits it. (ii) DISTINCT from those 7 KILL_DISTS keys, there are exactly 7
+arc-#2 FIELD-ROW combo cells actually corrupted on the `run_match` FIELD path (ruby_storm, goryos,
+living_end, temur_crashcade, grixis, belcher, neobrand) -- those are addressed by BATCH I0 honesty
+flags + landlessbelcher registration, NOT by reviving the rejected sampler. The calibrated path is
+Component-1 interaction-aware modeling, full stop.
+
+### (c) Diagnosis map -- REAL cause + disposition per cell (11 remaining cells)
 
 Two of the 13 decks already executed (yawgmoth Amdt 2, grixis Amdt 3). The disposition of ALL cells
 is now pinned. **Disposition legend:** `improvable_stays_flagged` = the work improves DIRECTION-trust
 but the number stays flagged (no primer band, or pre-committed honest-failure); `fixable_to_band` =
-an oracle-anchored / measured mechanism can land the cell in its computed band.
+an oracle-anchored / measured mechanism can land the cell in its computed band. STUB LOCATION differs
+-> fix type differs: (A) DECKLIST-stub (author a real 60): grixis(66), belcher(64), neobrand(60);
+(B) APL-stub, deck REAL, fix = kill-line IN the APL: neoform(real 75), temur_breach(real Teg list),
+broodscale(real custom_variant). Do NOT call neoform/temur_breach/broodscale "stub decklist."
 
 | Cell | Field wt | REAL binding cause (mulligan excluded) | Disposition |
 |---|---|---|---|
@@ -1038,174 +1136,213 @@ an oracle-anchored / measured mechanism can land the cell in its computed band.
 field rows, so they do not corrupt field WR.) These inflations are on the `run_match` FIELD path
 specifically; the Bo3 `run_match_set` path samples belcher/neobrand/grixis via `combo_kill_dists`
 (they ARE in the format_config "combo" set) so Bo3 numbers are realistic. This is NOT a
-"sampler-bypass" cause (that fix was prototyped + rejected 2026-06-29) -- it is context. The cheap
-honest interim is BATCH I0 below.
+"sampler-bypass" cause (that fix was prototyped + rejected 2026-06-29 -- see section (b)) -- it is
+context. The cheap honest interim is BATCH I0 below.
 
-### (b) NEW execution plan -- shared-cause batches (replaces the per-deck Leverage order)
+**Scored-channel crux (why neobrand/neoform are improvable, not forever).** Griselbrand DRAWS (7 for
+7 life) and deals NO damage -- draw scores no clock in this engine. Disposition hinges on the
+kill-channel spike (BATCH GRIS-SPIKE): neoform's real list carries Xenagos + Ghalta (haste
+tramplers) + Ureni -> a plausible COMBAT terminus reachable via `_resolve_combat`, so lean improvable,
+NOT forever. broodscale is the best `fixable_to_band` CANDIDATE (favorable sign: stub shows us 89% /
+them 11%, so honest loop-modeling RAISES broodscale toward the ~55% primer -- the OPPOSITE of
+yawgmoth, whose stub over-credited its OWN combat and trapped it below band) but must be MEASURED
+before certifying.
 
-Grouped by SHARED ROOT CAUSE so one technique lands multiple cells:
+### (d) NEW execution plan -- shared-cause batches (replaces the per-deck Leverage order)
+
+Grouped by SHARED ROOT CAUSE so one technique lands multiple cells. Batch names align with the
+prioritized re-plan; letters are labels, not execution order (see section (e)).
 
 - **BATCH I0 -- interim honesty flags (~0.5 session, non-structural, trust-critical, RANKED FIRST).**
   Add belcher(3.5%), neobrand(2.0%), temur_crashcade(3.4%), ruby_storm(4.1%) to
-  `mismodeled_matchups.py` using the grixis/broodscale INFLATED pattern, and register
+  `mismodeled_matchups.py` using the grixis/broodscale INFLATED/STUB pattern (verified currently
+  flagged: only goryos/grixis/gruul_broodscale/living_end/yawgmoth), and register
   `landlessbelcher -> BelcherMatchAPL`-alias-with-a-documented-Sea-Gate-caveat to kill the silent
   0/0 skip. All the SAME silent-field-inflation class. No modeling; makes ~13% of field carry a
   down-weight warning.
+- **BATCH F -- combat-over-credit CHARACTERIZATION spike (structural, CHARACTERIZE-ONLY).** Measure
+  credited combat damage vs oracle P/T. Shared band-binding cause for yawgmoth (over-credits opp
+  board -> too LOW), gruul_broodscale (under-credits combo -> too HIGH 89), living_end + temur_crashcade
+  (post-reseam). Gates MAGNITUDE-trust for all four combat-kill cells and CERTIFIES broodscale's
+  [45,65]. The resolver EDIT itself is OUT-OF-SCOPE (section (f)-(C)); this arc characterizes
+  magnitude + sign only.
 - **BATCH A -- cascade instant-speed seam (living_end 6.5% + temur_crashcade 3.4%).** Shared
-  `cascade-sorcery-hardcast-no-instant-seam`. Build ONE shared seam: add `main_phase2_match` that
-  does NOT auto-cast the MV-0 payload; fire the cascade only via the real gate at INSTANT speed in
-  `end_step_actions` (reactive seat, opp end step) routed through `gs.cast_spell`. living_end
-  re-wires its inline Living End payload (L135-178); temur_crashcade builds the Crashing-Footfalls
-  suspend-flip Rhino payload from scratch. Both COMBAT kills -> NO Site 2 / NO WANTS_BURN.
-  Band-landing gated on BATCH F (out-of-scope).
-- **BATCH B -- storm payoff-fetch (ruby_storm 4.1% + temur_breach non-field).** Shared
-  `storm-payoff-fetch-unreachable`: model Wish->SB fetch of Grapeshot + Past-in-Flames storm-count
-  rebuild + rituals->count->payoff sequencing. Damage channel differs: ruby_storm WANTS_STORM mp1
-  sync ALREADY live (add payoff chain only, fixable_to_band); temur_breach needs a net-new
-  `TemurBreachMatchAPL` authored + registered in `MATCH_APL_REGISTRY` + WANTS_STORM + Wish->Grapeshot
-  /Empty resolution (improvable, no band).
-- **BATCH C -- reanimator GY-setup + threat-fragility (goryos_vengeance 3.5%, STANDALONE).**
-  `reanimator-gy-setup-and-threat-fragility`: model self-discard/loot to load a fatty in GY before
-  Goryo's, EOT self-exile UNLESS Ephemerate held (hypergeometric), route through `gs.cast_spell`,
-  `offer_interaction(resolve_threat)` on the 7/7 (self-exile fragility is the answer; GY-hate
-  non-load-bearing). Fixable_to_band [65,80]. Split OUT of grixis -- same diagnostic class, ZERO
-  shared work.
-- **BATCH D -- grixis real-60 decklist authoring (grixis_reanimator 2.4%, STANDALONE).** Threat
+  `cascade-sorcery-hardcast-no-instant-seam`. ONE shared seam: add `main_phase2_match` that does NOT
+  auto-cast the MV-0 payload; fire the cascade only via the real gate at INSTANT speed in
+  `end_step_actions` (reactive seat, opp end step) routed through `gs.cast_spell`. living_end re-wires
+  its inline Living End payload (L135-178); temur_crashcade builds the Crashing-Footfalls suspend-flip
+  two-4/4-Rhino payload from scratch. Both COMBAT kills -> NO Site 2 / NO WANTS_BURN. Band-landing
+  gated on BATCH F.
+- **BATCH GRIS-SPIKE -- Griselbrand kill-channel spike (neobrand 2.0% + neoform non-field).**
+  `griselbrand-payoff-unreachable-kill-channel-undecided`. Griselbrand DRAWS and scores no clock, so
+  this decide-first spike unblocks BOTH cells: pin the lethal terminus after Griselbrand-draw from
+  the REAL decklist -- neoform carries Xenagos+Ghalta+Ureni haste-tramplers -> plausible COMBAT
+  (`_resolve_combat`); neobrand pinned by its own list. Then model Pact->Allosaurus->Neoform->
+  Griselbrand sequencing + the Pact upkeep-trigger failure mode, route the pinned finish through a
+  SCORED channel. Both improvable (scored terminus reachable), gated on the spike.
+- **BATCH STORM -- storm payoff-fetch (ruby_storm 4.1% + temur_breach non-field).** Shared
+  `storm-payoff-fetch-unreachable`: storm count is real (~11 spells/game) but Grapeshot/Empty is
+  Wish/SB-gated and never converts. ruby_storm: model Wish->SB Grapeshot fetch + Past-in-Flames
+  second-payoff chain + Galvanic Relay alt line; cast payoff LAST via existing WANTS_STORM mp1 sync
+  (Site 1 already live) -> `fixable_to_band`. temur_breach: author a net-new `TemurBreachMatchAPL`
+  (WANTS_STORM + ritual->storm-count sequencing + Past-in-Flames) + resolve Wish->Grapeshot/Empty
+  reachability + register in `MATCH_APL_REGISTRY` -> improvable, no band.
+- **BATCH REANIM-GY -- reanimator GY-setup + threat-fragility (goryos_vengeance 3.5%, STANDALONE).**
+  `reanimator-gy-setup-and-threat-fragility`. grixis shares the threat-model CLASS but its threat
+  model already shipped (Amdt 3), so grixis is a separate decklist-only unit (BATCH GRIXIS-DECK) with
+  ZERO shared work. goryos: model self-discard/loot to load a fatty in GY before Goryo's at the
+  MEASURED `combo_kill_dists` rate {2:15,3:45,4:30,5:10}; model Goryo's EOT self-exile UNLESS
+  Ephemerate held (hypergeometric from copy-count -- fixes the current permanent-body bug); route
+  through `gs.cast_spell`; `offer_interaction(kind=resolve_threat)` on the 7/7 (Boros burn CANNOT
+  kill a 7/7 -> the self-exile fragility is the answer; GY-hate/counters NON-load-bearing per the
+  Component 1 Critical constraint). `fixable_to_band [65,80]`.
+- **BATCH BROODSCALE -- creature-stub-no-combo-loop (gruul_broodscale non-field).** Model the
+  Basking-Broodscale +1/+1-counter / Eldrazi-Spawn infinite loop + Grumgully payoff IN the APL (deck
+  is REAL `custom_variant`; only the loop is absent). Board size / assembly turn / body P/T from a
+  MEASURED goldfish kill-turn distribution + oracle stats, kept in COMBAT (`_resolve_combat`);
+  `offer_interaction(RESOLVE_THREAT)` checkpoints on the individually-removable pieces. Best
+  `fixable_to_band [45,65]` CANDIDATE; certify ONLY AFTER BATCH F.
+- **BATCH GRIXIS-DECK -- reanimator decklist-stub (grixis_reanimator 2.4%, STANDALONE).** Threat
   model ALREADY shipped (Amdt 3). Only work = author a non-stub `decks/grixis_reanimator_modern.txt`
   to replace the 66-card `audit:stub`; this lifts match P_assemble toward goldfish ~56% and moves
-  Boros DOWN via deck COMPOSITION (orthogonal to keep-routing). Pre-committed to STAY FLAGGED.
-- **BATCH E -- Griselbrand kill-channel spike + sequencing (neobrand 2.0% + neoform non-field).**
-  `griselbrand-payoff-unreachable-kill-channel-undecided`. SPIKE FIRST (gates both): pin the lethal
-  terminus after Griselbrand-draw from the REAL decklist -- neoform carries Xenagos+Ghalta+Ureni
-  haste-tramplers -> plausible COMBAT (`_resolve_combat`); neobrand pinned by its own list. Then
-  model Pact->Allosaurus->Neoform->Griselbrand sequencing + Pact upkeep-trigger failure, route the
-  pinned finish through a SCORED channel. Both improvable (scored terminus reachable), gated on the
-  spike.
-- **BATCH F -- combat over-credit re-model (yawgmoth non-field + gruul_broodscale non-field).**
-  Shared band-binding cause is `_resolve_combat` synthetic-combat credit -- but MIXED-SIGN, not
-  systematic (yawgmoth over-credits the OPPONENT board -> Boros too LOW [55,80]; broodscale
-  UNDER-credits the combo -> Boros too HIGH 89 vs 55). yawgmoth = faithfully DOWN-model the -1/-1
-  grind board to oracle P/T (REMOVES phantom damage); broodscale = MODEL the Basking-Broodscale
-  counter/Eldrazi-Spawn loop from a MEASURED goldfish kill-turn dist. broodscale is the best
-  fixable_to_band CANDIDATE [45,65] but shares the over-credit class -> certify only AFTER the
-  characterization spike (step 3). NOTE: the actual `_resolve_combat` EDIT is a SEPARATE, larger,
-  OUT-OF-SCOPE structural pass; this arc only CHARACTERIZES magnitude+sign.
-- **BATCH G -- landless-ritual Charbelcher bespoke kill (belcher 3.5% + landless_belcher folded-in).**
-  `landless-ritual-combo-bespoke-kill`. Net-new engine: hand-inject SSG/ritual mana into the match
-  view, custom Goblin Charbelcher activated ability routed via `gs.damage_dealt` + WANTS_BURN, Sea
-  Gate MDFC land-face drop. landless_belcher inherits this subsystem (belcher's rebuild ADDS Sea Gate
-  drops the landless variant lacks) -> gated on belcher landing; its ERROR already cured by I0's
-  alias. Both improvable, no band.
+  Boros DOWN toward truth ~38% via deck COMPOSITION (orthogonal to keep-routing). Field-WR honesty
+  work; PRE-COMMITTED to stay flagged.
+- **BATCH LANDLESS -- landless-ritual Charbelcher bespoke kill (belcher 3.5% + landless_belcher
+  folded-in).** `landless-ritual-combo-bespoke-kill`. Net-new engine: (1) hand-inject Elvish/Simian
+  Spirit Guide + ritual mana into the match view; (2) custom Goblin Charbelcher activated ability
+  routed via `gs.damage_dealt` + WANTS_BURN (scalar `opponent.life` is dropped, spine #3); (3) Sea
+  Gate Restoration MDFC land-face drop. landless_belcher inherits this subsystem (belcher's rebuild
+  ADDS Sea Gate drops the landless variant lacks) -> gated on belcher landing; its ERROR already cured
+  by I0's alias. Both improvable, no band.
+- **BATCH YAWGMOTH -- fair-plan combat over-credit down-model (yawgmoth non-field).** Faithfully
+  DOWN-model the pre-combo fair board to oracle P/T (a -1/-1 attrition grind, NOT a beatdown),
+  REMOVING phantom combat damage (Stop-2-safe). The combo channel (Cauldron->Ballista pings via
+  `gs.damage_dealt`+WANTS_BURN) is already faithful. Gated on BATCH F; dual-listed in flag-forever
+  (may upgrade only if MEASURED into [55,80]).
 
-### Ranked sequence + one-line gates (replaces the old ordering; gates are FUNCTIONS of observables)
+### (e) Ranked sequence + one-line gates (replaces the old ordering; gates are FUNCTIONS of observables)
 
 1. **[DO FIRST -- BATCH I0 flags + landlessbelcher register]** ~0.5 session. GATE: after edit, every
-   one of belcher/neobrand/temur_crashcade/ruby_storm resolves to a `mismodeled_matchups.py` INFLATED
-   entry AND `full_field_gauntlet` produces >0 games for landlessbelcher -- FAILS if any field row
-   still emits an un-warned ~100% Boros win or the slice is still silently skipped.
-2. **[STRUCTURAL -- BATCH A cascade seam, unblocks 2 cells]** ~0.75 session. GATE: with the seam
-   live, cascade fires at INSTANT speed on the opponent's end step through `gs.cast_spell` and the
-   MV-0 payload is NEVER sorcery-hardcast in mp2; fire rate rises from ~1/50 toward the real gate and
-   BOTH living_end & temur_crashcade move DOWN from ~96 -- FAILS if either still hardcasts the MV-0
-   spell or the number only drops by editing `_resolve_combat`.
-3. **[STRUCTURAL SPIKE -- BATCH F prerequisite, CHARACTERIZE-ONLY, unblocks 4 combat-kill cells]**
-   ~0.5-1 session. GATE: quantify credited combat damage vs oracle P/T for ONE deck (yawgmoth) and
-   note the sign for broodscale/living_end/crashcade, WITHOUT editing `_resolve_combat` this arc --
-   FAILS if the measurement requires touching the combat resolver (that is a separate out-of-scope
-   pass).
-4. **[SPIKE -- BATCH E kill-channel, unblocks 2 cells]** ~0.25-0.5 session. GATE: the Griselbrand
-   lethal terminus is pinned from each REAL decklist's payoff (neoform -> combat via
-   Xenagos+Ghalta+Ureni; neobrand -> its own list), NOT chosen to hit a target WR -- FAILS if the
-   channel is selected because it produces a nicer number.
+   one of belcher/neobrand/temur_crashcade/ruby_storm resolves to a `mismodeled_matchups.py`
+   INFLATED/STUB entry AND `get_match_apl('landlessbelcher') != None` (re-run the field-gauntlet load
+   with no silently-skipped slice) -- FAILS if any field row still emits an un-warned ~100% Boros win
+   or the slice is still silently skipped.
+2. **[STRUCTURAL -- BATCH F combat-over-credit CHARACTERIZATION, unblocks 4 combat-kill cells]**
+   ~0.5 session. GATE: produce a signed magnitude table (credited combat dmg vs oracle P/T) for
+   yawgmoth and note the sign for broodscale/living_end/temur_crashcade WITH NO edit to
+   `_resolve_combat` -- FAILS if any number requires touching the resolver (that is a separate
+   out-of-scope pass).
+3. **[STRUCTURAL -- BATCH A cascade seam, 2 cells]** ~0.75 session. GATE: with the seam live, both
+   living_end + temur_crashcade cascade fires at INSTANT speed on the opponent's end step through
+   `gs.cast_spell`, the MV-0 payload is NEVER sorcery-hardcast in mp2, and both WRs move DOWN from
+   ~96 -- FAILS if either still hardcasts the MV-0 spell or the number only drops by editing
+   `_resolve_combat`.
+4. **[SPIKE -- BATCH GRIS-SPIKE kill-channel, unblocks 2 cells]** ~0.25-0.5 session. GATE: a single
+   documented decision (combat vs burn/drain terminus) is pinned for neobrand AND neoform from each
+   REAL decklist's payoff (neoform -> combat via Xenagos+Ghalta+Ureni), NOT chosen to hit a target WR
+   -- FAILS if the lethal channel is left undecided or selected because it produces a nicer number.
 5. **[CELL -- ruby_storm 4.1%, fixable_to_band, highest field-wt x fixability / effort]** ~0.5
-   session. GATE: opponent-side ruby_storm WR measured INSIDE [3,35] (our WR [65,97]) with storm
-   count HELD at the ~11 it already executes and damage flowing only through the existing WANTS_STORM
-   mp1 sync -- FAILS if WR clears only by raising the count or adding phantom Grapeshot damage.
-6. **[CELL -- goryos_vengeance 3.5%, fixable_to_band]** ~1.5-2 sessions. GATE: WR lands [65,80] with
-   the combo firing at the FIXED `combo_kill_dists` {2:15,3:45,4:30,5:10} and EOT self-exile modeled
-   (hypergeometric P(Ephemerate)) -- FAILS if the fire rate was hand-adjusted or the body left
-   permanent to lift WR.
-7. **[CELL -- gruul_broodscale non-field, best fixable_to_band CANDIDATE; AFTER step 3]** ~1 session.
+   session. GATE: opponent-side ruby_storm WR measured INSIDE [3,35] (our WR [65,97]) via modeled
+   Wish->SB-Grapeshot + Past-in-Flames second-payoff chain with storm count HELD at the MEASURED ~11
+   and damage flowing only through the existing WANTS_STORM mp1 sync -- FAILS if WR clears only by
+   raising the count or adding phantom Grapeshot face damage.
+6. **[CELL -- goryos_vengeance 3.5%, fixable_to_band]** ~1.5-2 sessions. GATE: WR lands [65,80]
+   (primer 73) with the combo firing at the FIXED `combo_kill_dists` {2:15,3:45,4:30,5:10}, EOT
+   self-exile modeled (hypergeometric P(Ephemerate)), and the permanent-body bug fixed -- FAILS if the
+   fire rate was hand-adjusted or the body left permanent to lift WR.
+7. **[CELL -- gruul_broodscale non-field, best fixable_to_band CANDIDATE; AFTER step 2]** ~1 session.
    GATE: goldfish kill-turn distribution MEASURED before wiring the loop; modeled WR moves DOWN from
-   89 into [45,65], certified only against the step-3 over-credit characterization -- FAILS if board
+   89 into [45,65], certified only against the step-2 over-credit characterization -- FAILS if board
    size / assembly turn / P/T are dialed rather than measured.
-8. **[CELL -- living_end 6.5%, gated on steps 2+3]** re-seam ~0.75 session (within BATCH A). GATE:
-   post-re-seam measurement lands in [45,85] WITHOUT touching `_resolve_combat`; until step 3 lands,
-   trust DIRECTION (96 -> down) and keep the number flagged -- FAILS to upgrade to fixable_to_band if
-   band-landing needs a combat-credit edit.
-9. **[CELL -- temur_crashcade 3.4%, gated on steps 2+3]** ~0.5-0.75 session. GATE: after building
-   the Rhino payload on the shared seam, measurement lands in [45,85] WITHOUT touching
-   `_resolve_combat`; the I0 flag is already in place -- FAILS to upgrade if the bounded two-4/4
-   payoff still overshoots below 45 and only a combat-credit edit fixes it.
-10. **[CELL -- yawgmoth non-field, improvable]** ~1 session. GATE: honest DOWN-model of the -1/-1
-    grind board to oracle P/T; if that alone lands WR in [55,80] it upgrades, otherwise it STAYS
-    FLAGGED -- FAILS the honesty rule if any combat damage or assembly is ADDED to reach the band.
-11. **[CELL -- belcher 3.5%, improvable, no band]** ~1.5-2 sessions. GATE: real decklist +
-    hand-injected ritual/SSG mana + bespoke Charbelcher activation route lethal through
-    `gs.damage_dealt`+WANTS_BURN to MATCH life; direction becomes trustworthy (T2-3 combo no longer
-    auto-loses) -- no band to certify, stays a documented directional cell.
-12. **[CELL -- landless_belcher folded into belcher 3.5%, AFTER step 11]** ~0.5 session. GATE: after
-    belcher's Charbelcher subsystem lands, replace the I0 alias with a thin genuinely-landless
-    variant (no Sea Gate drops) -- silent-skip ERROR already cured by I0, so this is fidelity-only.
-13. **[CELL -- neobrand 2.0%, gated on step 4, improvable, no band]** ~1 session. GATE:
-    Pact->Allosaurus->Neoform->Griselbrand sequencing modeled and the step-4-pinned finish routed
-    through a scored channel; direction trustworthy, no band.
-14. **[CELL -- grixis_reanimator 2.4%, decklist-only, PRE-COMMITTED FLAGGED]** ~0.5 session. GATE:
-    author a real 60-card decklist; match P_assemble rises toward goldfish ~56% via COMPOSITION and
-    Boros moves DOWN toward truth ~38% -- pre-committed to STAY FLAGGED; FAILS the Stop condition if
-    P_assemble is dialed rather than emerging from the new opening distribution.
-15. **[CELL -- temur_breach non-field, improvable, no band, low priority]** ~0.5-1 session. GATE:
-    author+register `TemurBreachMatchAPL` with WANTS_STORM + Wish->Grapeshot/Empty resolution;
-    direction trustworthy, no band, no field weight.
-16. **[CELL -- neoform non-field, gated on step 4, low priority]** ~0.5-1 session. GATE: rewrite
-    `NeoformMatchAPL` dropping the flat +2 approximation, model sequencing to the step-4 combat
-    terminus; no field weight so lowest priority.
+8. **[CELL -- grixis_reanimator 2.4%, decklist-only, PRE-COMMITTED FLAGGED]** ~0.5 session. GATE:
+   author a real 60-card decklist; match P_assemble rises toward goldfish ~56% via COMPOSITION and
+   Boros moves DOWN toward truth ~38% -- pre-committed to STAY FLAGGED regardless of whether it clears
+   [25,45]; FAILS the Stop condition if P_assemble is dialed rather than emerging from the new opening
+   distribution.
+9. **[CELL -- belcher 3.5%, improvable, no band]** ~1.5-2 sessions. GATE: real decklist + hand-injected
+   ritual/SSG mana + bespoke Charbelcher activation route lethal through `gs.damage_dealt`+WANTS_BURN
+   to MATCH life; the T2-3 combo is no longer auto-lost 0/50; trust DIRECTION only (no primer band).
+10. **[CELL -- neobrand 2.0%, gated on step 4, improvable, no band]** ~1 session. GATE:
+    Pact->Allosaurus Shepherd->Neoform->Griselbrand sequencing routes the SPIKE-pinned finish through
+    a SCORED channel and the T1-2 combo is no longer auto-lost; direction only.
+11. **[CELL -- yawgmoth non-field, gated on step 2, improvable; dual-listed flag-forever]** ~1
+    session. GATE: honest DOWN-model of the -1/-1 grind board to oracle P/T; UPGRADES to fixable only
+    if MEASURED into [55,80] WITHOUT adding damage/assembly, else STAYS FLAGGED DEFLATED.
+12. **[CELL -- neoform non-field, gated on step 4, low priority]** ~0.5-1 session. GATE: rewrite
+    `NeoformMatchAPL` dropping the flat +2 approximation, close via the SPIKE-pinned combat terminus
+    (Xenagos/Ghalta/Ureni -> `_resolve_combat`) at T1-3; direction only. Low priority (no field weight).
+13. **[CELL -- temur_breach non-field, improvable, no band, low priority]** ~0.5-1 session. GATE:
+    author+register `TemurBreachMatchAPL` in `MATCH_APL_REGISTRY` with WANTS_STORM +
+    Wish->Grapeshot/Empty resolution; direction trustworthy, no band, no field weight.
+14. **[CELL -- landless_belcher folded into belcher 3.5%, AFTER step 9]** ~0.5 session. GATE: the
+    silent-skip ERROR is already cured by I0's alias; full fidelity only when belcher's Charbelcher
+    subsystem lands, then swap the alias for a thin genuinely-landless variant (no Sea Gate drops).
 
-### (c) Flag-forever cells (pre-committed outcomes; the work happens, the number stays flagged)
+### (f) Flag-forever cells -- TWO distinct reasons, kept separate (pre-committed outcomes)
 
-- **grixis_reanimator (2.4% FIELD ROW)** -- the ONE "has-a-band, faithfully-unreachable" cell:
-  band [25,45] exists, threat model already faithful, and the only remaining lever to move it further
-  is assembly tuning = Stop condition 2. BATCH D (real-60 decklist) moves it toward truth ~38% but
-  clearance is UNVERIFIED and (c) irreducible Boros pressure is part of the matchup. DUAL-LISTED
-  (ranked step 14 does the decklist for field-WR honesty; here it is pre-committed to stay flagged).
-  Not a contradiction -- the work happens, the number stays flagged, trust the direction (Boros is
-  the DOG).
-- **living_end (6.5% FIELD ROW)** -- NO primer band; direction-only by construction, permanently,
-  even fully re-seamed. Trust direction (INFLATED ~96 -> down). Improvable, not unimprovable.
-- **temur_crashcade (3.4% FIELD ROW)** -- NO primer band; direction-only permanently even after the
-  payload build. I0 adds the missing INFLATED/STUB flag.
-- **belcher (3.5% FIELD ROW)** -- NO primer band; direction-only permanently even after the
-  Charbelcher rebuild. Improving it makes the direction (T2-3 combo not auto-lost) trustworthy.
-- **neobrand (2.0% FIELD ROW)** -- NO primer band; direction-only permanently even after sequencing
-  lands. Improvable (scored terminus reachable post-spike).
-- **neoform (NON-field-row)** -- NO band; direction-only; NOT memo-relevant (zero field share).
-- **temur_breach (NON-field-row)** -- NO band; direction-only; NOT memo-relevant (the 3.4% "Temur
-  Crashcade" field row is a DIFFERENT deck).
-- **landless_belcher (NON-field-row, folded into belcher's 3.5%)** -- NO band; direction-only; its
-  silent-skip ERROR is the only certifiable defect and I0 cures it. NOT a distinct memo row.
-- **yawgmoth (NON-field-row, already executed Amdt 2)** -- stays flagged DEFLATED unless the BATCH F
-  honest down-model lands it in [55,80]; if honest combat still lands >50 or the deck is genuinely
-  ~even, it stays flagged (never add damage/assembly).
+**(A) HAS-A-BAND, faithfully-unreachable -- exactly ONE cell.**
+- **grixis_reanimator (2.4% FIELD ROW)** -- band [25,45] exists and the threat model is ALREADY
+  faithful (82% Archon-online, Amdt 3). The only remaining lever to move the number further is
+  assembly tuning = Stop condition 2. BATCH GRIXIS-DECK (author a real 60 to replace the 66-card
+  `audit:stub`) moves match P_assemble toward goldfish ~56% and Boros DOWN toward truth ~38% via deck
+  COMPOSITION (orthogonal to the FALSIFIED mulligan lever), but clearance of 45 is UNVERIFIED and
+  cause (c) irreducible legitimate Boros pressure is not removable. DUAL-LISTED: the decklist work
+  happens (ranked step 8) for field-WR honesty, but the cell is PRE-COMMITTED to STAY FLAGGED -- trust
+  the DIRECTION (Boros is the DOG at ~38), never the number. The ONLY cell in this class.
 
-### (d) Trustworthy-minimum slice that unblocks arc #5 (gauntlet deck-choice memo)
+**(B) NO PRIMER BAND -> direction-only FOREVER by construction, regardless of work.**
+- **living_end (6.5% FIELD ROW)** -- direction-only forever; after BATCH A trust INFLATED ~96 -> down;
+  nothing to certify a number against. Improvable, not unimprovable.
+- **temur_crashcade (3.4% FIELD ROW)** -- direction-only forever; silently unflagged today -> I0
+  supplies the INFLATED/STUB flag; BATCH A moves it down.
+- **belcher (3.5% FIELD ROW)** -- direction-only forever; after the Charbelcher rebuild the T2-3 combo
+  is no longer auto-lost, but no number to certify.
+- **neobrand (2.0% FIELD ROW)** -- direction-only forever; after rebuild + GRIS-SPIKE the T1-2 combo
+  is no longer auto-lost, but no number to certify.
+- **neoform (NON-field row)** -- direction-only; NOT memo-relevant (zero field share).
+- **temur_breach (NON-field row)** -- direction-only; NOT memo-relevant (the 3.4% "Temur Crashcade"
+  field row is a DIFFERENT deck).
+- **landless_belcher (NON-field row, folded into belcher's 3.5%)** -- direction-only; its only
+  certifiable defect is the silent-skip ERROR, cured by I0. NOT a distinct memo row.
 
-Arc #5 consumes FIELD WR. The **MINIMUM believable floor = BATCH I0** (add belcher 3.5% + neobrand
-2.0% + temur_crashcade 3.4% + ruby_storm 4.1% to `mismodeled_matchups.py`, register landlessbelcher
-to end the silent 0/0 skip). RATIONALE: I0 is a legitimate aggregate floor SPECIFICALLY BECAUSE the
-combat-over-credit distortion is MIXED-SIGN, not systematic (yawgmoth over-credits the opponent ->
-Boros too LOW; broodscale under-credits the combo -> Boros too HIGH; living_end/crashcade over-credit
-post-seam) -- the signs partially offset, so once every corrupted row carries a down-weight warning
-the memo is non-misleading IN AGGREGATE. What I0 does NOT buy is per-matchup MAGNITUDE. For the memo
-to be trustworthy at the per-matchup level also requires: **ruby_storm (step 5) + goryos (step 6)**
-converted to certified in-band, and the **S2 combat-over-credit CHARACTERIZATION (step 3)** so
-living_end/temur_crashcade/broodscale/yawgmoth can be trusted in MAGNITUDE not merely direction.
-So: **I0 = believable-in-aggregate floor; I0 + ruby + goryos + S2-characterization =
-believable-per-matchup.** Everything past that is per-deck fidelity that improves direction-trust but
-not the memo's certifiability (no-band cells) or is pre-committed-flagged (grixis).
+**(C) DEEP-ENGINE band-binder OUT OF SCOPE -- one cell, FALSIFIABLE upgrade.**
+- **yawgmoth (NON-field row, executed Amdt 2)** -- stays flagged DEFLATED (49.0% < floor 55) because
+  its binding constraint is the `_resolve_combat` synthetic-combat over-credit, whose actual EDIT is a
+  separate, larger, explicitly OUT-OF-SCOPE structural pass (this arc only CHARACTERIZES it, BATCH F).
+  FALSIFIABLE UPGRADE: leaves flag-forever ONLY if the in-scope honest oracle-P/T down-model is
+  MEASURED into [55,80] without adding damage/assembly.
 
-Revised remaining estimate: **~10-13 sessions** to touch every cell (supersedes the rev-2 8-12).
+**NOT flag-forever (correction).** gruul_broodscale (NON-field) is the best `fixable_to_band`
+CANDIDATE [45,65] -- it reaches band by MODELING the Basking-Broodscale counter / Eldrazi-Spawn loop
+from a MEASURED goldfish kill-turn distribution (per-deck work), certified only AFTER the BATCH F
+characterization. It shares the combat-over-credit CLASS but is reparable within scope, so it is NOT
+flag-forever.
 
-### (e) Number-forcing discipline + stop conditions -- UNCHANGED
+### (g) Trustworthy-minimum slice that unblocks arc #5 (gauntlet deck-choice memo)
+
+Arc #5 consumes FIELD WR. The **MINIMUM believable floor = BATCH I0 ALONE** (~0.5 session): add
+belcher 3.5% + neobrand 2.0% + temur_crashcade 3.4% + ruby_storm 4.1% to `mismodeled_matchups.py`,
+register landlessbelcher to end the silent 0/0 skip. RATIONALE (straight from structural fix #2): I0
+is a legitimate aggregate floor SPECIFICALLY BECAUSE the combat-over-credit distortion is MIXED-SIGN,
+not systematic (yawgmoth over-credits the opponent -> Boros too LOW; broodscale under-credits the
+combo -> Boros too HIGH; living_end/crashcade over-credit post-seam) -- the signs partially offset, so
+once every corrupted row carries a down-weight warning and its sign is known (the diagnosis already
+states the signs), the memo is non-misleading IN AGGREGATE. The memo needs the flags + sign, NOT the
+magnitudes. What I0 does NOT buy is per-matchup MAGNITUDE. For the memo to be trustworthy at the
+per-matchup level ALSO requires: **ruby_storm (step 5) + goryos (step 6)** converted to certified
+in-band, and the **BATCH F combat-over-credit CHARACTERIZATION (step 2)** so
+living_end/temur_crashcade/broodscale/yawgmoth can be trusted in MAGNITUDE not merely direction. So:
+**I0 = believable-in-aggregate floor; I0 + ruby + goryos + F-characterization = believable-per-
+matchup.** Everything past that is per-deck fidelity that improves direction-trust but not the memo's
+certifiability (no-band cells) or is pre-committed-flagged (grixis). **HARD gate: do NOT ship the memo
+while any field combo row is silently unflagged.**
+
+Revised remaining estimate: **~10-11 sessions** to touch every cell (supersedes the rev-2 8-12).
+TRUSTWORTHY-MINIMUM slice before arc #5 = **BATCH I0 alone (~0.5 session)**; RECOMMENDED (not
+required) add-on = **BATCH A (~+0.75 session)** if the memo needs the NUMBERS right on the single
+largest combo row (living_end 6.5%) rather than just its flag + direction.
+
+### (h) Number-forcing discipline + stop conditions -- UNCHANGED
 
 **Stop conditions 1-4 and the Component 5 number-forcing rule are UNCHANGED by this amendment: the
 falsification adds no stop condition and removes none.** Every `fixable_to_band` cell (ruby, goryos,
@@ -1221,16 +1358,16 @@ tripwires (Stop condition 2 guards):
   tripwire cell).
 - **broodscale** -- HIGH temptation to dial board size / assembly turn / body P/T to land [45,65]
   (favorable-sign stub invites it). GUARD: all three from a MEASURED goldfish kill-turn distribution
-  + oracle stats; measure BEFORE wiring the APL; certify only AFTER the step-3 characterization.
+  + oracle stats; measure BEFORE wiring the APL; certify only AFTER the BATCH F characterization.
 - **ruby_storm** -- temptation to inflate storm count or add phantom Grapeshot damage. GUARD: storm
   count stays the ~11 already executed; model ONLY the payoff CHAIN; damage flows through the
   existing WANTS_STORM mp1 sync, zero new damage added.
 - **goryos** -- temptation to hand-set the combo-fire rate to land 73%. GUARD: fire at the FIXED
   `combo_kill_dists` {2:15,3:45,4:30,5:10}; band-reaching levers are EOT self-exile fragility + our
   race, both oracle/hypergeometric.
-- **yawgmoth** -- temptation, if honest down-model leaves WR outside [55,80], to ADD
-  combat/assembly. GUARD: the ONLY move is REMOVING phantom combat to oracle P/T; if honest combat
-  still lands >50 or the deck is genuinely even, it STAYS FLAGGED.
+- **yawgmoth** -- temptation, if honest down-model leaves WR outside [55,80], to ADD combat/assembly.
+  GUARD: the ONLY move is REMOVING phantom combat to oracle P/T; if honest combat still lands >50 or
+  the deck is genuinely even, it STAYS FLAGGED.
 - **living_end / temur_crashcade** -- temptation to tune the returned-team / Rhino combat credit to
   land [45,85]. GUARD: `_resolve_combat` is OUT OF SCOPE this arc; re-seam only; upgrade to
   fixable_to_band ONLY on a post-re-seam measurement in [45,85] with the combat resolver untouched.
