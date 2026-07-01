@@ -1,5 +1,5 @@
 # harness/specs/ -- Spec Index
-# Last updated: 2026-06-27
+# Last updated: 2026-07-01
 
 Chronological list of all execution specs by status. Newest first within
 each status. After a spec ships, it stays in this index forever.
@@ -14,6 +14,12 @@ each status. After a spec ships, it stays in this index forever.
   and Gate 1 (crude-both byte-identical). Steps 5 (5-mode WR decomposition) + 6 (trackers/findings/
   predecessor stub) OPEN. Full-field flip blocked on the id()-ordering stabilization predecessor.
   Code committed in mtg-sim (ea737ae + 4762ab9). Branch `modern-postban-arc`.
+  **Amendment 2 (2026-07-01): Steps 5-6 DONE — HYPOTHESIS FALSIFIED.** The mulligan does NOT
+  unstarve combo assembly (grixis +3pp iso, WR flat; yawgmoth assembly FELL). 5-mode decomposition:
+  keep-quality self-help −0.17pp (negligible), but +1.89pp mechanic-only London-vs-Vancouver
+  ARTIFACT = ~the entire shipped M2 gain. Shipped cells are M2 (+1.71pp), only Boros-vs-Amulet is
+  M3. Findings: mull-routing-falsification-2026-07-01.md. Flags committed 002e9df. ONE open decision:
+  keep vs revert the artifact-only slice (IMPERFECTION mull-routing-london-vancouver-asymmetry-artifact).
 
 - `2026-06-30-modern-combo-interaction.md` -- Interaction-aware Modern combo opponents (handoff #2).
   SPINE increment executed 2026-06-30 (Mid-execution Amendment 1): Component 2 Site 1 (mp1
@@ -30,6 +36,15 @@ each status. After a spec ships, it stays in this index forever.
   **Status:** Stage A in queue, blocked on 100k canonical Task 2 completion.
 
 ## PROPOSED
+
+- `2026-07-01-affinity-offense-rebaseline.md` — Arc #3: fix `apl/affinity_match.py` to DEVELOP A
+  BOARD by implementing the entirely-unimplemented Urza's Saga Construct engine to oracle text
+  (0 Constructs/100 games today) + Thoughtcast CA + Munitions fidelity. Root cause held in all
+  board-gen verdicts; combat path is fine (`_resolve_combat` auto-attacks). Corrects two cited
+  errors: 63.5% "Modern lock" is FICTION (Eldrazi Tron field WR misattributed); the lowcurve cell
+  is NOT stale (~81-88% at HEAD; the ~76-80% reframe was a deck-substitution). Rejects Galvanic/
+  Frogmite reach (phantoms — SB-only/not-in-deck). All edits confined to `apl/affinity_match.py`;
+  mechanism-gated, no tune-to-44. Authored from read-only workflow wf_a65d79db-35c. Est ~240 min.
 
 - `2026-06-29-harness-orchestration-contract.md` — Adopt sandcastle's run()->RunResult domain model
   as the harness orchestration contract (IsolationStrategy enum, fork() distinct-key invariant,

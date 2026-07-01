@@ -41,6 +41,42 @@ Cost of ignoring: <what goes wrong if you skip this lesson>
 
 ## Open lessons
 
+### goldfish-vs-match-gap-conflates-channels
+
+**Discovered:** 2026-07-01 via 2026-06-30-match-mulligan-keep-routing spec, Amendment 2
+(finding: mull-routing-falsification-2026-07-01.md)
+**One-line:** A "sim feature Y starves outcome X" hypothesis inferred from a *goldfish-vs-match*
+gap is suspect — that gap bundles the ENTIRE opponent-pressure channel, not just feature Y.
+Isolate Y with a controlled A/B before attributing the whole gap to it.
+
+**Background:** The mulligan keep-routing spec was premised on "crude mulligan starves combo
+assembly," evidenced by grixis assembling ~32% in-match vs ~56% in goldfish. That 24pp gap was
+read as the mulligan's fault. A controlled isolation (hold Boros=keep, flip only grixis
+crude→keep) moved assembly just ~+3pp with ZERO WR change. The other ~21pp was legitimate Boros
+pressure (racing/removing before assembly) + a 66-card stub decklist — both bundled into the
+goldfish-vs-match gap because goldfish has NO opponent at all. The pivot (and ~1.5 sessions of
+engine work) was spent on a lever that turned out to be ~1/8 of the effect.
+
+**How to apply:**
+1. When a gap between two sim MODES (goldfish vs match, mode-A vs mode-B) motivates a fix, list
+   EVERY variable that differs between the two modes, not just the one you're about to change.
+   Goldfish-vs-match differs by: opponent existence, opponent pressure, opponent interaction,
+   AND the feature under test — at minimum.
+2. Before committing to the fix, run a single controlled A/B that flips ONLY the feature under
+   test and holds everything else. Attribute only the measured isolated delta to the feature.
+3. Write the isolated-delta prediction into a Gate BEFORE building the fix. If the isolated A/B
+   is cheap (it usually is — one flag flip), it is a mandatory pre-flight, not a validation step.
+4. Pair every "X starves Y" claim with the question "starves relative to WHAT baseline, and what
+   ELSE changed in that baseline?"
+
+**Anti-pattern:** Reading a large goldfish-vs-match (or any two-mode) gap and attributing all of
+it to the one feature you already suspect / already want to build. Confirmation bias dressed as
+evidence.
+
+**Cost of ignoring:** A whole spec + engine slice built on a falsified premise. Here: a shipped
+change whose only measured effect was a modeling artifact, and a combo re-plan delayed by a
+session because the real causes (stub list, combat over-credit, legit pressure) were masked.
+
 ### per-iteration-vs-cross-iteration-state-changes
 
 **Discovered:** 2026-04-27 via Phase 3.5 Stage A spec, Mid-execution Amendment 1 **One-line:** When refactoring per-iteration logic into accumulator logic over a collection, audit every assert/state-change inside the loop for whether it should be per-item or cross-item.

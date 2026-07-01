@@ -578,6 +578,40 @@ When closing an imperfection:
 **Concrete fix:** Improve apl/affinity_match.py's clock (overlaps combo-decks-not-sampled + a general Affinity offense pass); re-baseline the locked doc number. Until then treat 88.5% as the current sim value, ~63.5% as an unverified legacy target.
 **Estimated effort:** 2-3h
 **Created:** 2026-06-29
+**CORRECTION (2026-07-01, read-only diagnose+verify workflow wf_a65d79db-35c):** Two facts in this
+entry were wrong. (1) **63.5% is CONFIRMED FICTION** — it was never a Boros-vs-Affinity cell. It is
+Eldrazi Tron's field-weighted WR (`harness/knowledge/mtg/gauntlet-modern-2026-05-10.md` L19/L32),
+misattributed by a subagent's fabricated "63.5=63.5 empirical" claim; the validation doc already
+flagged it as fiction. The genuine historical Boros-vs-Affinity value was ~95.2% goldfish-wrapped
+(L29). Do NOT treat 63.5 as any kind of target. (2) The **88.5% (lowcurve) cell is NOT stale** — it
+reproduces at HEAD (~81-88% depending on seat-mix/n). REJECT the "~76-80% is the real number"
+reframe: that substituted `boros_energy_modern` (standard, ~77% after the 2026-06-30 Phlage cut) for
+the primer's actual opponent `boros_energy_lowcurve`. The real root cause is code-confirmed: the
+Urza's Saga Construct engine in `apl/affinity_match.py` is entirely unimplemented (0 Constructs / 100
+games). Full fix designed in `harness/specs/2026-07-01-affinity-offense-rebaseline.md` (PROPOSED, arc
+#3). The "~44 truth" target has no empirical anchor (no post-ban Modern DB data) — the fix is gated
+on mechanism, not on hitting 44.
+
+### mull-routing-london-vancouver-asymmetry-artifact (NEW 2026-07-01)
+
+**Status:** OPEN (shipped-slice fidelity; keep-vs-revert decision pending user)
+**Source:** harness/knowledge/tech/mull-routing-falsification-2026-07-01.md; spec
+2026-06-30-match-mulligan-keep-routing.md Amendment 2; commit ea737ae
+**What's not perfect:** The shipped Boros+Amulet keep-routing slice enables the London mulligan
+(see-7/bottom-N/cap-4) for Boros+Amulet while every opponent stays on crude Vancouver (cap-3). The
+5-mode decomposition attributes +1.89pp of Boros's aggregate WR to this MECHANIC ASYMMETRY (mirror of
+number-forcing), while the keep-quality benefit is −0.17pp (negligible). Since shipped cells are
+{keep,crude}=M2 (only Boros-vs-Amulet is genuine M3), the artifact ≈ the ENTIRE +1.71pp shipped gain
+— i.e. the slice's only real effect is the artifact. It inflates Boros's absolute field WR ~1.7pp,
+contaminating arc #5 (gauntlet field WR) and #6 (Boros build absolute numbers; relative build ranking
+is ~common-mode and likely fine).
+**Concrete fix:** Either (a) revert the production flip (keep the `_do_mulligan_runner` refactor + the
+3 modes + tests; default `_KEEP_ROUTED_APLS` back to empty/crude) so no asymmetry ships; or (b) keep
+it and neutralize the asymmetry by giving the full field the London mechanic — BLOCKED on the
+`full-field id()-ordering stabilization` predecessor spec. Until resolved, downstream consumers must
+discount Boros absolute field WR by ~1.7pp.
+**Estimated effort:** (a) ~15 min; (b) blocked on predecessor (days).
+**Created:** 2026-07-01
 
 ### anthropic-sdk-not-installed-blocks-llm-judge-scorer (NEW 2026-06-29)
 
