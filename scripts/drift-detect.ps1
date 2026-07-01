@@ -81,7 +81,7 @@ function Write-Color {
 # ---------------------------------------------------------------------------
 
 function Check-LoadBearingWIP {
-    Write-Color "[1/9] Load-bearing WIP detection..." "Cyan"
+    Write-Color "[1/10] Load-bearing WIP detection..." "Cyan"
 
     if (-not (Test-Path $mtgSimRoot)) {
         Add-Finding "WARN" "load-bearing-wip" "mtg-sim repo not found at $mtgSimRoot"
@@ -148,7 +148,7 @@ function Check-LoadBearingWIP {
 # ---------------------------------------------------------------------------
 
 function Check-RegistryConsistency {
-    Write-Color "[2/9] APL registry consistency..." "Cyan"
+    Write-Color "[2/10] APL registry consistency..." "Cyan"
 
     if (-not (Test-Path $mtgSimRoot)) {
         Add-Finding "WARN" "registry-consistency" "mtg-sim repo not found"
@@ -192,7 +192,7 @@ function Check-RegistryConsistency {
 # ---------------------------------------------------------------------------
 
 function Check-StaleArchitecture {
-    Write-Color "[3/9] Stale ARCHITECTURE.md detection..." "Cyan"
+    Write-Color "[3/10] Stale ARCHITECTURE.md detection..." "Cyan"
 
     if (-not (Test-Path $archMd)) {
         Add-Finding "WARN" "stale-architecture" "ARCHITECTURE.md not found at $archMd"
@@ -259,7 +259,7 @@ function Check-StaleArchitecture {
 # ---------------------------------------------------------------------------
 
 function Check-StaleFindings {
-    Write-Color "[4/9] Stale findings docs..." "Cyan"
+    Write-Color "[4/10] Stale findings docs..." "Cyan"
 
     if (-not (Test-Path $knowledgeTech)) {
         Add-Finding "WARN" "stale-findings" "$knowledgeTech not found"
@@ -311,7 +311,7 @@ function Check-StaleFindings {
 # ---------------------------------------------------------------------------
 
 function Check-SpecStatusDrift {
-    Write-Color "[5/9] Spec status drift..." "Cyan"
+    Write-Color "[5/10] Spec status drift..." "Cyan"
 
     if (-not (Test-Path $specsDir)) {
         Write-Color "       SKIP -- $specsDir not present yet" "Yellow"
@@ -361,7 +361,7 @@ function Check-SpecStatusDrift {
 # ---------------------------------------------------------------------------
 
 function Check-Imperfections {
-    Write-Color "[6/9] Imperfections registry health..." "Cyan"
+    Write-Color "[6/10] Imperfections registry health..." "Cyan"
 
     $imperfPath = "$harnessRoot\IMPERFECTIONS.md"
     if (-not (Test-Path $imperfPath)) {
@@ -391,7 +391,7 @@ function Check-Imperfections {
 # ---------------------------------------------------------------------------
 
 function Check-CacheKeys {
-    Write-Color "[7/9] Cache-key heuristic audit..." "Cyan"
+    Write-Color "[7/10] Cache-key heuristic audit..." "Cyan"
 
     if (-not (Test-Path $mtgSimRoot)) {
         Add-Finding "INFO" "cache-keys" "mtg-sim repo not found, skipping"
@@ -436,7 +436,7 @@ function Check-CacheKeys {
 }
 
 function Check-RMWPattern {
-    Write-Color "[8/9] RMW-pattern heuristic audit..." "Cyan"
+    Write-Color "[8/10] RMW-pattern heuristic audit..." "Cyan"
 
     if (-not (Test-Path $mtgSimRoot)) {
         Add-Finding "INFO" "rmw-pattern" "mtg-sim repo not found, skipping"
@@ -482,7 +482,7 @@ function Check-RMWPattern {
 }
 
 function Check-SpecReferences {
-    Write-Color "[9/9] Spec reference validation..." "Cyan"
+    Write-Color "[9/10] Spec reference validation..." "Cyan"
 
     $lintScript = "$harnessRoot\scripts\lint-spec-references.py"
     if (-not (Test-Path $lintScript)) {
@@ -607,6 +607,51 @@ Write-Color "Harness: $harnessRoot" "Gray"
 Write-Color ("Started: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")) "Gray"
 Write-Color ""
 
+
+# ---------------------------------------------------------------------------
+# CHECK 10: Loose ends -- unchecked checklist items in EXECUTING specs / plans
+# (added 2026-07-01 v-chain-retirement: replaces the daily chain's unique
+#  function of catching sub-spec-sized tasks that fall through)
+# ---------------------------------------------------------------------------
+
+function Check-LooseEnds {
+    Write-Color "[10/10] Loose ends (unchecked checklist items)..." "Cyan"
+
+    $looseEndDays = 7
+    $cutoff = (Get-Date).AddDays(-$looseEndDays)
+
+    $candidates = @()
+    # EXECUTING specs
+    $specDir = Join-Path $harnessRoot "specs"
+    if (Test-Path $specDir) {
+        foreach ($spec in (Get-ChildItem -Path $specDir -Filter "*.md" -ErrorAction SilentlyContinue)) {
+            $content = Get-Content $spec.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content -match 'status:\s*"?EXECUTING"?') {
+                $candidates += @{ File = $spec; Content = $content; Kind = "EXECUTING spec" }
+            }
+        }
+    }
+    # Historical plan/chain files (retired convention -- should carry no open boxes)
+    foreach ($plan in (Get-ChildItem -Path $harnessRoot -Filter "plan-*-execution-chain.md" -ErrorAction SilentlyContinue)) {
+        $content = Get-Content $plan.FullName -Raw -ErrorAction SilentlyContinue
+        if ($content) {
+            $candidates += @{ File = $plan; Content = $content; Kind = "retired chain" }
+        }
+    }
+
+    foreach ($c in $candidates) {
+        if ($c.File.LastWriteTime -ge $cutoff) { continue }
+        $openBoxes = ([regex]::Matches($c.Content, '(?m)^\s*-\s\[\s\]')).Count
+        if ($openBoxes -gt 0) {
+            $age = ((Get-Date) - $c.File.LastWriteTime).TotalDays
+            Add-Finding "WARN" "loose-ends" `
+                "$($c.File.Name) ($($c.Kind)) has $openBoxes unchecked '- [ ]' item(s) and is $([math]::Round($age,1)) days old" `
+                "Finish the items, convert them to IMPERFECTIONS entries, or annotate the file as dispositioned (checked/struck items are ignored)"
+        }
+    }
+}
+
+
 Check-LoadBearingWIP
 Check-RegistryConsistency
 Check-StaleArchitecture
@@ -616,6 +661,7 @@ Check-Imperfections
 Check-CacheKeys
 Check-RMWPattern
 Check-SpecReferences
+Check-LooseEnds
 
 Write-Color ""
 Write-Color "=== SUMMARY ===" "Cyan"
