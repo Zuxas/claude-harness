@@ -46,6 +46,15 @@ These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-
 
 ## Open imperfections
 
+### grixis-reanimator-match-assembly-capped-by-crude-mulligan (NEW 2026-06-30; handoff #2 grixis cell)
+
+Source spec: harness/specs/2026-06-30-modern-combo-interaction.md (Mid-execution Amendment 3)
+Source commit: <this commit>
+What is not perfect: the grixis_reanimator cell's threat model is now FAITHFUL -- when the reanimated Archon comes online grixis wins ~82% (recurring attack trigger sac+discard+3-drain via gs.damage_dealt+WANTS_BURN; Archon recurs through our destroy-only removal; Thoughtseize strips our answer). But the cell still reads boros ~55% (inverted-improved from ~69%) instead of the primer ~38%/band [25,45]. The BINDING CONSTRAINT is ASSEMBLY FREQUENCY: the MATCH only assembles the Archon ~32% of games vs the deck's faithful GOLDFISH assembly of ~56% (measured with the APL's combo-aware keep()). The shortfall is part (a) run_match's CRUDE inline mulligan (mull-if-<2-lands at engine/match_runner.py L1599-1620, NOT the APL's keep()), part (b) decks/grixis_reanimator_modern.txt being a 66-card audit:stub (6 over 60), and part (c) LEGITIMATE boros pressure (racing/removing grixis before assembly -- part of the matchup, not an artifact). A back-of-envelope boros = 0.73 - 0.55*P_assemble (coeffs measured AT P~0.32) puts boros in the low 40s at the goldfish rate, but that is UNVERIFIED (coeffs shift under a different mulligan, and (c) is irreducible). The threat model is NOT the residual; assembly frequency is.
+Why not fixed in source spec: changing run_match's mulligan to honor each APL's keep() is a shared-engine change affecting EVERY deck's seat assignment + the entire baseline (huge no-regression surface); trimming the stub decklist to 60 would be tuning assembly toward the target (forbidden, Stop condition 2b). Per the spec's pre-commitment the cell STAYS FLAGGED rather than forced.
+Concrete fix (UNVERIFIED whether it reaches band -- (c) caps how far it can fall): (1) teach run_match (and run_match_set/_run_single_match) to call apl.keep()/bottom() for the opening hand instead of the inline mull-if-<2-lands heuristic, behind a gate so the existing baseline stays byte-identical until decks opt in; re-capture the combo-spine baseline; OR (2) author a real 60-card decks/grixis_reanimator_modern.txt (non-stub) and re-measure. Either should lift match P_assemble toward the goldfish 56% and move boros DOWN, WITHOUT touching the (already faithful) threat model; whether it clears 45 is to be measured, not assumed.
+Estimated effort: M-L (mulligan-wiring + full baseline re-capture) or S (decklist rebuild + re-measure). Status: OPEN Created: 2026-06-30
+
 ### planeswalker-loyalty-inert-in-match-mode (NEW 2026-06-26; relates to planeswalker-loyalty-not-tracked)
 
 Source spec: (Decision 2, 2026-06-26)
@@ -592,7 +601,7 @@ All entries below sourced from `harness/knowledge/tech/modern-apl-fidelity-audit
 **Why not fixed now:** Audit was diagnosis-only; this is a shared-engine change with broad blast radius (touches every direct-damage deck) — needs a TDD pass + locked-baseline + no-regression gate.
 **Concrete fix:** Propagate `damage_dealt` from mp1 and end-step regardless of WANTS_STORM (or add a WANTS_BURN flag), validate against Mono Red (target ~35-45% vs Boros) and re-baseline affected decks (Izzet Prowess, Boros Energy mirrors shift slightly). Also unblocks Ruby Storm's closing step.
 **Estimated effort:** 2-4h (engine change + no-regression sweep across direct-damage decks).
-**Status:** OPEN
+**Status:** PARTIAL (2026-06-30, commit b305b47, spec 2026-06-30-modern-combo-interaction Amendment 1). Site 1 DONE: added `WANTS_BURN` flag and generalized the `match_runner.py:276` mp1 gate to `WANTS_STORM or WANTS_BURN`; verified 6.24 dmg/game now propagates for mono_red, all both-unflagged cells byte-identical. Site 2 (end-step) intentionally NOT built (diagnostic found no end-step killer in scope). Still OPEN: only mono_red is flagged so far; other direct-damage decks (yawgmoth, belcher, neoform/neobrand burn lines) remain latent until Component 3 flags them.
 **Created:** 2026-06-30
 
 ### esper-blink-unguarded-battlefield-remove-crash (NEW 2026-06-30; CRASH; Grixis-template twin)
@@ -610,7 +619,7 @@ All entries below sourced from `harness/knowledge/tech/modern-apl-fidelity-audit
 **Why not fixed now:** Root cause is the engine-level discard (own entry); the deck-side residual is no WANTS_STORM wiring + no mp2.
 **Concrete fix:** After the engine discard fix lands, set the right flag on MonoRedMatchAPL (WANTS_STORM or new WANTS_BURN) and/or add a burn `main_phase2_match`; re-measure toward realistic ~35-45% Burn-vs-Boros (remaining gap is lifegain/combat modeling).
 **Estimated effort:** 30-60 min (after engine fix).
-**Status:** OPEN
+**Status:** PARTIAL (2026-06-30, commit b305b47). `WANTS_BURN = True` set on MonoRedMatchAPL; the engine discard fix landed (entry above). mono_red WR moved 3.8% -> 21.0% (run_match_set, boros seat A, n=500 seed=42) -- material and correct direction, but still BELOW the ~35-45% target. Per Stop condition 2 the gap was NOT tuned away: the residual is LIKELY boros's lifegain engine (Guide of Souls / Ocelot Pride) + boros clock absorbing the now-counted burn (burn side measured; lifegain side NOT yet measured). Closing to band = per-deck calibration (mono_red full clock and/or boros lifegain modeling) -- deferred. Still OPEN.
 **Created:** 2026-06-30
 
 ### cutter-affinity-no-dedicated-match-apl (NEW 2026-06-30; DEGRADED high; feeds #3)
