@@ -29,14 +29,23 @@ each status. After a spec ships, it stays in this index forever.
   mixin (byte-identical everywhere). ruby_storm Step-2.0 diagnostic fired Stop condition 4
   (payoff-reachability, not the damage channel -> re-scoped to Component 3). Amendments 2-3 shipped
   yawgmoth (cf2cf32, stays FLAGGED DEFLATED -- combat over-credit) + grixis (stays FLAGGED
-  INVERTED-improved 69.4->55.0%). **Component-3 RE-SCOPE (2026-07-01, amendment at EOF): the
+  INVERTED-improved 69.4->55.0%). **Component-3 RE-SCOPE (2026-07-01, COMPLETE structural version,
+  amendment at EOF -- supersedes the earlier structurally-blind authoring in harness 8c6b15d): the
   mulligan lever is FALSIFIED (mull-routing-falsification-2026-07-01.md: isolated assembly ~+3pp not
   ~24pp, WR flat, yawgmoth assembly FELL); the old per-deck Leverage order is SUPERSEDED by
-  shared-cause batches (I0 honesty flags -> A cascade seam -> F combat-over-credit characterization
-  -> E Griselbrand spike -> ruby -> goryos -> broodscale -> ...). Trustworthy-minimum unblocking arc
-  #5 = BATCH I0 (flag belcher 3.5% + neobrand 2.0% + temur_crashcade 3.4% + ruby_storm 4.1% +
-  register landlessbelcher).** 9 cells REMAIN (2 fixable_to_band: ruby, goryos; 1 candidate:
-  broodscale; rest improvable/flag-forever). Branch `modern-postban-arc`.
+  shared-cause batches. NEW ranked sequence: I0 honesty flags -> F combat-over-credit CHARACTERIZE-only
+  -> A cascade end_step seam -> GRIS-SPIKE Griselbrand kill-channel -> ruby -> goryos -> broodscale ->
+  grixis-decklist -> belcher -> neobrand -> yawgmoth -> neoform -> temur_breach -> landless_belcher.
+  Structural lens added: Component-1 interaction spine is DELIVERED + firing but deliberately
+  NON-load-bearing at G1 (deferred to Bo3/future decks); the run_match sampler bypass is a CONFIRMED
+  dead-end (rejected 2026-06-29, unblocks ZERO cells). Flag-forever split 3 ways: (A) has-a-band
+  faithfully-unreachable = grixis ONLY; (B) no-primer-band direction-only = living_end/temur_crashcade/
+  belcher/neobrand(+neoform/temur_breach/landless non-field); (C) out-of-scope band-binder = yawgmoth
+  (falsifiable upgrade via BATCH F). broodscale is NOT flag-forever (best fixable_to_band candidate).
+  Trustworthy-minimum unblocking arc #5 = BATCH I0 ALONE (flag belcher 3.5% + neobrand 2.0% +
+  temur_crashcade 3.4% + ruby_storm 4.1% + register landlessbelcher).** 11 cells REMAIN (2
+  fixable_to_band: ruby, goryos; 1 candidate: broodscale; rest improvable/flag-forever). Est ~10-11
+  sessions remaining. Branch `modern-postban-arc`.
 
 - `2026-04-27-phase-3-5-keywords.md` -- Full keyword coverage in match-runner.
   11 stages (A-K), every keyword in engine/keywords.py KWTag plus ~25 not-yet-tagged
