@@ -591,6 +591,12 @@ Urza's Saga Construct engine in `apl/affinity_match.py` is entirely unimplemente
 games). Full fix designed in `harness/specs/2026-07-01-affinity-offense-rebaseline.md` (PROPOSED, arc
 #3). The "~44 truth" target has no empirical anchor (no post-ban Modern DB data) — the fix is gated
 on mechanism, not on hitting 44.
+**POST-EXECUTION (2026-07-01, arc #3 no-op):** Arc #3 was attempted and produced NO fix (implementer
+null; `apl/affinity_match.py` byte-identical to pre-spec HEAD; mtg-sim working tree clean). The
+mechanism did not move — measured pre-fix baseline via the pinned `run_match` harness (n=100,
+PYTHONHASHSEED=0) is **~81% Boros / ~19% Affinity**, peak attacking power median 1.0, ~46% of games with
+zero attacking power ever, 0 Constructs / 100 games. Treat ~81% (not 63.5, not 88.5) as the current sim
+value going forward; entry remains **OPEN** at the pre-fix baseline. No post-fix numbers exist to record.
 
 ### mull-routing-london-vancouver-asymmetry-artifact (NEW 2026-07-01)
 
@@ -880,3 +886,10 @@ All entries below sourced from `harness/knowledge/tech/modern-apl-fidelity-audit
 **Estimated effort:** half-day+ (engine offense pass + re-baseline).
 **Status:** OPEN
 **Created:** 2026-06-30
+**POST-EXECUTION (2026-07-01, arc #3 no-op):** Arc #3 (`harness/specs/2026-07-01-affinity-offense-rebaseline.md`)
+was attempted but landed NO fix (implementer null; `apl/affinity_match.py` byte-identical to pre-spec
+HEAD). The cell is unchanged at ~81% Boros in our favor (pinned `run_match` harness, n=100,
+PYTHONHASHSEED=0); 0 Constructs / 100 games; mechanism did not move. Correction to the original text:
+the "Galvanic Blast reach" premise is a PHANTOM (Galvanic is sideboard-only with no handler; not a
+maindeck clock) and Frogmite is not in the deck — the confirmed root cause is the entirely-unimplemented
+Urza's Saga Construct engine, NOT burn reach. Stays OPEN, INFLATED, trust-direction; no post-fix numbers exist.
