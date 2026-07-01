@@ -117,3 +117,6 @@ For tomorrow's chain:
 ## Changelog
 
 - 2026-04-29: Created during 2026-04-28/04-29 night session investigation. Triggered by `canonical-field-missing-match-apl-entries` resolution; followed Jeskai Blink fix downstream and discovered deck-file integrity issues.
+
+---
+RESOLVED (2026-07-01 reconciliation): status was already COMPLETE; flagged only because body text contains stale-status keywords. Modern field fully rebuilt post-ban 2026-06-30 (18 decks, mtg-sim CLAUDE.md), superseding the original duplicate-decklist/mismatch findings. Historical record.

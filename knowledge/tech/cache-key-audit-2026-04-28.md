@@ -172,3 +172,6 @@ No new lesson surfaced from this audit — it's a confirming case, not a new gen
 ## Changelog
 
 - 2026-04-28: Created via execution-chain S5. Spec `harness/specs/2026-04-28-cache-key-audit-mtg-sim.md` SHIPPED. Audit-only, read-only; no code changes. Five new IMPERFECTIONS entries opened (3 active D, 2 latent C).
+
+---
+RESOLVED (2026-07-01 reconciliation): cache-collision fix + cache-key audit shipped as specs 2026-04-28-parallel-launcher-cache-collision-fix + 2026-04-28-cache-key-audit-mtg-sim + drift-detect 8th check (all SHIPPED in specs/_index.md). Doc retained as historical record.

@@ -313,3 +313,6 @@ class JeskaiBlinkAPL(BaseAPL):
 ## Next action
 
 Phase 3 (build framework with Phlage as POC) → Phase 4 (rewrite jeskai_blink.py goldfish from specs) → Phase 5 (measure pre/post). Tonight. See `harness/specs/2026-04-29-card-specs-framework.md` for the durable spec covering full migration scope.
+
+---
+RESOLVED (2026-07-01 reconciliation): parent spec 2026-04-29-jeskai-blink-oracle-fidelity-audit SHIPPED (Phases A+B, 13 commits 2026-04-29/30); card_specs Tier 1+2 landed. Remaining migration tracked in specs/2026-06-28-card-specs-framework-impl-plan.md, not here.

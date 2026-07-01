@@ -143,3 +143,7 @@ These are the changes that would improve grades fastest:
 
 - 2026-04-27: Created. Snapshot of post-2026-04-26/2026-04-27-session state
   before Phase 3.5 starts. All grades reflect that session's commits.
+
+---
+## STALENESS NOTE (2026-07-01 reconciliation)
+Grades below were last formally regenerated 2026-05-01 and are ~61 days stale. Newer measured numbers exist but are scattered: post-ban Modern refresh (2026-06-30, 18-deck field), affinity rebaseline ~76% Boros (spec 2026-07-01-affinity-offense-rebaseline, SHIPPED PARTIAL), mulligan falsification WR decomposition (mull-routing-falsification-2026-07-01.md). A formal regrade requires a gauntlet run on the post-ban field — do NOT trust the per-domain letter grades below for current-field decisions; trust mismodeled_matchups.py flags + the EXECUTING spec amendments instead.

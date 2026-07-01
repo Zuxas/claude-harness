@@ -273,3 +273,6 @@ Stage 2 + 30 min Stage 3 = ~2-2.5 hours fresh session.
 
 ### Stage 3 — same pattern for `run_bo3_set`
 [Pending Stage 1.6 -> Stage 1 -> Stage 2]
+
+---
+RESOLVED (2026-07-01 reconciliation): shipped as spec 2026-04-29-within-matchup-parallelism (commit 8706f68). Doc retained as historical record.

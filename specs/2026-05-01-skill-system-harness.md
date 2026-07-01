@@ -1,8 +1,9 @@
 ---
 title: Skill system for the harness (dynamic capability loading)
-status: PROPOSED
+status: SUPERSEDED
+superseded_by: 2026-06-28-skill-system-impl-plan.md
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-07-01
 project: harness
 estimated_time: 2-3 hours
 source: harness-engineering-guide/guide/skill-system.md
@@ -114,3 +115,6 @@ Earliest start: 2026-05-05.
 
 - 2026-05-01: Created from harness-engineering-guide skill-system pattern.
   Parked pending PT data pipeline.
+
+## Reconciliation note (2026-07-01)
+Status PROPOSED->SUPERSEDED by specs/2026-06-28-skill-system-impl-plan.md, which shipped: harness/skills/ tree exists (4 skills + _index.md) and CLAUDE.md v1.6 (2026-06-29) documents the skill-menu gate.
