@@ -218,7 +218,56 @@ neither.
   by this APL fix; need a `parallel_launcher` re-run (out of scope) — do not read them as post-fix
   truth.
 
+## Closing Amendment (2026-07-01) — arc #3 execution was a NO-OP; verdict FAIL (work-not-done, NOT tuning)
+
+The arc #3 executor produced a **null implementer result**. `apl/affinity_match.py` is byte-identical
+to pre-spec HEAD (git last-modified 2026-06-28 commit `0f3f458`, predating this spec); the mtg-sim
+working tree is clean (no diff, no stash). **Nothing was implemented**, so none of the mechanism gates
+could move.
+
+Three validation lenses (mechanism/board-development, anti-tuning discriminator, regression) all
+measured the pre-fix baseline via the pinned MATCH-path harness (`run_match`, PYTHONHASHSEED=0,
+BorosEnergyLowCurve seat A vs IzzetAffinity seat B, on_play=(i%2==0), seed=42+i, n=100), instrumenting
+the engine's own `_resolve_combat` seat-B attacker predicate (NOTE: `declare_attackers` is dead code in
+the two-player path — a naive APL hook reports 0 attacking power in 100% of games and must be avoided):
+
+- **Gate 1 (board development): FAIL** — peak attacking board power median = 1.0 (gate wanted >=3);
+  %games-with-zero-attacking-power-EVER = 46.0% (gate wanted <20%). Unchanged from the diagnosed
+  "never develops a board" state.
+- **Gate 2 (construct fidelity): FAIL at presence** — 0 Constructs across 100 games. The Urza's Saga
+  Construct engine is still entirely unimplemented (L323 land-play scorer remains the SOLE Saga
+  reference; `_make_token` fires only for 'Drone Token'). The adversarial construct check
+  (P/T == live artifact count, summoning-sick, {2},{T}-gated, sac at chapter III) is **unevaluable** —
+  no Construct code path exists.
+- **Gate 3 (match-path clock): FAIL** — kill-turn-when-Affinity-wins mean 6.25 / median 6.0 (gate
+  wanted movement toward T4-5). Sits at the pre-fix clock.
+- **Gate 4 (WR direction): unchanged** — cell reproduces at ~81% Boros / ~19% Affinity (untouched
+  baseline = 81/19). This is NOT the tuned-WR trap (stop-condition 3): WR did NOT move while board
+  stayed flat; BOTH are at pre-fix baseline because nothing changed.
+- **Gate 5 (anti-tuning discriminator): vacuous** — all three Boros builds vs Affinity deltas are
+  identically 0.00pp (before == after by construction; empty diff).
+- **Gates 6/7 (regression): byte-identity holds TRIVIALLY** — zero files touched anywhere, not just
+  `apl/affinity_match.py`; no >15pp field spike because no clock was added.
+
+**tuning_detected = false**, but only because no code was written — NOT because a fitted number was
+cleared. The `AFFINITY_COUNTER_COST` env-sweep fingerprint (L58-60) is PRE-EXISTING and unrelated; it
+was not repeated. The measured pre-fix numbers (median ~1.0, ~46% zero, 0 Constructs, kill ~T6)
+independently reproduce the spec's stated pre-fix baseline, cross-validating the instrumentation.
+
+**Overall: FAIL** on the spec's mechanism gates (mechanism did not move). Because the root cause is a
+no-op — not tuning, scope leak, Boros nerf, or a divergent build — the spec is returned to **PROPOSED**
+(the Urza's Saga Construct engine, Thoughtcast branch, and Munitions WANTS_BURN fix still need to be
+implemented; all remaining scope, steps, gates, and stop conditions stand as written). No cell was
+reverse-fit. Trackers updated honestly: `mismodeled_matchups.py['izzet affinity']` now records the
+measured lowcurve figure (~81%), strips the fictional "63.5% Modern lock", and stays flagged INFLATED
+(trust-direction). IMPERFECTIONS `izzet-affinity-cell-sign-inverted` and
+`locked-modern-boros-affinity-baseline-stale-63.5` carry a post-execution note that arc #3 was a no-op
+and they remain OPEN at the pre-fix ~81% baseline (no post-fix numbers exist to record).
+
 ## Changelog
+- 2026-07-01: Arc #3 execution attempt was a NO-OP (implementer null; working tree clean). All
+  mechanism gates FAIL because nothing was implemented; not tuning. Reverted status EXECUTING->PROPOSED;
+  added Closing Amendment; landed honest tracker updates (mismodel + IMPERFECTIONS notes). See amendment.
 - 2026-07-01: Created (PROPOSED). Authored from read-only diagnose(3 lenses)+verify(6 adversarial)
   +design workflow (run wf_a65d79db-35c). Root cause (unimplemented Urza's Saga Construct engine)
   held in all board-generation verdicts; the "88.5 is stale" reframe was REFUTED (deck-substitution)
