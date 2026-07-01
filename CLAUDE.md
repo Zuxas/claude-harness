@@ -1,6 +1,6 @@
 # CLAUDE.md — Harness root instructions
 
-**Version:** 1.6 (2026-06-29)
+**Version:** 1.7 (2026-07-01)
 **Purpose:** Mandatory instructions and protocols for Claude (and Claude Code) when operating in this harness. This file is read at session start.
 
 ---
@@ -19,26 +19,24 @@ Before doing ANY work in this harness, Claude MUST:
 
 5. **Check open specs** — `harness/specs/_index.md` lists specs by status (PROPOSED / EXECUTING / SHIPPED / SUPERSEDED). Anything EXECUTING is potentially active work to resume.
 
-6. **Verify chain priority + offer pivot (DAILY RHYTHM CHECK)** — Read today's chain from `harness/plan-<today's-date>-execution-chain.md` (or yesterday's if today's not yet authored). Read `harness/SUBPROJECTS.md` for the canonical sub-project menu. Then surface a non-invasive priority check:
-
-    > "Today's chain:
-    > 1. [first item]
-    > 2. [second item]
-    > 3. ...
-    >
-    > Current sub-project: [name from chain].
-    >
-    > Want to (a) proceed, (b) pivot to a different sub-project (mtg-sim / mtg-meta-analyzer / harness / APLs / decks / website / calibration / other), or (c) re-prioritize within the current sub-project?
-    >
-    > Standing by."
-
-   Wait for user response. If (a): proceed. If (b) or (c): re-scope the chain before starting execution; offer to write a new chain doc to disk if the pivot is substantial. Do NOT skip this step. The chain represents end-of-yesterday priorities; the user might have woken up with different priorities.
+6. **[RETIRED 2026-07-01] Daily-rhythm chain check.** The daily execution-chain
+   convention is retired (lapsed 2026-05-16; work moved to arc/spec-driven mode and the
+   spec system carried the load). Session priorities now come from: EXECUTING specs in
+   `harness/specs/_index.md` + the latest drift PR + `harness/SUBPROJECTS.md` for pivots.
+   Claude still surfaces a brief "current arc / want to pivot?" prompt at session start,
+   sourced from the EXECUTING specs instead of a chain file.
 
 If the snapshot is stale (>24h old) or missing, Claude should run the snapshot script first to regenerate it before reading. If the drift PR is missing for today's date and Ollama is healthy, Claude can optionally regenerate via `harness/scripts/gemma-drift-pr.ps1` — but this is optional, not blocking.
 
 ---
 
-## DAILY RHYTHM (added 2026-04-28 v1.4)
+## DAILY RHYTHM (added 2026-04-28 v1.4) — RETIRED 2026-07-01 (v1.7)
+
+**This section is retained for history but no longer operative.** Chains lapsed
+2026-05-16; the 5/16 chain was audited and fully dispositioned 2026-07-01 (two leftover
+durable items completed; the rest obsolete or already done). Replacement for the chain's
+loose-ends function: drift-detect's `loose-ends` check warns on unchecked `- [ ]` items
+in EXECUTING specs and plan files older than 7 days.
 
 Each weekday is a ~9-hour "scripted" day. The structure:
 
@@ -225,7 +223,7 @@ When authoring new specs, the spec's "Pre-flight reads" list MUST include `spec-
 ## CONVENTIONS
 
 - **Specs go in** `harness/specs/YYYY-MM-DD-<topic>.md` with frontmatter (title, status, created, updated, project, estimated_time, related_findings, related_commits, supersedes, superseded_by).
-- **Daily execution chains go in** `harness/plan-<date>-execution-chain.md` authored end-of-previous-day. (Added 2026-04-28 v1.4.)
+- **[RETIRED 2026-07-01]** Daily execution chains (`harness/plan-<date>-execution-chain.md`). Existing chain files are historical records; do not author new ones.
 - **Findings docs go in** `harness/knowledge/tech/` as `<topic>-YYYY-MM-DD.md` for new architectural discoveries that compound into durable knowledge.
 - **Imperfections go in** `harness/IMPERFECTIONS.md` as numbered/named entries.
 - **Quality grades go in** `harness/knowledge/tech/mtg-sim-quality-grades.md` updated when a commit materially affects a graded domain.
@@ -260,3 +258,4 @@ Moved to docs/harness-scheduled-tasks.md (2026-06-29 trim).
 - 2026-04-30: v1.5 — Added DECK ANALYSIS PROTOCOL section (Karn context loading pattern from mtg-agents.com research). Rationale: structured context block before deck analysis questions produces qualitatively better output, equivalent to tool-access accuracy gains from external evaluation paper.
 - 2026-04-28: v1.4 — Added DAILY RHYTHM CHECK (SESSION START PROTOCOL step 6). Added DAILY RHYTHM section explaining the 9-hour scripted weekday convention. Added `harness/SUBPROJECTS.md` as canonical sub-project menu for morning pivot prompts. Added `harness/plan-<date>-execution-chain.md` as standing daily-chain convention. Updated CONVENTIONS + DIRECTORY STRUCTURE + scheduled-tasks daily-flow diagram accordingly. Rationale: each weekday should look structurally similar regardless of sub-project focus; morning pivot check is non-invasive but ensures yesterday's priorities still match today's reality.
 - 2026-06-29: v1.6 -- Added skill-menu gate at top of KNOWLEDGE LOADING. New harness/skills/ tree (mtg-sim-quality, meta-analysis, apl-generation, harness-ops) + skills/_index.md menu. Skills are additive; knowledge/ remains the fallback. Impl per specs/2026-06-28-skill-system-impl-plan.md.
+- 2026-07-01: v1.7 -- Daily execution-chain convention RETIRED (Section 6 of SESSION START PROTOCOL replaced; DAILY RHYTHM section marked historical). Rationale: chains lapsed 2026-05-16 while spec-driven arcs carried the planning load; a 2026-07-01 audit of the final chain found only two sub-spec-sized loose ends, now closed. Replacement: drift-detect loose-ends check (unchecked checklist items in EXECUTING specs / plan files >7d) + session-start arc prompt sourced from EXECUTING specs.
