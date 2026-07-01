@@ -6,6 +6,15 @@ each status. After a spec ships, it stays in this index forever.
 
 ## EXECUTING
 
+- `2026-06-30-modern-combo-interaction.md` -- Interaction-aware Modern combo opponents (handoff #2).
+  SPINE increment executed 2026-06-30 (Mid-execution Amendment 1): Component 2 Site 1 (mp1
+  `damage_dealt` gate generalized to `WANTS_STORM or WANTS_BURN`; mono_red flagged, 481->395 a_wins,
+  +17pp to mono_red but below the [35,45] band -- honest residual, not tuned), Site 2 DROPPED (no
+  end-step killer found), Component 1 inert `engine/combo_interaction.py` layer + `answer_combo`
+  mixin (byte-identical everywhere). ruby_storm Step-2.0 diagnostic fired Stop condition 4
+  (payoff-reachability, not the damage channel -> re-scoped to Component 3). Per-deck assembly
+  (13 decks) + boros opt-in REMAIN. Branch `modern-postban-arc`.
+
 - `2026-04-27-phase-3-5-keywords.md` -- Full keyword coverage in match-runner.
   11 stages (A-K), every keyword in engine/keywords.py KWTag plus ~25 not-yet-tagged
   keywords. No deferrals. Estimated 200-350 min real work, may expand.

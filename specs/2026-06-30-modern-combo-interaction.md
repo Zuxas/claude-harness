@@ -828,3 +828,122 @@ The `yawgmoth-combo-drain-list-mismatch` imperfection is RESOLVED for its litera
 (list aligned + combo assembles + damage reaches life). A NEW residual remains: the
 yawgmoth APL over-credits generic creature combat (race_baseline ~53.8%), keeping the
 cell below the [55,80] band. Tracked via the new `mismodeled_matchups.py` yawgmoth entry.
+
+---
+
+## Mid-execution Amendment 3 (2026-06-30) -- grixis_reanimator cell (Component 3, leverage #4; FIRST interaction-layer consumer)
+
+Executed the grixis_reanimator per-deck cell -- the INVERTED anchor and the first cell to
+turn `WANTS_COMBO_INTERACTION` ON. Branch `modern-postban-arc`. All match numbers on the
+PRIMARY single-hero driver `run_match_set` (boros seat A / grixis seat B), n=500 seed=42
+n_workers=1 mix_play_draw, against the pre-#2 lock + the post-Amendment-2 cell values.
+
+### Root cause of the inversion (NOT assembly, NOT the crash)
+The crash (`list.remove`) was already fixed and the combo assembled, but the reanimated
+threat was UNDER-CREDITED to the point of inversion (sim ~69-75% boros vs primer ~38% dog):
+1. **The Archon's recurring ATTACK trigger was dropped ENTIRELY.** `declare_attackers` is
+   NEVER called on the run_match path (combat is resolved by `_resolve_combat` reading
+   bodies -- spine #1), so the Archon's brutal on-attack trigger (sac + discard + 3 life)
+   never fired. The body acted as a vanilla beater. Diagnosed: Archon ETB fired 0.09x/game.
+2. **The reanimated body was usually a vanilla Oculus, not the Archon.** The engine Persist
+   picks max-cmc but the APL seldom seeded the Archon into the GY; the brutal payoff came
+   online in only ~28% of goldfish-capable games.
+3. **The 3-life drain was a no-op** -- a scalar `opponent.life -= 3` on the per-turn view is
+   dropped (spine #3).
+4. **Thoughtseize stripped the wrong card** (max-cmc, not our removal).
+
+### What landed (apl/grixis_reanimator_match.py -- Part A, the threat model)
+- **Recurring Archon attack trigger** fired in `main_phase_match` step 4b for each Archon that
+  will attack this turn (untapped, not summoning-sick), once-per-turn guarded. The body's
+  combat damage still resolves in `_resolve_combat`; this adds only the trigger rider.
+- **3-life drain routed through `gs.damage_dealt`** (active main-phase-1 channel) and made
+  visible by `WANTS_BURN = True` on grixis -- the same channel + flag the yawgmoth cell uses.
+  Affects ONLY cells where grixis is the active seat; in the single-hero sweep grixis is seat
+  B only, so the only cell `WANTS_BURN` can move is boros-vs-grixis (verified byte-identical
+  for all 10 non-grixis cells below).
+- **Archon made the reliable recurring threat:** Unmarked Grave now FETCHES the Archon
+  specifically; Faithless Looting PITCHES a hand Archon into the bin; a new identity-safe
+  Reanimate path returns it as a full 6/6; the body recurs after our DESTROY-only removal
+  (only exile -- which maindeck Boros lacks -- permanently answers it). The actual reanimated
+  body is detected by battlefield-identity diff (the pre-fix code guessed and missed, firing
+  the ETB on ~9% of reanimations).
+- **Thoughtseize / Inquisition strip OUR removal** (Galvanic Discharge / Thraben Charm / Bolt)
+  preferentially -- an engine-scored hand-disruption effect, off the actual copy-counts.
+- Card-draw EXCLUDED as a lever throughout (the Archon's own draw stays on the grixis view,
+  not credited as a clock; no `WANTS_*` for it).
+
+### What landed (apl/boros_energy_match.py -- Part B, the honest 'out')
+- `WANTS_COMBO_INTERACTION = True` + an `answer_combo` override modeling Boros's ACTUAL
+  maindeck answers (Thraben Charm if >=3 creatures; Galvanic if energy visible; Bolt only vs
+  toughness<=3; Thraben mode-3 GY exile for GY_SETUP). INTENTIONALLY WEAK and NON-LOAD-BEARING.
+- grixis calls `offer_interaction(kind=RESOLVE_THREAT)` at the reanimation/hardcast step.
+
+### Measured result -- Stop condition 2 FIRED (stays FLAGGED, honest stall-high)
+| metric (seed=42 n=500) | before | after |
+|---|---|---|
+| our WR (boros) | 347/500 = 69.40% | 275/500 = **55.00%** |
+| avg game length | T6.55 | T6.38 |
+| P_assemble (Archon online) | ~6% | ~32% |
+| grixis win \| Archon online | -- | **82%** (the named mechanisms work) |
+| grixis win \| NOT online (race_baseline) | -- | boros ~73-77% |
+| interaction fires (disrupted) | n/a | **1-3 / 500** (G1 honesty: NON-load-bearing) |
+
+The cell improved 69.4% -> 55.0% (-14.4pp toward the primer 38), the swing carried ENTIRELY by
+engine-scored mechanisms. Attribution (grixis WANTS_BURN=False isolation run): the 3-life DRAIN
+credit contributes only ~1.8pp (56.8% -> 55.0%); the BULK is the recurring Archon attack trigger
+(sac+discard) + the body recurring through our destroy-only removal + the Archon being the reliable
+reanimation target + Thoughtseize stripping our answer. **But it FAILS HIGH (55.0% > band ceiling
+45)**, and the binding constraint is ASSEMBLY FREQUENCY, not the threat model. The deck's faithful
+GOLDFISH assembly (APL `keep()`, measured) is **~56%** Archon-online vs the MATCH's ~32%. The gap
+is part (a) `run_match`'s CRUDE inline mulligan (mull-if-<2-lands, NOT the APL's combo-aware
+`keep()`), part (b) the routed `decks/grixis_reanimator_modern.txt` being a 66-card `audit:stub`
+(6 over 60), and part (c) LEGITIMATE boros pressure (racing/removing grixis before it assembles --
+which is part of the matchup, not an artifact). A back-of-envelope `boros = 0.73 - 0.55*P_assemble`
+(coeffs measured AT P~0.32) would put boros in the low 40s at the goldfish rate -- but that
+counterfactual is UNVERIFIED (the coeffs almost certainly shift under a different mulligan, and (c)
+is not removable). What IS verified: the measured 55.0%, the 82%-when-online mechanism, and the
+non-load-bearing interaction. Per Stop condition 2(b) the cell is **LEFT FLAGGED**
+(`mismodeled_matchups.py` grixis entry updated: INVERTED-improved, sim ~55%, documented residual)
+rather than tuned by dialing P_assemble. This is exactly the spec's pre-committed honest-failure
+outcome ("if those stall at, say, ~55, grixis STAYS FLAGGED"). harness Rule 4 honest-model outcome
+(amend + proceed), not an abort.
+
+NOTE (deviation from the written plan, surfaced explicitly): the spec lists grixis as combat-kill,
+"#2 NOT required." This cell ADDS `WANTS_BURN = True` to grixis to credit the Archon ETB/attack
+trigger's 3-life DRAIN (direct damage) via Site 1's `gs.damage_dealt` channel -- otherwise the
+scalar `opponent.life` write is dropped (spine #3). It is a faithful credit of an oracle effect,
+contributes only ~1.8pp, and affects ONLY the boros-vs-grixis cell (grixis is seat-B-only in the
+single-hero sweep; all 10 non-grixis cells verified byte-identical), so it neither breaks
+no-regression nor changes the flagged outcome -- but it IS a departure from the combat-kill framing
+and is called out here for the spec author.
+
+### Interaction decision: ON but honest (instruction-compliant, NON-load-bearing)
+`WANTS_COMBO_INTERACTION = True` on Boros, but `answer_combo` fires only ~1-3/500 G1 because
+Boros's cheap burn cannot kill a 5-6 toughness reanimated body, accumulated energy is not
+visible in the reactive window, and there is NO maindeck graveyard hate (Rest in Peace /
+Surgical Extraction are SB-only). Even when it removes the Archon, the body recurs (our removal
+destroys, it does not exile). The band is reached by the threat's intrinsic fragility, never by
+our interaction -- documented G1 honesty per Component 1's critical constraint.
+
+### No-regression (CRITICAL this cell: boros flag flips ON)
+The double gate holds: `offer_interaction` is only ever CALLED by grixis this handoff, so
+flipping `WANTS_COMBO_INTERACTION` ON for Boros disturbed NOTHING else. Verified BYTE-IDENTICAL
+at seed=42 n=500 (boros seat A, flag ON) for all 10 non-grixis cells:
+eldrazi_tron 192, uw_control 447, dimir_murktide 344, amulet_titan 384, humans 125,
+sultai_midrange 287, izzet_prowess 318, selesnya_vs_prowess 267 (Stop condition 3 NOT triggered),
+ruby_storm 496, yawgmoth 245 -- every value matches its lock. Stop condition 1 NOT triggered.
+
+### Tests
+- `tests/test_grixis_reanimator_no_crash.py` PASS (50/50, SIM_DEBUG=1).
+- `tests/test_combo_interaction_inert.py` UPDATED + PASS (boros gate assertion flipped to True;
+  the layer-no-op guarantees still proven against synthetic gate-off / opted-in-pass APLs).
+- Component 6.5 seat-A exposure: grixis piloting SEAT A vs uw_control, SIM_DEBUG=1, 50 games:
+  0 crashes, combo-fires 83 (>= 1/50). The new identity-safe Reanimate/Looting manual moves
+  do not regress the `list.remove` family.
+
+### IMPERFECTION
+NEW residual: `grixis-reanimator-match-assembly-capped-by-crude-mulligan` -- the faithful threat
+model is correct (82% when online) but match P_assemble (~32%) is capped well below the deck's
+goldfish assembly (~56%) by run_match's inline mulligan + the 66-card stub list, so the cell stays
+inverted-but-improved (boros ~55% vs the ~42% it would reach at the goldfish rate). Tracked in
+IMPERFECTIONS.md + the updated `mismodeled_matchups.py` grixis entry.
