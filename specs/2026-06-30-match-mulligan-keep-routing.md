@@ -1,6 +1,6 @@
 ---
 title: Match mulligan keep-routing -- route run_match opening hands through each APL's keep()
-status: PROPOSED
+status: EXECUTING
 created: 2026-06-30
 updated: 2026-06-30
 project: mtg-sim
@@ -494,6 +494,93 @@ abort + IMPERFECTIONS + ship partial}.
   (keep/bottom are abstract in BaseAPL), so the getattr-else branch is dead for modeled decks;
   only the try/except (throwing keep) path is live. Framed honestly, not as "keep-less coverage."
 
+## Mid-execution Amendments
+
+### Amendment 1 (2026-06-30) -- First-slice landed: code + Gate 0 + Gate 1 (Steps 0-4)
+
+Status -> EXECUTING. This amendment records what the first execution slice shipped
+(the engine routing + the two byte-identity gates) and the ONE stop-condition firing
+and its Rule-4 resolution. Steps 5 (five-mode WR decomposition) and 6 (trackers/
+findings/predecessor stub/grades) remain OPEN -- they are the downstream WR-validation
+and documentation work, not the structural routing fix.
+
+**What shipped (engine/match_runner.py):**
+- `_do_mulligan_runner(gs, side, apl, result, mode)` extracted from the inline
+  L1595-1620 block, with modes `crude` (verbatim), `london_crude` (London mechanic +
+  crude predicate + generic_bottom), `keep` (routes apl.keep()/apl.bottom(), seeded via
+  gs.rng ONLY, both seats, London bottoming, cap 4).
+- `_mull_mode(side, apl)` selector: per-seat env override (`MULL_MODE_A/B`) -> global
+  (`MULL_MODE`) -> production default. Production default = `keep` only for
+  `_KEEP_ROUTED_APLS = {BorosEnergyMatchAPL, AmuletTitanMatchAPL}`; `crude` elsewhere.
+  String-set (not isinstance) gating to avoid a match_runner<->APL circular import.
+- Fallback safety: per-call try/except around keep()/bottom() -> `_crude_keep` /
+  `generic_bottom`. Framed defensive-against-RAISE (keep/bottom abstract in BaseAPL; no
+  keep-less modeled deck). `_safe_keep`/`_safe_bottom` getattr-else branches are dead for
+  modeled decks, kept as cheap insurance.
+- `import os` added at module top (was only imported inline).
+- `_run_match_with_combo` (the combo-sampler seat-A path, L~1420) LEFT UNTOUCHED --
+  spec scope names run_match L1595-1620 only. See carried imperfection below.
+
+**Harness / determinism (Step 0):** `scripts/mull_routing_capture.py` (PRIMARY driver
+run_match_set, single-hero, n=500 seed=42 n_workers=1, `PYTHONHASHSEED` read from env).
+13 boros+amulet-lane cells. Baseline saved to `data/mulligan_baseline_pinned_2026-06-30.txt`.
+
+**Gate 0 (determinism, SCOPED) -- PASS on 12/13 cells; ONE stop-condition firing:**
+Ran the PRE-change baseline across FOUR separate pinned process launches
+(`PYTHONHASHSEED=0`). 12 of 13 cells byte-identical across all four. STOP CONDITION 1
+fired on `boros_vs_uw_control` (a_wins = 446,447,447,447 across launches 1-4).
+- **Rule-4 outcome: honest model refinement, NOT a boros/amulet-hero regression.**
+  Diagnosis (PROVISIONAL, 4-launch evidence): opponent-side `id()`-ordering
+  nondeterminism surfacing in this cell -- it reproduces on the PRE-change code, so it is
+  NOT introduced by keep-routing. `amulet_vs_uw_control` was byte-stable across the same 4
+  launches, WEAKLY suggesting the instability is boros/UW-pairing-specific rather than UW
+  Control unconditional -- but 4 launches cannot distinguish a low-rate (~5-25%) flip from
+  true stability, so the predecessor spec should re-sample widely (>=20 launches) before
+  trusting the pairing-specific attribution. What IS firmly established: every hero-side
+  (boros/amulet own-lane) result is stable across all 4 launches, and the spec's Gate-0
+  model (whole boros/amulet CELLS byte-identical) is too optimistic -- an opponent's
+  un-retired `id()`-ordering can leak into a cell even when the hero lane is stable.
+- **Resolution:** the Gate-0/Gate-1 gated set is refined to the 12 cross-launch-stable
+  cells; `boros_vs_uw_control` is EXCLUDED (reported, not asserted) and handed to the
+  named predecessor spec (full-field id()-ordering stabilization). This is exactly the
+  predecessor's job per the SCOPE DECISION; it does not block the slice.
+
+**Gate 1 (faithful refactor) -- PASS.** Post-refactor `MULL_MODE=crude` (both seats)
+reproduced all 12 GATED baseline cells byte-identically (and the excluded uw_control cell
+landed on its modal 447). The extract (concat order + cap 3) is faithful.
+
+**Routing confirmed live (sanity, NOT a gate):** production keep-mode a_wins deltas vs
+crude baseline -- boros gains (its tuned keep is strictly more selective: e.g.
+vs_amulet +21, vs_izzet_prowess +19, vs_humans +17, vs_eldrazi_tron +15, vs_grixis +8);
+amulet drops on raw WR (vs_boros -39, vs_humans -24, vs_izzet -21) as its combo-keep mulls
+more aggressively. These magnitudes are NOT validated here -- Step 5's five-mode
+decomposition + per-tier split (Gates 6-8) is the deferred attribution work. Do NOT bank
+any of these as a real edge yet.
+
+**Tests:** `tests/test_mull_routing.py` (10, all pass): crude byte-faithful to an inline
+reference, mode-selector gating + env precedence, keep-mode consults apl.keep/bottom,
+london_crude uses the crude predicate, RAISING keep -> crude fallback (keep + mull cases),
+RAISING bottom -> generic_bottom, keep-mode seed-determinism. Touched existing test
+`tests/test_determinism.py` still passes (6). Keep-mode worker-invariance spot-checked
+(n_workers 1 vs 4 identical). (Pre-existing unrelated breakage: `test_run_match_set_workers.py`
+calls `run_match_set(workers=...)` -- stale kwarg, not touched by this slice.)
+
+**Still OPEN (this spec continues EXECUTING):** Step 5 (5-mode WR matrix at the n>=500/
+n>=1000 floors + attribution + per-tier fidelity split), Step 6 (IMPERFECTIONS updates,
+mismodeled_matchups annotations, impl-plan B0 note, predecessor-spec stub, findings doc +
+grades + drift-detect).
+
+**Carried imperfections (new, from this slice):**
+- `mull-routing-combo-sampler-seat-a-crude`: `_run_match_with_combo` (used when the
+  opponent's name matches a `ComboKillSampler.KILL_DISTS` key: dimir reanimator, lotus
+  combo, cephalid breakfast, sneak and show, mono red painter, doomsday, bant nadu) still
+  uses the inline crude seat-A mulligan; boros/amulet keep does NOT route there. Grixis
+  Reanimator does NOT normalize to any KILL_DISTS key, so boros-vs-grixis (Gate 2/3) still
+  routes through run_match and IS keep-routed -- the bypass affects only those ~7 opponents.
+- `mull-routing-uw-control-cross-launch-nondeterminism`: boros_vs_uw_control not
+  cross-launch byte-stable under PYTHONHASHSEED=0 (opponent id()-ordering). Deferred to the
+  full-field id()-ordering stabilization predecessor.
+
 ## Changelog
 - 2026-06-30: Created (PROPOSED). Realizes the 2026-06-28 impl plan's B0 engine prerequisite
   (route run_match through keep()). Two-mode extract, seeded via gs.rng, opp-blind,
@@ -514,3 +601,9 @@ abort + IMPERFECTIONS + ship partial}.
   (6) ANCHORED-LOCK REGRESSION GUARD (Gate 8): externally-anchored non-combo bands (selesnya-vs-
   prowess, borosenergy-vs-affinity) retained as STOP guards, not blanket-voided. (7) Ordering
   footgun (hand+lib concat before shuffle) called out in Step 2.3.
+- 2026-06-30: EXECUTING. Amendment 1 -- first slice shipped: _do_mulligan_runner (crude/london_crude/
+  keep) + _mull_mode selector + fallback safety in engine/match_runner.py; keep-mode flipped to
+  production for boros+amulet lanes only. Gate 0 PASS on 12/13 cells (Stop-1 fired on boros_vs_uw_control
+  = opponent-side id()-ordering nondeterminism -> Rule-4 honest refinement: cell EXCLUDED, deferred to the
+  id()-ordering predecessor). Gate 1 PASS (crude-both byte-identical to pre-change baseline). Baseline:
+  data/mulligan_baseline_pinned_2026-06-30.txt. Tests: tests/test_mull_routing.py (10). Steps 5-6 OPEN.

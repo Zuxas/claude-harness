@@ -6,6 +6,15 @@ each status. After a spec ships, it stays in this index forever.
 
 ## EXECUTING
 
+- `2026-06-30-match-mulligan-keep-routing.md` -- Route run_match opening hands through each
+  deck's real keep()/bottom() (London, seeded via gs.rng, both seats). First slice: boros+amulet
+  lanes only. Amendment 1 (2026-06-30) shipped the engine routing (`_do_mulligan_runner` with
+  crude/london_crude/keep modes + `_mull_mode` selector + per-call fallback), Gate 0 (12/13 cells
+  byte-identical across 4 pinned launches; boros_vs_uw_control excluded = opponent id()-ordering)
+  and Gate 1 (crude-both byte-identical). Steps 5 (5-mode WR decomposition) + 6 (trackers/findings/
+  predecessor stub) OPEN. Full-field flip blocked on the id()-ordering stabilization predecessor.
+  Code committed in mtg-sim (ea737ae + 4762ab9). Branch `modern-postban-arc`.
+
 - `2026-06-30-modern-combo-interaction.md` -- Interaction-aware Modern combo opponents (handoff #2).
   SPINE increment executed 2026-06-30 (Mid-execution Amendment 1): Component 2 Site 1 (mp1
   `damage_dealt` gate generalized to `WANTS_STORM or WANTS_BURN`; mono_red flagged, 481->395 a_wins,
