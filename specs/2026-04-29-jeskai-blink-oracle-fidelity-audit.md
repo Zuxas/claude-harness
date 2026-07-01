@@ -1,8 +1,8 @@
 ---
 title: "Jeskai Blink oracle-fidelity audit + engine gap spec"
-status: "PROPOSED"
+status: "SHIPPED"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-07-01"
 project: "mtg-sim"
 estimated_time: "varies — see Phase A/B/C below"
 related_findings:
@@ -263,3 +263,6 @@ G. **Match APL should have its own card_specs migration when Phase B ships** —
 ## Changelog
 
 - 2026-04-29: Created during late-session oracle re-read after user pointed out missed Warp + Phlage+Consign combo plays. Captures full deck oracle-fidelity audit + phased fix spec.
+
+## Reconciliation note (2026-07-01)
+Status PROPOSED->SHIPPED during harness reconciliation. Evidence: Phases A+B executed 2026-04-29/30 (13 commits per MEMORY.md); Phase C engine gaps were deferred to IMPERFECTIONS and subsequently addressed by the R1-R6 modelability ladder (2026-06-26 specs).

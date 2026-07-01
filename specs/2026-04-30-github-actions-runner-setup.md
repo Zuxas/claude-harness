@@ -1,8 +1,8 @@
 ---
 title: GitHub Actions self-hosted runner setup + CI/CD pipeline
-status: PROPOSED
+status: SHIPPED
 created: 2026-04-30
-updated: 2026-04-30
+updated: 2026-07-01
 project: harness / mtg-sim / mtg-meta-analyzer
 estimated_time: 30-45 min (runner registration) + 15 min (first push)
 ---
@@ -151,3 +151,6 @@ Before today's fix, the bug reached main. After CI is wired, that can't happen.
 - 2026-04-30: Created (PROPOSED). Covers runner setup, path fixes, CI workflow
   design. Paths fixed in 5 files across mtg-sim and meta-analyzer. Workflows
   created: mtg-sim/.github/workflows/ci.yml, mtg-meta-analyzer/.github/workflows/ci.yml.
+
+## Reconciliation note (2026-07-01)
+Status PROPOSED->SHIPPED during harness reconciliation. Evidence: runners registered + CI live 2026-05-01 (MEMORY.md); Node 24 action updates (checkout@v5, setup-python@v6, github-script@v8) landed 2026-05-03 on both repos - the last open item.

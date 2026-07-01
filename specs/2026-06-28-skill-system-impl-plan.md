@@ -1,8 +1,8 @@
 ---
 title: "Skill System for the Harness -- Implementation Plan"
-status: "PROPOSED"
+status: "SHIPPED"
 created: "2026-06-28"
-updated: "2026-06-28"
+updated: "2026-07-01"
 project: "harness"
 estimated_time: "120-180 min"
 related_findings:
@@ -374,3 +374,6 @@ extend linting to cover skills/ (G5); native-skill conversion (G7).
 ## Changelog
 - 2026-06-28: Created (status PROPOSED). Impl plan for
   specs/2026-05-01-skill-system-harness.md.
+
+## Reconciliation note (2026-07-01)
+Status corrected PROPOSED->SHIPPED: harness/skills/ tree live (mtg-sim-quality, meta-analysis, apl-generation, harness-ops, _index.md); CLAUDE.md v1.6 skill-menu gate references this plan.

@@ -1,6 +1,6 @@
 ---
 title: "Impl Plan: LLM-as-Judge APL Evaluation (apl_judge.py + 30Q set)"
-status: PLAN
+status: SHIPPED
 created: 2026-06-28
 updated: 2026-06-28
 project: mtg-sim
@@ -320,3 +320,6 @@ under mtg-sim — so it cannot conflict with the concurrent `apl/` writer. Highe
 leverage of the open backlog: it adds a decision-quality signal that WR% and the
 deterministic fidelity gate structurally cannot provide. The one ordering caveat:
 author + pass calibration (gate 1) before trusting any APL score.
+
+## Reconciliation note (2026-07-01)
+Status corrected PLAN->SHIPPED: apl_judge.py + question/calibration data exist under harness/agents/scripts + harness/data; evalite spec (2026-06-29) extends it.

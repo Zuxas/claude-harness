@@ -613,3 +613,6 @@ These weren't fully verified tonight:
     planeswalker activation that doesn't exist in fast goldfish.
     Calibrate predictions against the kill-clock window for the
     deck under test.
+
+---
+RESOLVED (2026-07-01 reconciliation): superseded by subsequent BE APL work — role refactor (SUBPROJECTS.md), oracle additions 2026-04-30, and the current boros_energy_match.py (flagship, most-tuned APL per AUDIT-ENGINE-APL-2026-07-01). Content gaps enumerated here are historical.

@@ -1,14 +1,14 @@
 ---
 title: LLM-as-judge APL evaluation — 30-question ground-truth test set + Gemma scoring
-status: PROPOSED
+status: SUPERSEDED
 created: 2026-04-30
-updated: 2026-04-30
+updated: 2026-07-01
 project: mtg-sim
 estimated_time: 90-120 min
 related_findings: harness/knowledge/tech/external-research-mtg-ai-2026-04-30.md
 related_commits:
 supersedes:
-superseded_by:
+superseded_by: 2026-06-28-llm-as-judge-impl-plan.md
 ---
 
 # Spec: LLM-as-Judge APL Evaluation
@@ -203,3 +203,6 @@ Reference: Boros Energy should score >90%
 
 - 2026-04-30: Created (PROPOSED). Based on mtg-agents.com evaluation methodology.
   30-question design, 3 categories, Gemma 12B judge, Boros Energy as reference.
+
+## Reconciliation note (2026-07-01)
+Status PROPOSED->SUPERSEDED by specs/2026-06-28-llm-as-judge-impl-plan.md, which shipped: harness/agents/scripts/apl_judge.py + data/apl_judge_questions.json + data/apl_judge_calibration.json exist; the 2026-06-29 evalite spec builds on its llm= seam.

@@ -61,40 +61,35 @@ each status. After a spec ships, it stays in this index forever.
 - `2026-06-29-evalite-eval-harness.md` — evalite-shaped pytest eval harness (data->task->scorers[])
   extending apl_judge via its llm= seam; Monte Carlo sim as a 0-1 scorer + Anthropic LLM-judge; CI gate on
   mean(score). Anthropic half gated on the anthropic SDK install. Source: roadmap (evalite).
-- `2026-05-01-skill-system-harness.md` — Dynamic capability loading for the harness.
-  Bundle knowledge + scripts + behavior rules into loadable skills (mtg-sim-quality,
-  meta-analysis, apl-generation, harness-ops). ~78% context reduction per turn.
-  Source: nexu-io/harness-engineering-guide skill-system.md.
-  **Scheduled:** post-PT, earliest 2026-05-05.
-
 - `2026-04-30-mulligan-parameter-sweep.md` — Empirically derive optimal keep()
   thresholds for each deck archetype role via large-N goldfish simulation.
   27 combinations x 4 reference decks at N=50,000. Validates against Nettle 2-1-2.
-  **Status:** Spec drafted 2026-04-30. Scheduled post-PT.
-
-- `2026-04-30-llm-as-judge-apl-evaluation.md` — 30-question test set + Gemma judge
-  scoring APL decision correctness independently of sim WR%. Three question types:
-  oracle fidelity, strategic decisions, keep/mulligan.
-  **Status:** Spec drafted 2026-04-30. Scheduled post-PT.
-
-- `2026-04-29-jeskai-blink-oracle-fidelity-audit.md` — Per-card oracle re-read for
-  every nonland in `decks/jeskai_blink_modern.txt`. Found 3 prior-commit misreads.
-  Plus 11 engine-level gaps.
-  **Status:** Phase A + B shipped. Phase C (engine framework) deferred to IMPERFECTIONS.
+  **Status:** Spec drafted 2026-04-30. NOTE (2026-07-01 reconciliation): premise weakened
+  by mull-routing falsification (keep-quality self-help −0.17pp in match mode); an impl
+  plan exists (2026-06-28-mulligan-sweep-impl-plan.md) and scripts/mulligan_sweep.py is
+  on disk. Re-assess value before executing.
 
 - `2026-04-29-card-specs-framework.md` — Extract per-card decision logic into
   `apl/card_specs/` parallel to `engine/card_handlers_verified.py`. Tier 1+2 landed.
   **Status:** Spec drafted 2026-04-29. POC scope shipped. Full migration pending.
-
-- `2026-04-30-github-actions-runner-setup.md` — Self-hosted runner registration +
-  CI/CD pipeline design. Both runners live (JERMEY on mtg-sim + mtg-meta-analyzer).
-  **Status:** Runners registered, CI live, all initial issues resolved. DONE except
-  Node 24 action version update (needed before 2026-06-02).
+  Impl plan: 2026-06-28-card-specs-framework-impl-plan.md (PROPOSED).
 
 ## SHIPPED
 
 (retroactively populated -- see harness/specs/RETROACTIVE.md for the 14
 commits from 2026-04-26/2026-04-27 session that pre-date this directory)
+
+- `2026-04-29-jeskai-blink-oracle-fidelity-audit.md` — Per-card oracle re-read for JB.
+  Reconciled 2026-07-01: Phases A+B shipped 2026-04-29/30 (13 commits); Phase C engine
+  gaps deferred to IMPERFECTIONS and later addressed by the R1-R6 modelability ladder.
+- `2026-04-30-github-actions-runner-setup.md` — Runners registered + CI live 2026-05-01;
+  Node 24 action updates landed 2026-05-03 (last open item). Reconciled 2026-07-01.
+- `2026-06-28-skill-system-impl-plan.md` — Skill system implemented: harness/skills/ tree
+  (4 skills + _index.md), CLAUDE.md v1.6 skill-menu gate. Reconciled 2026-07-01 (frontmatter
+  had stayed PROPOSED after the work landed).
+- `2026-06-28-llm-as-judge-impl-plan.md` — apl_judge.py + question/calibration data live
+  under harness/agents/scripts + harness/data; evalite spec (2026-06-29) extends its llm=
+  seam. Reconciled 2026-07-01 (frontmatter had stayed PLAN after the work landed).
 
 - `2026-07-01-affinity-offense-rebaseline.md` — Arc #3: implemented the missing Urza's Saga
   chapter/Construct engine (oracle-faithful) + Thoughtcast CA + Munitions WANTS_BURN fidelity +
@@ -146,34 +141,4 @@ commits from 2026-04-26/2026-04-27 session that pre-date this directory)
 - `2026-04-28-drift-detect-7th-check-spec-validation.md` — Shipped.
 - `2026-04-28-drift-detect-8th-check-cache-key-audit.md` — Shipped.
 - `2026-04-29-gemma-apl-quality-lift.md` — Shipped.
-- `2026-04-29-drift-detect-8th-check-rmw-pattern.md` — Shipped.
-- `2026-04-29-rmw-race-cluster-fix.md` — Shipped.
-- `2026-04-29-within-matchup-parallelism.md` — Shipped (8706f68).
-- `2026-04-29-stage-ab-100k-revalidation.md` — Shipped 2026-05-01. Canonical 68.4% / Variant 75.1% at N=100k seed=42.
-- `2026-04-29-friday-pt-readiness.md` — Shipped.
-
-## SUPERSEDED
-
-(none)
-
-## ABANDONED
-
-(none)
-
-## BLOCKED
-
-(none)
-
-## How to use this index
-
-When picking up a session:
-1. Read EXECUTING entries first -- there's active work
-2. Then PROPOSED -- spec written, ready to start
-3. SHIPPED entries are reference material; don't re-execute
-
-When writing a new spec:
-1. Copy `_template.md` to `YYYY-MM-DD-<topic>.md`
-2. Fill in frontmatter with status: PROPOSED
-3. Add a line to the PROPOSED section above
-4. After execution starts, move to EXECUTING
-5. After commit lands, move to SHIPPED with commit hash
+- `
