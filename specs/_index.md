@@ -27,8 +27,16 @@ each status. After a spec ships, it stays in this index forever.
   +17pp to mono_red but below the [35,45] band -- honest residual, not tuned), Site 2 DROPPED (no
   end-step killer found), Component 1 inert `engine/combo_interaction.py` layer + `answer_combo`
   mixin (byte-identical everywhere). ruby_storm Step-2.0 diagnostic fired Stop condition 4
-  (payoff-reachability, not the damage channel -> re-scoped to Component 3). Per-deck assembly
-  (13 decks) + boros opt-in REMAIN. Branch `modern-postban-arc`.
+  (payoff-reachability, not the damage channel -> re-scoped to Component 3). Amendments 2-3 shipped
+  yawgmoth (cf2cf32, stays FLAGGED DEFLATED -- combat over-credit) + grixis (stays FLAGGED
+  INVERTED-improved 69.4->55.0%). **Component-3 RE-SCOPE (2026-07-01, amendment at EOF): the
+  mulligan lever is FALSIFIED (mull-routing-falsification-2026-07-01.md: isolated assembly ~+3pp not
+  ~24pp, WR flat, yawgmoth assembly FELL); the old per-deck Leverage order is SUPERSEDED by
+  shared-cause batches (I0 honesty flags -> A cascade seam -> F combat-over-credit characterization
+  -> E Griselbrand spike -> ruby -> goryos -> broodscale -> ...). Trustworthy-minimum unblocking arc
+  #5 = BATCH I0 (flag belcher 3.5% + neobrand 2.0% + temur_crashcade 3.4% + ruby_storm 4.1% +
+  register landlessbelcher).** 9 cells REMAIN (2 fixable_to_band: ruby, goryos; 1 candidate:
+  broodscale; rest improvable/flag-forever). Branch `modern-postban-arc`.
 
 - `2026-04-27-phase-3-5-keywords.md` -- Full keyword coverage in match-runner.
   11 stages (A-K), every keyword in engine/keywords.py KWTag plus ~25 not-yet-tagged
