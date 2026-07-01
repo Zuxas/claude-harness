@@ -581,6 +581,47 @@ grades + drift-detect).
   cross-launch byte-stable under PYTHONHASHSEED=0 (opponent id()-ordering). Deferred to the
   full-field id()-ordering stabilization predecessor.
 
+### Amendment 2 (2026-07-01) — Steps 5-6 executed: HYPOTHESIS FALSIFIED (honest negative)
+
+Status stays EXECUTING pending ONE open decision (keep vs revert the slice — below). Steps 5
+(5-mode WR decomposition) and 6 (combo re-measure + trackers) are now COMPLETE. Full findings:
+`harness/knowledge/tech/mull-routing-falsification-2026-07-01.md`. Raw captures:
+`mtg-sim/data/mull_5mode_captures_2026-07-01/`. Re-measure flag commit: `002e9df`.
+
+**The spec's core premise — "crude mulligan starves combo assembly; routing through keep()
+unstarves it and moves the flagged cells" — is FALSIFIED.** Isolated mulligan contribution to
+grixis assembly is ~+3pp (32.4%→35.4%, ~1 SE), WR flat at 55.0% (gate needed ≥42% AND ≤48% —
+NOT met). Yawgmoth's assembly FELL (9.8%→6.8%; its keep mulls away combo pieces). The
+"match 32% vs goldfish 56%" gap was a MISATTRIBUTION: goldfish-vs-match bundles the whole
+opponent-pressure channel (legit Boros pressure + the 66-card stub list), not the mulligan.
+Spec Gate 2 stop-trigger ("P_assemble does not rise") effectively fired for BOTH cells. Both
+stay flagged; nothing tuned (Stop condition 2 respected).
+
+**5-mode attribution (Gates 6-8): shipped slice is artifact-only.**
+- keep-quality self-help = M2 − Mmech_spec = **−0.17pp** (NEGLIGIBLE — spec's near-zero
+  prediction for an aggro 2-land keep CONFIRMED).
+- mechanic-only self-help = Mmech_spec − M0 = **+1.89pp** (SYSTEMATIC, 6/7 cells) — the
+  London-vs-Vancouver asymmetry (Boros gets London cap-4; opponents stay crude Vancouver cap-3).
+  A MODELING ARTIFACT (mirror of number-forcing), must be attributed.
+- **Shipped reality is M2, not M3.** `_KEEP_ROUTED_APLS = {Boros, Amulet}` → every
+  Boros-vs-opponent cell is {keep,crude} = M2 (+1.71pp); only Boros-vs-Amulet is genuine M3.
+  Do NOT cite M3's +2.40pp as "production" — it is the blocked full-field projection.
+  The +1.89pp artifact ≈ the entire +1.71pp shipped gain, so the slice's ONLY real effect is
+  the artifact. keep-quality benefit ≈ 0.
+- opp-help = M1 − M0 = **+1.86pp**, OPPOSITE to prediction (spec predicted opponents routing
+  keep would LOWER Boros WR). Gates 0/1/7 held; Gate 8 no routing regression.
+
+**OPEN DECISION (user):** the shipped Boros+Amulet slice now delivers ~zero real benefit and
+one live artifact whose neutralization (all-field London) is blocked on the id()-ordering
+predecessor. Keep it enabled (faithful, safe, but artifact-contaminates #5/#6 field WR ~1.7pp)
+or revert the production flip (keep the refactor + modes, default back to crude)? Tracked as
+IMPERFECTION `mull-routing-london-vancouver-asymmetry-artifact`.
+
+**Redirect for arc #2:** the mulligan lever does NOT unstarve the flagged cells. Remaining #2
+work targets the real causes: grixis = 66-card stub + legit Boros pressure; yawgmoth = combat
+over-credit. Methodology lesson added to spec-authoring-lessons.md
+(`goldfish-vs-match-gap-conflates-channels`).
+
 ## Changelog
 - 2026-06-30: Created (PROPOSED). Realizes the 2026-06-28 impl plan's B0 engine prerequisite
   (route run_match through keep()). Two-mode extract, seeded via gs.rng, opp-blind,
