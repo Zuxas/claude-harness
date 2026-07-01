@@ -53,7 +53,9 @@ from typing import Any
 # Paths
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = Path(r"E:\vscode ai project")
+# Overridable for CI / non-Windows environments (same env-var pattern as the
+# 2026-04-30 CI path fixes elsewhere in the workspace).
+PROJECT_ROOT = Path(os.environ.get("MTG_PROJECT_ROOT", r"E:\vscode ai project"))
 MTG_SIM_ROOT = PROJECT_ROOT / "mtg-sim"
 APL_INIT     = MTG_SIM_ROOT / "apl" / "__init__.py"
 STUB_DECKS   = MTG_SIM_ROOT / "data" / "stub_decks.py"
@@ -597,10 +599,57 @@ def check_handlers(report: Report) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# CHECK: mismodel coverage -- every stub/synthetic deck must carry a
+# mismodeled_matchups.py flag (added 2026-07-01 after BATCH I0: belcher +
+# neobrand sat UNFLAGGED feeding false ~100% rows across ~5.5% of the field.
+# This check makes that silent-inflation class structurally unrepeatable.)
+# ---------------------------------------------------------------------------
+
+def check_mismodel_coverage(report: Report) -> None:
+    import re
+    mm_path = MTG_SIM_ROOT / "mismodeled_matchups.py"
+    if not mm_path.exists():
+        report.add("WARN", "mismodel-coverage", "mismodeled_matchups.py not found")
+        return
+    # Load the registry module directly for its lookup() (mirrors runtime matching)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_mm_lint", mm_path)
+    mm = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mm)
+    except Exception as e:                         # pragma: no cover
+        report.add("ERROR", "mismodel-coverage", f"cannot import mismodeled_matchups.py: {e}")
+        return
+
+    marker = re.compile(r"audit:(stub|synthetic)")
+    for deck_dir in (MTG_SIM_ROOT / "decks", MTG_SIM_ROOT / "decks" / "auto"):
+        if not deck_dir.exists():
+            continue
+        for deck in sorted(deck_dir.glob("*.txt")):
+            try:
+                head = "".join(deck.open(encoding="utf-8", errors="replace").readlines()[:10])
+            except OSError:
+                continue
+            if not marker.search(head):
+                continue
+            # derive the archetype name from the filename: strip format suffix + underscores
+            stem = re.sub(r"_(modern|standard|pioneer|legacy)$", "", deck.stem)
+            if mm.lookup(stem) is None:
+                report.add(
+                    "WARN", "mismodel-coverage",
+                    f"{deck.relative_to(MTG_SIM_ROOT)} carries an audit:stub/synthetic marker "
+                    f"but '{stem}' has NO mismodeled_matchups.py entry (silent-inflation risk)",
+                    "Add an INFLATED/STUB entry (see BATCH I0 pattern) or remove the stale marker",
+                )
+
+
 CHECKS = {
     "registry":      check_registry,
     "orphan-decks":  check_orphan_decks,
     "handlers":      check_handlers,
+    "mismodel-coverage": check_mismodel_coverage,
 }
 
 
