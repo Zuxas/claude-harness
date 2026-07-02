@@ -1,6 +1,6 @@
 ---
 title: "Oracle-driven responses v2 -- calibration-evidenced replacement of the counter/removal whitelists"
-status: "PROPOSED"
+status: "IN_PROGRESS (stages 0-2 SHIPPED @ mtg-sim 452923a; stages 3-4 pending)"
 created: "2026-07-02"
 updated: "2026-07-02"
 project: "mtg-sim"
@@ -341,6 +341,46 @@ remain; this spec fixes CAPABILITY, not judgment.
 
 ## Changelog
 
+- 2026-07-02 (later): **Stages 0-2 SHIPPED** (mtg-sim `452923a` on
+  modern-postban-arc, executed @ `3ed5d98`). Stage 3 (consultation swap) and
+  Stage 4 (gate battery) NOT started; gate `WANTS_ORACLE_RESPONSES` exists but
+  no live path consults the classifier yet (test-asserted).
+  - **Stage 0 pin** (n=5000, seed=42, PYTHONHASHSEED=0, the 07-01 driver):
+    P1 5.3% -- byte-stable, normalized P1-cell sha256 `b76c3711...` identical
+    across THREE runs (2 pre-change, 1 post-change) = the gate-OFF
+    byte-identity demonstration. Hash manifest committed as
+    `mtg-sim/data/response_baseline_2026-07-02.json` (raw battery JSONs/logs
+    local-only; `.gitignore` excludes `data/sim_calibration_*.json`/`*.log`).
+  - **FINDING (Gate-2 blocker for Stages 3-4):** P2 (Izzet Prowess vs Mono
+    Green Landfall) has PRE-EXISTING same-seed drift at HEAD with ZERO
+    changes: 71.4 / 72.0 / 71.6 (+ 71.5 on 07-01 @ d9b708a). Reproduced
+    SAME-PROCESS with fresh deck loads (n=1000 seed=42 consecutive: 728 vs
+    725 a_wins) -- outside the Stage-1.7-tested mirrors, consistent with the
+    13 naked global-random sites / id()-ordering class (Risk 1). Gate 2
+    ("byte-identical result JSON per cell") is UNSATISFIABLE for P2 until
+    that is fixed (B1 RNG-threading territory). P1 remains a valid
+    byte-identity instrument.
+  - **Stage 1:** `engine/response_capability.py` -- 9 kinds, printed-cost
+    honest-mana, oracle_id-keyed process-lifetime cache (design 2), RNG-free.
+  - **Stage 2 golden (Gate 4):** all whitelist members pinned exhaustively
+    (18 COUNTER_VALIDITY + 36 base MATCH_REMOVAL + 15 per-APL extension
+    entries). ZERO grammar-attributable mismatches (07-01 G1 stop NOT
+    triggered). Four table-side deviations documented with oracle quotes in
+    the test: Get Out / Metallic Rebuke policy costs (the table's own
+    comments declare them), Requiting Hex (table jams mv<=2 into the
+    max-toughness slot), Sear (table (2,3) vs card's actual 4 damage --
+    stale table entry). v1 not-derived fallbacks behave exactly as spec'd
+    (alt/pitch, {X}, cost-reduction statics, Spree/Tiered, unknown riders).
+  - **Stage 2 coverage (Gate 5):** 125 decks swept, 208 unique instant/flash
+    cards: 31.7% DERIVED, 5.8% whitelist-fallback, 43.3% inert, 19.2%
+    UNHANDLED (tail listed in `data/response_coverage.csv`; 07-01's
+    "<20% tail, whitelist-covered or inert, never silently wrong" holds at
+    80.8% accounted). Strict "derived" reading is 31.7% -- reported honestly;
+    the tail is dominated by modal charms, conditional/X effects, and
+    color/subtype filters (v1-excluded by design).
+  - **Verify:** 38 tests green (repo determinism suite 6/6 incl.
+    cross-process, R1 stack, match_engine, +26 new). P1 cell runtime 27.0s
+    (baseline 27.0-27.5s; +10% budget met).
 - 2026-07-02: Created (status PROPOSED). Extends
   2026-07-01-oracle-driven-responses.md with the n=5000 battery evidence
   (P1 5.3% inverted vs all anchors), the hard Gate-1 calibration band,
