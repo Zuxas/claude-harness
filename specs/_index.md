@@ -60,6 +60,16 @@ each status. After a spec ships, it stays in this index forever.
   keywords. No deferrals. Estimated 200-350 min real work, may expand.
   **Status:** Stage A in queue, blocked on 100k canonical Task 2 completion.
 
+- `2026-07-01-gui-basic-pro-progressive-disclosure.md` — Basic/Pro title-bar toggle +
+  tab subtitles + Dashboard "first 3 things" banner + Ctrl+K hint + Pro-tab empty-state
+  coaching. Serves first-timers AND endgame from one build via progressive disclosure;
+  reuses the existing AI-tab add/remove mechanism (main_window.py:387). 5 falsifiable
+  gates (default-Basic, toggle round-trip, persistence, Pro==today no-regression).
+  Source: GUI-UX-ASSESSMENT-2026-07-01.
+  **Status:** IMPLEMENTED-PENDING-VISUAL-CHECK (2026-07-01) — toggle, tab reorder,
+  subtitles, banner, hint, coaching all built; existing users default Pro, fresh
+  installs Basic; 388 tests green. Needs eyes on the running GUI before SHIPPED.
+
 ## PROPOSED
 
 - `2026-07-01-oracle-driven-responses.md` — retire the counter/removal whitelists via
