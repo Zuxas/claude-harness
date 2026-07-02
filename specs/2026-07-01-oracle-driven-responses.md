@@ -1,8 +1,8 @@
 ---
 title: "Oracle-driven priority responses — retire the counter/removal whitelists"
-status: "PROPOSED"
+status: "IN_PROGRESS (moves with 2026-07-02-oracle-driven-responses.md; its Steps 1-3 / G1-G3 shipped @ mtg-sim 452923a -- classifier landed as engine/response_capability.py per the 07-02 amendment; Steps 4-5 pending)"
 created: "2026-07-01"
-updated: "2026-07-01"
+updated: "2026-07-02"
 project: "mtg-sim"
 estimated_time: "3-7 days (M-L); parallel-safe with B1 (different files, shared seam)"
 related_findings:
