@@ -1,6 +1,6 @@
 ---
 title: "B1 — Legal-action enumeration API + cheap state fork (the ISMCTS gate)"
-status: "PROPOSED"
+status: "EXECUTING"
 created: "2026-07-01"
 updated: "2026-07-01"
 project: "mtg-sim"
@@ -85,3 +85,12 @@ oracle-driven responses (separate spec, parallel-safe).
   oracle-responses spec ships (seam designed in Step 4).
 - Attack/block enumeration is capped, not exhaustive — sound for search-vs-APL
   comparison, documented as a widening lever later.
+
+## Mid-execution Amendment 1 (2026-07-01)
+Step 1 DELIVERED: `mtg-sim/docs/action-vocabulary.md` — 14 decision sites mapped to a
+13-kind Action vocabulary, every engine->APL call site enumerated and verified by
+source grep (agent survey cross-checked). Note: the file is uncommitted in mtg-sim
+(Cowork sandbox is pre-history-rewrite); commit workstation-side. Steps 2-7 OPEN.
+Finding folded in: respond_to_spell (match_apl.py:485, match_engine.py:105) is a
+shallow pre-R1 hook — vocabulary folds it into the RESPOND family rather than
+modeling it separately.
