@@ -6,6 +6,14 @@ each status. After a spec ships, it stays in this index forever.
 
 ## EXECUTING
 
+- `2026-07-01-b1-legal-action-api.md` — **EXECUTING** (Step 1 shipped 2026-07-01:
+  mtg-sim/docs/action-vocabulary.md, 13-kind Action vocabulary, all call sites verified;
+  Steps 2-7 open). THE ISMCTS gate: `reset/observe/legal_actions/
+  step/fork` decision API on the match engine + cheap fork + per-state RNG (subsumes the
+  fork/RNG-threading item — one refactor, one baseline re-anchor). 5 falsifiable gates
+  incl. action-replay parity and 10k random-walk conservation. Steps 1-3 = shippable
+  first slice. Source: AUDIT-ENGINE-APL-2026-07-01 Part A.
+
 - `2026-06-30-match-mulligan-keep-routing.md` -- Route run_match opening hands through each
   deck's real keep()/bottom() (London, seeded via gs.rng, both seats). First slice: boros+amulet
   lanes only. Amendment 1 (2026-06-30) shipped the engine routing (`_do_mulligan_runner` with
@@ -54,13 +62,6 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
-- `2026-07-01-b1-legal-action-api.md` — **EXECUTING** (Step 1 shipped 2026-07-01:
-  mtg-sim/docs/action-vocabulary.md, 13-kind Action vocabulary, all call sites verified;
-  Steps 2-7 open). THE ISMCTS gate: `reset/observe/legal_actions/
-  step/fork` decision API on the match engine + cheap fork + per-state RNG (subsumes the
-  fork/RNG-threading item — one refactor, one baseline re-anchor). 5 falsifiable gates
-  incl. action-replay parity and 10k random-walk conservation. Steps 1-3 = shippable
-  first slice. Source: AUDIT-ENGINE-APL-2026-07-01 Part A.
 - `2026-07-01-oracle-driven-responses.md` — retire the counter/removal whitelists via
   oracle-text classification (golden-tested against the existing table, feature-gated
   gate-OFF-byte-identical, measure-don't-tune). Empirical driver: calibration probe
