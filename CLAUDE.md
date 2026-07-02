@@ -36,7 +36,9 @@ If the snapshot is stale (>24h old) or missing, Claude should run the snapshot s
 2026-05-16; the 5/16 chain was audited and fully dispositioned 2026-07-01 (two leftover
 durable items completed; the rest obsolete or already done). Replacement for the chain's
 loose-ends function: drift-detect's `loose-ends` check warns on unchecked `- [ ]` items
-in EXECUTING specs and plan files older than 7 days.
+in EXECUTING specs and plan files older than 7 days. **The daily drift PR
+(`harness/inbox/drift-pr--<date>.md`, 04:50) is the sole daily artifact going forward
+(retirement ratified 2026-07-01).**
 
 Each weekday is a ~9-hour "scripted" day. The structure:
 

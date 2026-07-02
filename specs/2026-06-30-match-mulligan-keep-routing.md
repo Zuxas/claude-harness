@@ -1,8 +1,8 @@
 ---
 title: Match mulligan keep-routing -- route run_match opening hands through each APL's keep()
-status: EXECUTING
+status: CLOSED-FALSIFIED
 created: 2026-06-30
-updated: 2026-06-30
+updated: 2026-07-01
 project: mtg-sim
 estimated_time: see Estimated time (code ~50 lines; the work is validation on a SCOPED slice)
 scopes_spec:
@@ -648,3 +648,7 @@ over-credit. Methodology lesson added to spec-authoring-lessons.md
   = opponent-side id()-ordering nondeterminism -> Rule-4 honest refinement: cell EXCLUDED, deferred to the
   id()-ordering predecessor). Gate 1 PASS (crude-both byte-identical to pre-change baseline). Baseline:
   data/mulligan_baseline_pinned_2026-06-30.txt. Tests: tests/test_mull_routing.py (10). Steps 5-6 OPEN.
+- 2026-07-01: Status EXECUTING->CLOSED-FALSIFIED per ratified spec triage (2026-07-01-spec-triage.md).
+  Hypothesis FALSIFIED per Amendment 2 (keep-quality self-help −0.17pp; the shipped gain was the
+  London-vs-Vancouver mechanic ARTIFACT). The one open decision (keep vs revert the artifact-only
+  slice) RESOLVED by sim commit 6052de6: production mull default reverted to crude.

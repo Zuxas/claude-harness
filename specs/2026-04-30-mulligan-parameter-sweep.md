@@ -1,8 +1,8 @@
 ---
 title: Mulligan parameter sweep — empirically derive optimal keep() thresholds
-status: TRACK-A SHIPPED 2026-06-28 (mtg-sim d5603bb, scripts/mulligan_sweep.py goldfish threshold sweep); Tracks B/C deferred (B blocked on engine human-mull prerequisite, C on apply)
+status: TRACK-A COMPLETE 2026-06-28 (mtg-sim d5603bb, scripts/mulligan_sweep.py goldfish threshold sweep); Tracks B/C CLOSED-STALLED 2026-07-01 (premise weakened — keep-quality self-help measured −0.17pp in match mode; engine mull default reverted to crude, sim 6052de6)
 created: 2026-04-30
-updated: 2026-04-30
+updated: 2026-07-01
 project: mtg-sim
 estimated_time: 90-120 min scripting + 2-4 hours compute
 related_findings: harness/knowledge/tech/external-research-mtg-ai-2026-04-30.md
@@ -134,3 +134,6 @@ Each update:
 ## Changelog
 
 - 2026-04-30: Created (PROPOSED). Based on Nettle 2-1-2 finding + mulligan-logic-portfolio-gap.
+
+## Reconciliation note (2026-07-01)
+Per ratified spec triage (2026-07-01-spec-triage.md): Track A COMPLETE (scripts/mulligan_sweep.py shipped 2026-06-28, mtg-sim d5603bb historical hash); Tracks B/C CLOSED-STALLED. The B/C premise is empirically weak: the 2026-07-01 mull-routing falsification measured keep-quality self-help at −0.17pp in match mode and the engine production mull default was reverted to crude (sim 6052de6). Re-open only if a future spec re-establishes the lever.

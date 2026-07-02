@@ -1,8 +1,8 @@
 ---
 title: "card_specs framework: extract per-card decision logic from APLs"
-status: "STEPS 1-4 SHIPPED 2026-06-28 (mtg-sim d5603bb, apl/card_specs/solitude.py + galvanic_discharge.py + test_card_specs PASS); Phase B deferred"
+status: "COMPLETE — POC shipped 2026-06-28 (mtg-sim d5603bb historical hash, apl/card_specs/solitude.py + galvanic_discharge.py + test_card_specs PASS); remainder SUPERSEDED by 2026-06-28-card-specs-framework-impl-plan.md"
 created: "2026-04-29"
-updated: "2026-04-29"
+updated: "2026-07-01"
 project: "mtg-sim"
 estimated_time: "240-360 min (full); 60-90 min (POC only — Phase 3 below)"
 related_findings:
@@ -10,7 +10,7 @@ related_findings:
   - "harness/knowledge/tech/mulligan-audit-2026-04-28.md"
 related_commits: []
 supersedes: null
-superseded_by: null
+superseded_by: "harness/specs/2026-06-28-card-specs-framework-impl-plan.md (Phase B remainder only)"
 ---
 
 # card_specs framework: extract per-card decision logic from APLs
@@ -341,3 +341,6 @@ Spec: harness/specs/2026-04-29-card-specs-framework.md
 ## Changelog
 
 - 2026-04-29: Created (status PROPOSED). POC scope clarified (ADDITIVE — no canonical risk). Phase A/B/C structure defined. Tier 1/2/3 priority laid out.
+
+## Reconciliation note (2026-07-01)
+Status -> COMPLETE per ratified spec triage (2026-07-01-spec-triage.md). POC scope (Steps 1-4) shipped 2026-06-28: apl/card_specs/solitude.py + galvanic_discharge.py + test_card_specs PASS (mtg-sim d5603bb, historical pre-rewrite hash; work verifiable on disk). The Phase B remainder is carried by 2026-06-28-card-specs-framework-impl-plan.md — the stale artifact was the _index.md entry, not this spec.

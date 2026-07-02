@@ -1,6 +1,6 @@
 ---
 title: "Spec triage — stale-status reconciliation (verdict proposals)"
-status: "TRIAGE REPORT — proposals only; no spec status lines were modified"
+status: "RATIFIED + APPLIED 2026-07-01 — all verdicts user-ratified and executed (spec status lines + _index.md updated); keep-routing additionally CLOSED-FALSIFIED (open decision resolved by sim 6052de6)"
 created: "2026-07-01"
 updated: "2026-07-01"
 project: "harness"

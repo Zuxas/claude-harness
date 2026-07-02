@@ -11,7 +11,7 @@ harness/
   SUBPROJECTS.md           <- canonical sub-project menu (added 2026-04-28 v1.4)
   HARNESS_STATUS.md        <- system overview + 5-layer roadmap
   plan-<date>.md           <- end-of-day plan documents
-  plan-<date>-execution-chain.md  <- daily execution chains (added 2026-04-28 v1.4 as standing pattern)
+  plan-<date>-execution-chain.md  <- daily execution chains (added 2026-04-28 v1.4; RETIRED 2026-07-01 — historical records only, do not author new ones; the daily drift PR in inbox/ is the sole daily artifact)
   knowledge/
     _index.md              <- master block index
     mtg/                   <- MTG-sim, deck tuning, calibration
