@@ -52,6 +52,17 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
+- `2026-07-02-oracle-driven-responses.md` — **EXTENDS the 07-01 oracle-driven-responses
+  spec** (classifier core + golden test by reference) with the n=5000 battery evidence
+  (sim-calibration-2026-07-01: P1 Dimir-vs-Prowess **5.3%** vs anchors 40.0/37.2/**47.6** —
+  INVERTED, worse against fresher anchors; P2 cured but +19pp hot) and hard gates:
+  Gate 1 = P1 (n=5000, seed=42, PYTHONHASHSEED=0) into ±10pp of the 47.6% ladder anchor
+  WITHOUT P2 regressing past +19.3pp; plus seeded-replay byte-stability and a
+  no-decision-logic-change gate for non-response paths. Adds the capability-vs-policy
+  seam, CardDB classification cache, per-stage sizes (M-L, ~2-3 sessions), and the risk
+  register (13 global-random sites; fork × counter-window hidden-hand leak from the
+  decision_api audit). v1 = counters + instant-speed spot removal; replacement effects
+  and trigger ordering explicitly out.
 - `2026-07-01-oracle-driven-responses.md` — retire the counter/removal whitelists via
   oracle-text classification (golden-tested against the existing table, feature-gated
   gate-OFF-byte-identical, measure-don't-tune). Empirical driver: calibration probe
