@@ -94,3 +94,14 @@ source grep (agent survey cross-checked). Note: the file is uncommitted in mtg-s
 Finding folded in: respond_to_spell (match_apl.py:485, match_engine.py:105) is a
 shallow pre-R1 hook — vocabulary folds it into the RESPOND family rather than
 modeling it separately.
+
+## Mid-execution Amendment 2 (2026-07-01) — PROTOTYPE LANDED
+Steps 2/3 + a v0 of Step 6 shipped as a WORKING PROTOTYPE (files uncommitted in mtg-sim,
+sandbox pre-rewrite — commit workstation-side):
+- engine/decision_api.py: legal_main_actions / apply_action (canonical paths) / fork (deepcopy v0).
+- apl/search_apl.py: SearchAPL(MatchAPL) — deck-agnostic pilot, 1-ply fork+greedy eval on
+  main-phase-1; combat/priority/mulligan inherit MatchAPL defaults.
+Measured (Boros deck vs Murktide, real engine, PYTHONHASHSEED=0): SearchAPL 30.8% (N=107)
+vs GenericMatchAPL 39.2% (N=1159) vs hand-tuned Boros 45.7% (N=2471). Seam proven; skill is
+future work. Remaining B1: Step 4/5 (priority+combat enumeration), real Step 6 (cheap fork),
+Steps 2-7 formal gates. Report: E:\vscode ai project\PROTOTYPE-2026-07-01.md.
