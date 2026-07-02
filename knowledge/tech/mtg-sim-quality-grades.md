@@ -147,3 +147,34 @@ These are the changes that would improve grades fastest:
 ---
 ## STALENESS NOTE (2026-07-01 reconciliation)
 Grades below were last formally regenerated 2026-05-01 and are ~61 days stale. Newer measured numbers exist but are scattered: post-ban Modern refresh (2026-06-30, 18-deck field), affinity rebaseline ~76% Boros (spec 2026-07-01-affinity-offense-rebaseline, SHIPPED PARTIAL), mulligan falsification WR decomposition (mull-routing-falsification-2026-07-01.md). A formal regrade requires a gauntlet run on the post-ban field — do NOT trust the per-domain letter grades below for current-field decisions; trust mismodeled_matchups.py flags + the EXECUTING spec amendments instead.
+
+
+---
+## ADDENDUM (2026-07-01 workstation reconciliation — grade-affecting findings only, NOT a regrade)
+
+A formal regrade still requires a post-ban gauntlet run (see STALENESS NOTE).
+Tonight's verified findings that touch specific graded rows:
+
+- **DB-cached matchups (Gauntlet methodology, A)** — data-layer incident + fix:
+  analyzer `data/preferences.json` was 0 bytes since ~2026-06-21, so only
+  Standard was scraped since ~2026-05-11 (Modern/Legacy/Pioneer/Pauper had a
+  ~7-week hole). Fixed tonight: prefs restored (all 5 formats), backfilled
+  current through 2026-06-30, DBs relocated to D:\mtg-data behind the central
+  resolver (analyzer 78635a5 + 9e82f8a). Grade holds A going FORWARD, but any
+  non-Standard field-weighted result produced 2026-05-11..2026-07-01 drew on
+  stale field data and is suspect.
+- **Priority / timing (Engine, C)** — stale-low: R1 priority stack (0f98db3),
+  R2 instant-speed combat, and R3 storm landed 2026-06-26..28 behind
+  capability gates. Regrade-upward candidate at the next formal pass.
+- **Search/decision layer (no graded row yet)** — engine/decision_api.py +
+  apl/search_apl.py committed (sim c1fe5a3): L4 is now built + measured
+  (SearchAPL 30.8% vs hand-tuned Boros 45.7%, same cell). Add a graded row at
+  the next regrade.
+- **Mulligan-related items (upgrade ranking + Match-mode APLs notes)** — the
+  match mulligan lever is FALSIFIED (keep-quality self-help −0.17pp;
+  production default reverted to crude, sim 6052de6). De-prioritize mulligan
+  entries in "Highest-leverage upgrades"; sweep spec Tracks B/C proposed
+  closed in specs/2026-07-01-spec-triage.md.
+- **"Phase 3.5 in progress" notes (Combat match-runner B+, Targeting C)** —
+  wording is stale: Stages D-K never ran; the R1-R6 modelability ladder is the
+  successor mechanism (triage proposal #1).
