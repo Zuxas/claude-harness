@@ -14,21 +14,6 @@ each status. After a spec ships, it stays in this index forever.
   incl. action-replay parity and 10k random-walk conservation. Steps 1-3 = shippable
   first slice. Source: AUDIT-ENGINE-APL-2026-07-01 Part A.
 
-- `2026-06-30-match-mulligan-keep-routing.md` -- Route run_match opening hands through each
-  deck's real keep()/bottom() (London, seeded via gs.rng, both seats). First slice: boros+amulet
-  lanes only. Amendment 1 (2026-06-30) shipped the engine routing (`_do_mulligan_runner` with
-  crude/london_crude/keep modes + `_mull_mode` selector + per-call fallback), Gate 0 (12/13 cells
-  byte-identical across 4 pinned launches; boros_vs_uw_control excluded = opponent id()-ordering)
-  and Gate 1 (crude-both byte-identical). Steps 5 (5-mode WR decomposition) + 6 (trackers/findings/
-  predecessor stub) OPEN. Full-field flip blocked on the id()-ordering stabilization predecessor.
-  Code committed in mtg-sim (ea737ae + 4762ab9). Branch `modern-postban-arc`.
-  **Amendment 2 (2026-07-01): Steps 5-6 DONE — HYPOTHESIS FALSIFIED.** The mulligan does NOT
-  unstarve combo assembly (grixis +3pp iso, WR flat; yawgmoth assembly FELL). 5-mode decomposition:
-  keep-quality self-help −0.17pp (negligible), but +1.89pp mechanic-only London-vs-Vancouver
-  ARTIFACT = ~the entire shipped M2 gain. Shipped cells are M2 (+1.71pp), only Boros-vs-Amulet is
-  M3. Findings: mull-routing-falsification-2026-07-01.md. Flags committed 002e9df. ONE open decision:
-  keep vs revert the artifact-only slice (IMPERFECTION mull-routing-london-vancouver-asymmetry-artifact).
-
 - `2026-06-30-modern-combo-interaction.md` -- Interaction-aware Modern combo opponents (handoff #2).
   SPINE increment executed 2026-06-30 (Mid-execution Amendment 1): Component 2 Site 1 (mp1
   `damage_dealt` gate generalized to `WANTS_STORM or WANTS_BURN`; mono_red flagged, 481->395 a_wins,
@@ -55,11 +40,6 @@ each status. After a spec ships, it stays in this index forever.
   fixable_to_band: ruby, goryos; 1 candidate: broodscale; rest improvable/flag-forever). Est ~10-11
   sessions remaining. Branch `modern-postban-arc`.
 
-- `2026-04-27-phase-3-5-keywords.md` -- Full keyword coverage in match-runner.
-  11 stages (A-K), every keyword in engine/keywords.py KWTag plus ~25 not-yet-tagged
-  keywords. No deferrals. Estimated 200-350 min real work, may expand.
-  **Status:** Stage A in queue, blocked on 100k canonical Task 2 completion.
-
 - `2026-07-01-gui-basic-pro-progressive-disclosure.md` — Basic/Pro title-bar toggle +
   tab subtitles + Dashboard "first 3 things" banner + Ctrl+K hint + Pro-tab empty-state
   coaching. Serves first-timers AND endgame from one build via progressive disclosure;
@@ -85,20 +65,42 @@ each status. After a spec ships, it stays in this index forever.
 - `2026-06-29-evalite-eval-harness.md` — evalite-shaped pytest eval harness (data->task->scorers[])
   extending apl_judge via its llm= seam; Monte Carlo sim as a 0-1 scorer + Anthropic LLM-judge; CI gate on
   mean(score). Anthropic half gated on the anthropic SDK install. Source: roadmap (evalite).
-- `2026-04-30-mulligan-parameter-sweep.md` — Empirically derive optimal keep()
-  thresholds for each deck archetype role via large-N goldfish simulation.
-  27 combinations x 4 reference decks at N=50,000. Validates against Nettle 2-1-2.
-  **Status:** Spec drafted 2026-04-30. NOTE (2026-07-01 reconciliation): premise weakened
-  by mull-routing falsification (keep-quality self-help −0.17pp in match mode); an impl
-  plan exists (2026-06-28-mulligan-sweep-impl-plan.md) and scripts/mulligan_sweep.py is
-  on disk. Re-assess value before executing.
+## CLOSED
 
-- `2026-04-29-card-specs-framework.md` — Extract per-card decision logic into
-  `apl/card_specs/` parallel to `engine/card_handlers_verified.py`. Tier 1+2 landed.
-  **Status:** Spec drafted 2026-04-29. POC scope shipped. Full migration pending.
-  Impl plan: 2026-06-28-card-specs-framework-impl-plan.md (PROPOSED).
+(terminal non-shipped statuses — ratified 2026-07-01 per `2026-07-01-spec-triage.md`)
+
+- `2026-06-30-match-mulligan-keep-routing.md` — **CLOSED-FALSIFIED** (2026-07-01).
+  Engine routing shipped (mtg-sim ea737ae + 4762ab9) but the hypothesis was falsified per
+  Amendment 2: keep-quality self-help −0.17pp; the shipped gain was the London-vs-Vancouver
+  mechanic ARTIFACT. Its one open decision (keep vs revert the artifact-only slice) resolved
+  by sim commit 6052de6 (production mull default reverted to crude). Findings:
+  mull-routing-falsification-2026-07-01.md.
+
+- `2026-04-27-phase-3-5-keywords.md` — **CLOSED** (2026-07-01, index-only entry — the spec
+  file never existed in specs/; stage-A/B/C child specs exist and are SHIPPED). Remaining
+  Stages D-K CLOSED-STALLED: the capability gaps they targeted are addressed structurally by
+  the R1-R6 modelability ladder (2026-06-26-modelability-ladder.md; R1 0f98db3, R3 e648e3f,
+  R6 e6c60c9). The old blocker ("100k canonical Task 2") completed 2026-05-01.
+
+- `2026-04-28-gource-rerender-optional.md` — **CLOSED-STALLED** (2026-07-01).
+  Execute-only-on-user-request by its own terms; no request in 64 days. Trivially re-openable.
+
+- `2026-04-28-time-lapse-animation-prep.md` — **CLOSED-STALLED** (2026-07-01).
+  Wake condition met ~7 weeks ago with no demand; `json-to-gexf-timelapse.py` never built.
+  Design doc keeps its value; re-open on renewed visualization interest.
 
 ## SHIPPED
+
+- `2026-04-30-mulligan-parameter-sweep.md` — **Track A COMPLETE** 2026-06-28
+  (scripts/mulligan_sweep.py goldfish threshold sweep, mtg-sim d5603bb historical hash);
+  **Tracks B/C CLOSED-STALLED** 2026-07-01 — premise empirically weak after the mull-routing
+  falsification (keep-quality self-help −0.17pp in match mode; engine default reverted to
+  crude, sim 6052de6). Ratified per 2026-07-01-spec-triage.md.
+
+- `2026-04-29-card-specs-framework.md` — **COMPLETE** (POC scope) 2026-06-28:
+  apl/card_specs/solitude.py + galvanic_discharge.py + test_card_specs PASS (mtg-sim d5603bb
+  historical hash). Remainder (Phase B full migration) SUPERSEDED by
+  2026-06-28-card-specs-framework-impl-plan.md. Ratified per 2026-07-01-spec-triage.md.
 
 (retroactively populated -- see harness/specs/RETROACTIVE.md for the 14
 commits from 2026-04-26/2026-04-27 session that pre-date this directory)

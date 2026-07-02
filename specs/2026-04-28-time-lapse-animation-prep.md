@@ -1,6 +1,6 @@
 # Spec: Time-lapse animation prep
 
-**Status:** PROPOSED (data not yet sufficient; spec is forward-looking infrastructure)
+**Status:** CLOSED-STALLED (2026-07-01 triage ratified — wake condition "2+ weeks of daily JSONs" was met ~7 weeks ago and nobody wanted the animation; `json-to-gexf-timelapse.py` never built. Re-open on renewed visualization interest; the design keeps its value)
 <!-- spec-ref-ok: json-to-gexf-timelapse.py is intentionally not yet built; this spec describes its future creation -->
 **Created:** 2026-04-27 by claude.ai
 **Target executor:** Claude Code
@@ -206,3 +206,4 @@ Resist all of these. The converter is one transform: dated JSONs → dynamic GEX
 ## Changelog
 
 - 2026-04-27 (post-Stage-C-revert): Spec created (PROPOSED). Forward-looking infrastructure: ships now while design is fresh, produces meaningful output once 2+ weeks of daily JSONs accumulate. Targeted for Claude Code execution any time.
+- 2026-07-01: Status PROPOSED->CLOSED-STALLED per ratified spec triage (2026-07-01-spec-triage.md). Wake condition (target 2026-05-12) met ~7 weeks ago with no demand; pipeline never built. Design doc retained; re-open on renewed visualization interest.

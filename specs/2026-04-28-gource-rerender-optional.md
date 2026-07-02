@@ -1,6 +1,6 @@
 # Spec: Gource MP4 re-render with adjusted pacing (optional)
 
-**Status:** PROPOSED (only execute if user wants different aesthetic)
+**Status:** CLOSED-STALLED (2026-07-01 triage ratified — execute-only-on-user-request by its own terms; no request in 64 days. Trivially re-openable, 5-10 min task)
 **Created:** 2026-04-27 by claude.ai
 **Target executor:** Claude Code
 **Estimated effort:** 5-10 minutes (mostly Gource render time)
@@ -74,3 +74,4 @@ gource `
 ## Changelog
 
 - 2026-04-27 (post-D1): Spec created (PROPOSED) for optional re-render. Only execute on user request.
+- 2026-07-01: Status PROPOSED->CLOSED-STALLED per ratified spec triage (2026-07-01-spec-triage.md). No user request in 64 days; keeping it open added only index noise. Trivially re-openable.
