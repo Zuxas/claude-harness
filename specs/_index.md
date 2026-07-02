@@ -54,6 +54,19 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
+- `2026-07-01-b1-legal-action-api.md` — **EXECUTING** (Step 1 shipped 2026-07-01:
+  mtg-sim/docs/action-vocabulary.md, 13-kind Action vocabulary, all call sites verified;
+  Steps 2-7 open). THE ISMCTS gate: `reset/observe/legal_actions/
+  step/fork` decision API on the match engine + cheap fork + per-state RNG (subsumes the
+  fork/RNG-threading item — one refactor, one baseline re-anchor). 5 falsifiable gates
+  incl. action-replay parity and 10k random-walk conservation. Steps 1-3 = shippable
+  first slice. Source: AUDIT-ENGINE-APL-2026-07-01 Part A.
+- `2026-07-01-oracle-driven-responses.md` — retire the counter/removal whitelists via
+  oracle-text classification (golden-tested against the existing table, feature-gated
+  gate-OFF-byte-identical, measure-don't-tune). Empirical driver: calibration probe
+  2026-07-01 — P2 prowess cell CURED (1.4%→62.0% vs truth ~53) but P1 dimir cell
+  INVERTED (64.6%→13.1% vs truth ~40): interaction under-modeling is now the measured
+  binding constraint. Parallel-safe with B1.
 - `2026-06-29-harness-orchestration-contract.md` — Adopt sandcastle's run()->RunResult domain model
   as the harness orchestration contract (IsolationStrategy enum, fork() distinct-key invariant,
   <promise>COMPLETE</promise> sentinel shared w/ Ralph, Output.object=Pydantic-retry). Build gated behind
@@ -127,18 +140,4 @@ commits from 2026-04-26/2026-04-27 session that pre-date this directory)
 - `2026-05-12-mtg-strategy-knowledge-base-slice-a.md` — Shipped 2026-05-12 at
   commit a8d6bc9. 6 strategy blocks under harness/knowledge/mtg/strategy/:
   _overview, chapin-principles, role-theory, card-advantage,
-  threat-answer-density, format-standard-spring-2026. Approach C
-  (training-derived) with strict epistemic hygiene. 2 imperfections opened
-  (slice-not-codebase-grounded, format-block-decays).
-- `2026-04-27-guide-attack-trigger-fix.md` — Shipped.
-- `2026-04-27-oracle-parser-orphan-fix.md` — Shipped.
-- `2026-04-27-phase-3.5-stage-a-block-eligibility.md` — Shipped.
-- `2026-04-27-phase-3.5-stage-b-combat-modifiers.md` — Shipped.
-- `2026-04-28-phase-3.5-stage-c-protection-cluster.md` — Shipped.
-- `2026-04-28-cache-collision-finding-doc-tightening.md` — Shipped.
-- `2026-04-28-parallel-launcher-cache-collision-fix.md` — Shipped.
-- `2026-04-28-cache-key-audit-mtg-sim.md` — Shipped.
-- `2026-04-28-drift-detect-7th-check-spec-validation.md` — Shipped.
-- `2026-04-28-drift-detect-8th-check-cache-key-audit.md` — Shipped.
-- `2026-04-29-gemma-apl-quality-lift.md` — Shipped.
-- `
+  threat-an
