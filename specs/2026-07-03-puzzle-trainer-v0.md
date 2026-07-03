@@ -199,3 +199,47 @@ Post-commit graphify hook output is normal.
   STILL OPEN: T2 (sim-mined positional puzzles — the headline
   "what do I do from here" track) and T3 (Glicko-2 ratings). Spec stays
   EXECUTING.
+- 2026-07-03 (cont.): **T2 built — goldfish slice** (user picked "1"=build T2;
+  environment decision surfaced via AskUserQuestion, user away, proceeded on
+  the recommended goldfish-first path per advisor de-risk). SCOPE HONESTY: v0
+  T2 covers only the "how do I win from here" third — NOT the "slow them down /
+  grind" stabilize third (later track). Environment = GOLDFISH not gauntlet
+  (deviation from spec's gauntlet target, recorded here): rationale — goldfish
+  has an INDEPENDENT lethal oracle (`gs.run_combat()` + `has_won`, engine's own
+  combat, not the miner's power-sum → kills the T2-G1 circularity the advisor
+  flagged) and single-APL determinism; the SAME pipeline (search → Scene export
+  → JSONL bridge → replay gate) drops onto the gauntlet next by swapping the
+  driver + adding a no-untapped-blocker filter (advisor's "both worlds" plan).
+  DELIVERED: `mtg-sim/scripts/mine_lethal_puzzles.py` (hooks a deck APL's
+  main_phase in goldfish; per position: skip trivial on-board lethal, bounded
+  DFS [500-node budget] for a PLAY-DEPENDENT lethal line — "the winning line
+  isn't obvious", the advisor's APL-bug filter; self-verifies each line replays
+  to engine-lethal before recording = T2-G1 by construction; one-way GameState
+  → analyzer-Scene dict serializer; JSONL out) +
+  `mtg-meta-analyzer/scripts/import_lethal_puzzles.py` (JSONL → puzzle_inbox via
+  save_inbox_candidates; scene+line+caveats in evidence) +
+  `mtg-sim/tests/test_lethal_miner.py`. TINY-RUN DE-RISK (advisor: prove one
+  before 500) on Boros Energy 20 games seed 42: 2 candidates (10% → ~50/500
+  projected), 1 requires non-obvious sequencing; **T2-G3 determinism
+  byte-identical across 2 runs**; cross-repo Scene.from_dict round-trip OK;
+  import bridge → 2 rows in puzzle_inbox. HONEST CAVEAT carried in every
+  candidate: puzzle "truth" is ENGINE truth (inherits the sim's known
+  card-fidelity limits) + goldfish = open board (no blockers / no opp
+  instant-speed interaction). T2-G2 (>=20/500) run in progress at time of
+  writing. NOT YET: promote-from-synthetic-inbox GUI path (the inbox→author
+  path currently rebuilds scene from a cached replay; synthetic goldfish
+  candidates carry an embedded scene in evidence for a later small analyzer
+  slice) — out of T2's spec deliverables, flagged as next.
+- 2026-07-03 (cont.): T2-G2 PASSED + playability CLOSED. 500-game run
+  (Boros Energy, seed 42): 42 candidates (>=20 gate; 5 non-obvious sequencing,
+  37 cheapest-first), imported -> 42 find_lethal rows in puzzle_inbox. mtg-sim
+  tests/test_lethal_miner.py green (determinism + structural T2-G1 + yield).
+  Committed: mtg-sim 7eb405f (miner+test+CLAUDE), analyzer b8e70b6 (import
+  bridge+docs). PLAYABILITY: Promote->Author now prefers an embedded scene
+  (_prefill_from_evidence + optional pre-fill kwargs on PuzzleAuthorDialog);
+  synthetic candidates promote into solvable Solve-tab puzzles (pre-filled
+  question/solution/difficulty/keywords, human reviews+saves). Verified
+  headless end-to-end (saved puzzle #49 renders); 21 existing puzzle tests +
+  4 new promote tests green. T2 v0 (goldfish) is now mined AND playable.
+  STILL OPEN: gauntlet (real-opponent) T2 slice + no-untapped-blocker filter
+  (same pipeline); T3 Glicko-2 ratings.
