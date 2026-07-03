@@ -10,7 +10,8 @@ related_specs:
 related_findings:
   - "E:\\vscode ai project\\BLUEPRINT-2026-07-03.md (WP-D -- source scope; D7 build order defines this v0)"
   - "Willis 'Calculating Outs' doc (cited in BLUEPRINT WP-D D1d -- hypergeometric drill pedagogy)"
-related_commits: []
+related_commits:
+  - "mtg-meta-analyzer 6f46c19 (T1 SHIPPED 2026-07-03: outs-math drills + grade_number)"
 supersedes: null
 superseded_by: null
 branch: "mtg-sim work on modern-postban-arc; analyzer on its default branch"
@@ -169,3 +170,32 @@ Post-commit graphify hook output is normal.
   WP-D scoped to v0 per D7: T1 drills + T2 sim-mined single-turn KILL +
   T3 Glicko-2 ratings. Boundaries pinned; gates pre-registered before any
   build work.
+- 2026-07-03: **T1 SHIPPED** (mtg-meta-analyzer 6f46c19, committed local;
+  push blocked by git-guardrail, user to push). Delivered: `drill_outs`
+  category; `analysis/puzzles/drill_generator.py` (raw / scry-keep-or-bottom
+  / compound templates, all 5 tiers, real-decklist sampler
+  deck_cards->cards->card_data with attribution in notes); NEW
+  `graders.py::grade_number` + `grading_mode="number"` accepting the
+  [exact, looks*outs-shorthand] band +/-3pp (fixes fuzzy-numeric
+  false-positive — the spec's stated "exact-number" grader that did not
+  previously exist); `scripts/seed_drills.py` (40 seeded); Solve-tab
+  "Outs math" filter. GATES: **T1-G1 PASS** (solver vs independent
+  sequential-product oracle AND scipy, 100 cases, 0 mismatch — oracle is
+  math.comb-independent per advisor); **T1-G2 PASS** (30 drills
+  well-formed, grounded, deterministic; difficulty spread 1-5). Headless
+  render smoke PASS (boardless drill scene renders in PuzzleSceneWidget).
+  29/29 puzzle-suite tests green.
+  MID-EXEC AMENDMENT (methodology): advisor caught that the outs-math drill
+  would fight its own lesson if graded exact-only (the taught shorthand
+  overshoots exact) -> grader accepts the whole band. Lesson candidate for
+  spec-authoring-lessons: "when a drill teaches an approximation, the grader
+  must accept the approximation it teaches."
+  ALSO FIXED (ops, out of original scope): machine-level MTG_META_DB /
+  MTG_META_ARCHIVE_DB pointed at the dead D:\mtg-data (temp movie drive,
+  now gone; live DBs are on E:\mtg-data, config.ini agrees). Added
+  User-scope override -> E:; Machine-level vars still need an elevated
+  `setx /M` to clear (documented in analyzer NEXT_STEPS.md). This was
+  blocking the T1-G2 seed gate.
+  STILL OPEN: T2 (sim-mined positional puzzles — the headline
+  "what do I do from here" track) and T3 (Glicko-2 ratings). Spec stays
+  EXECUTING.
