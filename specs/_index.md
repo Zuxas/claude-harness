@@ -6,6 +6,19 @@ each status. After a spec ships, it stays in this index forever.
 
 ## EXECUTING
 
+- `2026-07-03-puzzle-trainer-v0.md` — **EXECUTING** (user-directed 2026-07-03).
+  BLUEPRINT WP-D scoped to v0 per D7: T1 outs-math drill generator (category
+  `drill_outs`, hypergeometric scenarios per the Willis doc, real decklists from
+  mtg_meta.db; gates: zero mismatches vs scipy.stats.hypergeom on 100 drills,
+  30+ seeded) + T2 sim-mined single-turn KILL puzzles (fork at main phase,
+  bounded legal_main_actions orderings, APL-missed lethal → Scene-JSON export
+  into puzzle_inbox with winning order + eval delta; gates: 100% solutions
+  replay via apply_action, >=20 candidates per 500-game run, seed-pinned
+  determinism) + T3 `puzzle_ratings` Glicko-2 loop reusing
+  analysis/ratings.py `_update_rating` (gates: reference-case parity,
+  restart persistence). Explicitly OUT: action-picker UI, multi-turn
+  (WP-B#5), personal mining (v1), historic pack (v3), spaced repetition (v0.1).
+
 - `2026-07-01-b1-legal-action-api.md` — **EXECUTING** (Step 1 shipped 2026-07-01:
   mtg-sim/docs/action-vocabulary.md, 13-kind Action vocabulary, all call sites verified;
   Steps 2-7 open). THE ISMCTS gate: `reset/observe/legal_actions/
