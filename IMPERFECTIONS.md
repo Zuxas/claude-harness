@@ -46,6 +46,15 @@ These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-
 
 ## Open imperfections
 
+### apl-grinder-defaults-gemma-for-apl-codegen (NEW 2026-07-03; model-drift reconciliation)
+
+Source spec: (doc reconciliation pass, 2026-07-03 -- Gemma->qwen naming-drift audit)
+Source commit: <this commit>
+What is not perfect: `harness/agents/scripts/apl_grinder.py` still defaults to `gemma4` for APL *generation* (`_AI_MODEL = "gemma4"` at L35; `--model` argparse default "gemma4" at L627), while `auto_pipeline.py` already migrated APL code-gen to a qwen2.5-coder:7b-preferred chain (`_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]`, gemma4 fallback). APL generation IS code generation and qwen2.5-coder is the code-specialized model -- so apl_grinder is using the weaker general model for a code task. This is a genuine BEHAVIOR inconsistency, not a naming/doc issue (the doc pass correctly left prose/judge scripts on gemma4).
+Why not fixed in source spec: this is a behavior change (it swaps the model that actually generates APLs), not a documentation edit. It sits in the APL-generation path, which is adjacent to the puzzle-trainer T2 (sim-mined positional puzzles) / mtg-sim gauntlet blast radius -- changing model output there while that work is live risks entangling two efforts. Deliberately flagged, not touched, in the 2026-07-03 doc pass.
+Concrete fix: **SHOULD BE WORKED ON AND SCOPE-FIXED BY FABLE 5.** Mirror auto_pipeline's model preference in apl_grinder: introduce a `_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]` chain (reuse `auto_pipeline._ollama_model_available` or a local equivalent), change `_AI_MODEL` default + the `--model` argparse default from "gemma4" to the resolved preference, keep gemma4 as fallback, and re-run a grind smoke to confirm qwen output compiles / passes the smoke gate before adopting. Verify no regression vs the current gemma4 grind baseline.
+Estimated effort: S-M (model-swap + smoke re-baseline). Status: OPEN Created: 2026-07-03
+
 ### grixis-reanimator-match-assembly-capped-by-crude-mulligan (NEW 2026-06-30; handoff #2 grixis cell)
 
 Source spec: harness/specs/2026-06-30-modern-combo-interaction.md (Mid-execution Amendment 3)
@@ -993,3 +1002,25 @@ safety mechanism the whole analysis relies on.
 **Concrete fix:** DONE — `_norm` now strips straight + curly apostrophes (mtg-sim commit on `modern-postban-arc`).
 Verified Goryo's resolves INFLATED; Grixis/Affinity/Living End unchanged.
 **Status:** RESOLVED (2026-07-01)
+
+### puzzle-rating-farmable-on-reattempt (NEW 2026-07-03; LOW)
+**Source spec:** `harness/specs/2026-07-03-puzzle-trainer-v0.md` (T3).
+**Source commit:** mtg-meta-analyzer 1367176 (T3 Glicko-2 ratings).
+**What's not perfect:** Every puzzle attempt updates the user's Glicko-2 rating,
+including repeat attempts on a puzzle already solved. A user could re-solve an
+easy/low-rated puzzle to nudge their rating. This is spec-faithful (the T3
+directive is "every attempt calls `_update_rating`") and Glicko damps it hard
+(an already-sunk puzzle's E->1, so a win yields ~0 rating; the puzzle's own
+rating also drops each time it "loses"), so the exploit is weak -- but the user
+rating is not a fully farm-proof/meaningful ladder number.
+**Why not fixed in source spec:** T3 v0 followed the spec's explicit
+every-attempt directive; a first-attempt-only guard is a defensible deviation
+but beyond v0 scope.
+**Concrete fix:** Lichess-style guard -- only the FIRST attempt per (user,
+puzzle) moves the user's rating; re-attempts still record in `puzzle_attempts`
+and may still move the puzzle's rating, but not the user's. Track
+first-attempt-seen via a `DISTINCT puzzle_id` check against `puzzle_attempts`
+(or a `first_scored_at` column) inside `rating_loop.apply_attempt`.
+**Estimated effort:** 1-2h + a test asserting a second attempt on the same
+puzzle leaves the user rating unchanged.
+**Status:** OPEN

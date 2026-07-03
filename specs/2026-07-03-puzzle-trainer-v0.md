@@ -1,6 +1,6 @@
 ---
 title: "Puzzle trainer v0 -- outs-math drills + sim-mined single-turn KILL puzzles + Glicko-2 ratings"
-status: "EXECUTING (user-directed 2026-07-03)"
+status: "SHIPPED (v0 complete 2026-07-03: T1 + T2 goldfish + T3)"
 created: "2026-07-03"
 updated: "2026-07-03"
 project: "mtg-meta-analyzer + mtg-sim (T2 mining side)"
@@ -12,6 +12,8 @@ related_findings:
   - "Willis 'Calculating Outs' doc (cited in BLUEPRINT WP-D D1d -- hypergeometric drill pedagogy)"
 related_commits:
   - "mtg-meta-analyzer 6f46c19 (T1 SHIPPED 2026-07-03: outs-math drills + grade_number)"
+  - "mtg-sim 7eb405f + mtg-meta-analyzer b8e70b6/307ebf5 (T2 goldfish SHIPPED 2026-07-03)"
+  - "mtg-meta-analyzer 1367176 (T3 SHIPPED 2026-07-03: Glicko-2 puzzle ratings)"
 supersedes: null
 superseded_by: null
 branch: "mtg-sim work on modern-postban-arc; analyzer on its default branch"
@@ -243,3 +245,34 @@ Post-commit graphify hook output is normal.
   4 new promote tests green. T2 v0 (goldfish) is now mined AND playable.
   STILL OPEN: gauntlet (real-opponent) T2 slice + no-untapped-blocker filter
   (same pipeline); T3 Glicko-2 ratings.
+- 2026-07-03 (cont.): **T3 SHIPPED -- Glicko-2 puzzle ratings** (analyzer-only;
+  user picked track B to close v0). Each attempt is a one-game Glicko-2 match:
+  correct = user win, incorrect = loss, partial = draw. DELIVERED:
+  (1) new `puzzle_ratings` table (entity_type user|puzzle, mu/phi/sigma/matches,
+  REAL cols for bit-exact round-trip) + `get_rating`/`upsert_rating` in
+  `db/puzzles.py`; (2) `analysis/puzzles/rating_loop.py` -- REUSES
+  `analysis.ratings._update_rating` (no reimplementation), cold-starts each
+  puzzle's mu from difficulty stars (`1500 + (d-3)*150`, keeps default phi/sig),
+  snapshots BOTH opponents' glicko2 coords before updating either (simultaneous,
+  not sequential); (3) Solve-tab wiring in `gui/tabs/puzzles.py::_record_and_next`
+  (best-effort try/except so a rating bug can't block "next puzzle"), user
+  rating + last-attempt delta rendered in the session stats line.
+  GATES: **T3-G1 PASS** (user AND puzzle updates match a hand-built
+  single-game `_update_rating` call with LITERAL score/cold-start inputs --
+  pins scale conversion + score direction + opponent identity, not just
+  determinism); **T3-G2 PASS** (write-through + fresh-read round-trip bit-exact;
+  next attempt continues from the persisted rating). Tests:
+  `tests/test_puzzle_ratings.py` (11) + GUI smoke in `tests/test_puzzles_tab.py`
+  (co-located with other Qt tests to dodge the offscreen-Qt Windows teardown
+  crash). Full analyzer suite **412 passed, 2 skipped**.
+  MID-EXEC AMENDMENT (advisor): T3-G1 was at risk of being vacuous if "expected"
+  were computed via the same production wiring -> test now hand-constructs the
+  opponent tuple with a literal score. Lesson candidate: "a wiring gate that
+  reuses the production path to build its own expected value proves only
+  determinism; construct the reference from literal inputs."
+  KNOWN LIMIT (tracked, not hidden): rating farming -- re-solving an easy puzzle
+  repeatedly still updates (spec directive: every attempt updates). Glicko damps
+  it hard (a sunk puzzle yields ~0 and drops each loss) but it's not fully
+  farm-proof. IMPERFECTIONS entry `puzzle-rating-farmable-on-reattempt` opened.
+  **v0 COMPLETE** -> status SHIPPED. Follow-on tracks (NOT v0 gates): T2 gauntlet
+  real-opponent slice + no-untapped-blocker filter; grind/stabilize puzzles.
