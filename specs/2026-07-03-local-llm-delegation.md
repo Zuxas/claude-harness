@@ -9,7 +9,7 @@ related_findings:
   - "harness/specs/2026-06-26-harness-ollama-watcher-optimization.md"
   - "BLUEPRINT-2026-07-03.md (WP-I council, shipped)"
   - "compass_artifact_wf-21eaad84-...text_markdown.md (source research brief)"
-related_commits: []
+related_commits: ["9d41d91 (harness repo, P1-P4 delegation layer)"]
 supersedes: null
 superseded_by: null
 ---
