@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "delegate": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "-m",
+        "delegate_mcp.server"
+      ],
+      "cwd": "E:\\vscode ai project\\harness\\agents",
+      "env": {
+        "PYTHONPATH": "E:\\vscode ai project\\harness\\agents"
+      }
+    }
+  }
+}
