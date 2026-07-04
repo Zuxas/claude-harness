@@ -14,11 +14,22 @@ param(
     [int]$Port      = 8080,
     [int]$NCpuMoe   = 32,        # experts offloaded to RAM; lower = more on GPU (faster) if VRAM allows
     [int]$Ctx       = 32768,
-    [switch]$KeepOllama          # pass to SKIP unloading Ollama (only if you've proven co-residency)
+    [switch]$KeepOllama,         # pass to SKIP unloading Ollama (only if you've proven co-residency)
+    [switch]$Stop                # stop the tier-2 server (by PATH, so Ollama's engine is untouched)
 )
 
 $ErrorActionPreference = "Stop"
 $LlamaServer = "E:\tools\llama.cpp\llama-server.exe"
+
+if ($Stop) {
+    # Ollama's internal engine is ALSO llama-server.exe — match by PATH only.
+    $procs = Get-CimInstance Win32_Process -Filter "Name='llama-server.exe'" |
+             Where-Object { $_.ExecutablePath -like 'E:\tools\llama.cpp\*' }
+    if ($procs) {
+        $procs | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; Write-Host "stopped tier-2 PID $($_.ProcessId)" }
+    } else { Write-Host "no tier-2 llama-server running" }
+    return
+}
 
 if (-not (Test-Path $LlamaServer)) { throw "llama-server.exe not found at $LlamaServer" }
 if (-not (Test-Path $Model))       { throw "GGUF not found at $Model (still downloading?)" }

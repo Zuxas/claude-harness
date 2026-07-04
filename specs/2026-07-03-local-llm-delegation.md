@@ -414,3 +414,31 @@ pattern; multi-model cold-start latency is a non-issue on this rig.
     tier-2-vs-7b value check (the fenced-experiment verdict); (3) optional:
     route the ~9 legacy ask_gemma sites through ollama_client.py (B4 finish);
     --no-mmap/--parallel-1 re-benchmark + possible lower --n-cpu-moe for speed.
+- 2026-07-03: Gate 2.1 CLOSED + Gate 5.1 measured via workflow `delegation-closeout`
+  (wf_6118ae99-722; 10 agents, 0 errors). Added `-Stop` to start-llamacpp-tier2.ps1
+  (path-matched kill, avoids Ollama's engine).
+  * Gate 2.1 PASS — a workflow Task subagent invoked mcp__delegate__echo ->
+    {ok:true, echo:"gate-2.1"}. Subagent-can-call-the-delegate-MCP proven for real.
+  * Gate 5.1 (fenced-experiment verdict) = **KEEP_FOR_SUBSET**. 5 real bounded tasks,
+    blind A/B judging (position-shuffled). Speeds: tier-1 104 tok/s, tier-2 20 tok/s.
+    Blind win count tier-2 4 / tie 1 / tier-1 0 — BUT correctness-adjusted tier-1 is
+    3/5 (2 of tier-2's wins were pure style edges where tier-1 was also correct).
+    tier-1 (qwen-7b) FAILED exactly 2, both on a live route: (a) summarize —
+    FABRICATED a backoff detail ("doubling" vs the passage's 2s->8s) + dropped a key
+    point (faithfulness failure); (b) refactor — violated an explicit one-sentence
+    limit (verbosity). Recommendation: tier-2 earns its keep for the PROSE/faithfulness
+    lane, not the fast mechanical lane. Suggested routing (AWAITING USER RATIFICATION):
+    move `summarize` -> tier-2; organize routing.yaml as a tier-2 PROSE lane
+    {draft_long, bulk_edit, summarize} vs tier-1 MECHANICAL lane {test_scaffold,
+    boilerplate, commit_message} and BATCH by lane so one_tier_hot doesn't thrash.
+    CAVEAT: n=1 per task category — directional, not definitive; a wider bench would
+    harden the summarize-fabrication finding before rerouting a live route.
+- 2026-07-03: Routing change RATIFIED + APPLIED (user "apply both"). routing.yaml
+  reorganized into two lanes: tier-1 MECHANICAL {test_scaffold, boilerplate,
+  commit_message}; tier-2 PROSE {summarize (moved from tier-1), bulk_edit,
+  draft_long}, with batch-by-lane comments (one_tier_hot). Verified: summarize
+  now resolves to llamacpp, mechanical lane stays ollama. delegate SKILL.md +
+  deploy snapshot updated to match. Gate 5.1 CLOSED (KEEP_FOR_SUBSET, applied).
+  Spec substantively COMPLETE; open only: optional B4 legacy consolidation +
+  optional tier-2 --no-mmap/--parallel-1 re-bench. Consider status -> SHIPPED
+  once those are dispositioned to IMPERFECTIONS.
