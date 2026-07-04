@@ -1,9 +1,13 @@
 ---
 title: R1 Stack-Priority Counterspell Increment - Implementation Design
-status: PROPOSED
+status: SUPERSEDED
 created: 2026-06-26
+updated: 2026-07-04
 project: mtg-sim
+superseded_by: 2026-06-26-modelability-ladder.md
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): design implemented via SHIPPED 2026-06-26-modelability-ladder.md; frontmatter had stayed PROPOSED.
 
 # R1 Stack-Priority Counterspell Increment - Implementation Design
 

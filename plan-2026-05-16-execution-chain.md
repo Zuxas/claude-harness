@@ -1,3 +1,5 @@
+> RETIRED / DISPOSITIONED 2026-07-04 per harness/CLAUDE.md v1.7 — historical record only; unchecked items below are NOT active work. Do not action; do not author new chains.
+
 # Execution Chain — 2026-05-16 (Saturday)
 
 **Authored:** 2026-05-15 evening (consolidating the original 5/15, 5/16,

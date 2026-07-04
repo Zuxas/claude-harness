@@ -1,17 +1,52 @@
 ---
 title: "B1 — Legal-action enumeration API + cheap state fork (the ISMCTS gate)"
-status: "EXECUTING"
+status: "SHIPPED-PARTIAL"
 created: "2026-07-01"
-updated: "2026-07-01"
+updated: "2026-07-04"
 project: "mtg-sim"
 estimated_time: "1-2 weeks (L); Steps 1-3 are a shippable first slice (~2-3 days)"
 related_findings:
   - "E:\\vscode ai project\\AUDIT-ENGINE-APL-2026-07-01.md (Part A #1, #3, #5)"
   - "harness/knowledge/tech/calibration-probe-2026-07-01.md"
   - "harness/reports/PRODUCTION-ROADMAP-2026-06-26.md (P3/B1)"
-related_commits: []
+related_commits: ["c1fe5a3 (Steps 1-3 + deepcopy-v0 prototype -- SHIPPED sub-slice)"]
 supersedes: null
 superseded_by: null
+---
+
+> **UPDATE 2026-07-04 (WP-A gate council, workflow w22bnjznl -- cross-vendor, Codex-corroborated):**
+> **WP-B4 (per-state RNG threading -- give each state its own `random.Random`, kill the ~13
+> global-random sites; the RNG part of Step 6) is PULLED FORWARD** as a prerequisite for WP-A
+> (oracle-driven-responses) crossing the default-ON line. Rationale (unanimous seats + Codex): it
+> converts P2 from a statistical carve-out into a genuine byte-gate and fixes the P2 same-seed drift.
+> The REST of the remainder (Steps 4, 5, 7 + the full legal-action enumeration API) stays PROPOSED per
+> the resume trigger below. So the near-term b1 work is NARROWED to just the RNG-threading slice, done
+> as an ENGINE HOT-ZONE change (forces a 100k re-anchor -- serialize with WP-A's).
+>
+> **DISPOSITION 2026-07-04 (council chairman, RESCOPE -- unanimous 3/3, workflow w6q14r3hu):**
+>
+> **SHIPPED sub-slice = `c1fe5a3`** (2026-07-01): `engine/decision_api.py` + `apl/search_apl.py` +
+> `docs/action-vocabulary.md`; Steps 1-3 + deepcopy-v0 fork. This answered the design question
+> "is the deck-agnostic enumerate-and-choose seam real on the live engine?" -> **YES, measured**:
+> SearchAPL 30.8% (N=107) vs GenericMatchAPL 39.2% vs hand-tuned 45.7%.
+>
+> **Formal-API remainder = PROPOSED (not abandoned):** Step 4 priority-window enumeration, Step 5
+> combat (attack/block) enumeration, Step 6 real cheap-fork (replace deepcopy + thread per-state
+> RNG through the ~13 global-random consumers), Step 7 parity harness, and gates G1-G5. Spec,
+> prototype, and docs all persist on disk.
+>
+> **RESUME TRIGGER (resume Steps 4-7 + G1-G5 ONLY when EITHER):** (a) a calibrated leaf evaluator
+> (the GBM win-prob model, separate spec) has landed AND a 1-ply probe shows search can close
+> material WR vs APLs; OR (b) a concrete search-driven consumer needs cheap fork at scale that the
+> deepcopy path (~320ms/game) genuinely cannot serve. Absent either, the remainder stays PROPOSED.
+>
+> **Why rescope, not resume:** (1) nothing consumes b1 today -- puzzle-trainer v0 already SHIPPED on
+> the deepcopy fork, so b1 is an upgrade path, not a blocker (the drift-PR "load-bearing gate" note
+> is stale). (2) Finishing b1 does NOT close the 30.8% < 39.2% < 45.7% gap -- the real gap-closers
+> (GBM leaf evaluator, ISMCTS/PUCT) live in separate specs; b1-now yields faster infra that still
+> loses ~15pp. (3) Step 6 is a multi-week ENGINE HOT-ZONE refactor that, per gate G4, invalidates
+> and forces a re-anchor of every seeded 100k baseline -- do NOT enter it without explicit sign-off
+> + blast-radius justification when the trigger fires.
 ---
 
 # Spec: B1 legal-action API + O(1)-ish fork

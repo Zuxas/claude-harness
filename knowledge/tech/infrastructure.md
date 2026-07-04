@@ -1,7 +1,7 @@
 ---
 title: "Infrastructure"
 domain: "tech"
-last_updated: "2026-04-14"
+last_updated: "2026-07-03"
 confidence: "high"
 sources: ["conversation-history", "desktop-commander-config"]
 ---
@@ -18,13 +18,17 @@ Primary development machine specs, tools, and configuration.
 - **Mouse**: Shopping for Razer Naga V2 HyperSpeed (replacing Corsair Scimitar)
 
 ## GPU Notes
-The 3080 LHR has 10GB VRAM. For Ollama models:
-- gemma4 (default 12B, 9.6GB file): fits in VRAM with offload, partial GPU acceleration
-- gemma4:26b (MoE, 17GB file): too large for 10GB VRAM, runs hybrid CPU+GPU
-  Ollama automatically offloads layers that don't fit — GPU handles what it can,
-  CPU handles the rest. Still faster than pure CPU because the 3080 accelerates
-  the layers it can hold. Expect ~2-4x speedup over pure CPU for the 26B.
-- gemma4:e4b (4B, ~2.5GB): fits entirely in VRAM, fastest option for quick tasks
+The 3080 LHR has 10GB VRAM. Two model families are installed (verified 2026-07-03 via `ollama list`):
+
+Code / APL generation -- qwen2.5-coder (code-specialized):
+- qwen2.5-coder:7b (4.7GB): fits in VRAM, fast; the default code-gen model (auto_pipeline, ralph adapters)
+- qwen2.5-coder:14b (9.0GB): higher quality, near-full VRAM fit; for harder APL passes
+
+Prose / knowledge / LLM-judge -- gemma4 (general-purpose):
+- gemma4 / gemma4:latest (9.6GB): fits in VRAM with offload, partial GPU acceleration; default for ask-gemma, compile-knowledge, process-inbox, the drift PR, and the APL judge
+- gemma4:26b (MoE, 18GB file): too large for 10GB VRAM, runs hybrid CPU+GPU. Ollama automatically offloads layers that don't fit -- GPU handles what it can, CPU handles the rest. Expect ~2-4x speedup over pure CPU.
+
+Split rationale: qwen2.5-coder is code-specialized and produces more reliable structured Python (APLs); gemma4 is the general model for prose and judging. Scripts that call `gemma4` are CORRECT for their prose/judge role -- do NOT rename them to qwen. (The prior `gemma4:e4b` 4B entry was removed -- not currently installed.)
 
 ## Development Stack
 - **Python**: 3.13.12 (system install)
@@ -60,8 +64,10 @@ The 3080 LHR has 10GB VRAM. For Ollama models:
 ## Harness Components (installed stack)
 - [x] Obsidian v1.12.7 — knowledge base viewer
 - [x] Ollama v0.20.7 — local model runner
-- [x] Gemma 4 default (12B) — confirmed working, 9.6GB
-- [x] Gemma 4 26B MoE — pulling (17GB download)
+- [x] qwen2.5-coder:7b (4.7GB) — code/APL generation (default codegen)
+- [x] qwen2.5-coder:14b (9.0GB) — higher-quality codegen
+- [x] gemma4 / gemma4:latest (9.6GB) — prose/knowledge/judge (default)
+- [x] gemma4:26b MoE (18GB) — high-quality prose (hybrid CPU+GPU)
 - [x] Rust v1.94.1 — installed
 - [ ] VS Build Tools — installing (needed for RTK compilation)
 - [ ] RTK — blocked on VS Build Tools, then `cargo install`
@@ -75,3 +81,7 @@ The 3080 LHR has 10GB VRAM. For Ollama models:
 - 2026-04-14: Created from Claude memory + Desktop Commander config
 - 2026-04-14: Added GPU (RTX 3080 LHR 10GB), updated Claude Code version,
   marked Obsidian/Ollama/Gemma4/Rust as installed, added VRAM sizing notes
+- 2026-07-03: Reconciled Ollama model inventory to actual installed set --
+  qwen2.5-coder 7b/14b (code/APL) + gemma4 latest/26b (prose/judge). Removed
+  phantom gemma4:e4b. Documented the code-vs-prose model split. (Naming-drift
+  reconciliation pass; scripts calling gemma4 for prose left as-is, correct.)

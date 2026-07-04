@@ -1,6 +1,7 @@
 ---
 title: "Oracle-driven responses v2 -- calibration-evidenced replacement of the counter/removal whitelists"
-status: "IN_PROGRESS (stages 0-2 SHIPPED @ mtg-sim 452923a; stages 3-4 pending)"
+status: "SUPERSEDED"
+superseded_by: "2026-07-04-oracle-driven-responses-execution.md"
 created: "2026-07-02"
 updated: "2026-07-02"
 project: "mtg-sim"

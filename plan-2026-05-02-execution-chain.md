@@ -1,3 +1,5 @@
+> RETIRED / DISPOSITIONED 2026-07-04 per harness/CLAUDE.md v1.7 — historical record only; unchecked items below are NOT active work. Do not action; do not author new chains.
+
 # Execution chain: 2026-05-02 (Saturday — PT Strixhaven Day 2)
 
 **Created:** 2026-05-01 end-of-day by Claude Code

@@ -1,7 +1,8 @@
 ---
 title: R4 Warp Cast-from-Exile Increment - Implementation Design
-status: PROPOSED
+status: SUPERSEDED
 created: 2026-06-26
+updated: 2026-07-04
 project: mtg-sim
 related:
   - harness/specs/2026-06-26-modelability-ladder.md  (R4 rung definition)
@@ -14,8 +15,10 @@ related:
   - mtg-sim/engine/match_engine.py  (run_match L148)
 supersedes:
   - harness/specs/2026-06-26-R4-warp-mechanic-design.md  (xmage-report draft; folded in here)
-superseded_by:
+superseded_by: 2026-06-26-modelability-ladder.md
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): design implemented via SHIPPED 2026-06-26-modelability-ladder.md; frontmatter had stayed PROPOSED.
 
 # R4 Warp Cast-from-Exile Increment - Implementation Design
 

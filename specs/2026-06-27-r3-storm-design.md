@@ -1,7 +1,8 @@
 ---
 title: R3 Storm Mechanic Increment - Implementation Design
-status: PROPOSED
+status: SUPERSEDED
 created: 2026-06-27
+updated: 2026-07-04
 project: mtg-sim
 related:
   - harness/specs/2026-06-26-modelability-ladder.md  (R3 rung definition)
@@ -16,8 +17,10 @@ related:
   - mtg-sim/apl/ruby_storm_match.py  (RubyStormMatchAPL; AUTO_GENERATED=True L23 -- the load-bearing defect)
   - mtg-sim/data/engine_fidelity_map.json  (mechanic -> imperfection id; single source of truth)
 supersedes:
-superseded_by:
+superseded_by: 2026-06-26-modelability-ladder.md
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): design implemented via SHIPPED 2026-06-26-modelability-ladder.md; frontmatter had stayed PROPOSED.
 
 # R3 Storm Mechanic Increment - Implementation Design
 

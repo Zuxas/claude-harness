@@ -46,3 +46,7 @@
 | mtg/sim-superior-doomsday | mtg | 2026-06-02 | apl-tuner-agent |
 | mtg/sim-uw-control | mtg | 2026-06-09 | apl-tuner-agent |
 | tech/github-discovery-backlog-2026-06-26 | tech | 2026-06-26 | Ranked GitHub integration backlog synthesized from 4 digs; top-3 do-next + unmodelable-gap closure map |
+| mtg/sim-mono-green-aggro | mtg | 2026-06-29 | apl-tuner-agent |
+| mtg/sim-gruul-aggro | mtg | 2026-07-01 | apl-tuner-agent |
+| tech/council-2026-07-03-eugeniughelbur-kepano-repos | tech | 2026-07-03 | council verdict: adopt kepano defuddle; research-brain sandbox; reject the rest |
+| tech/research-brain | tech | 2026-07-04 | Research & Synthesis Tier (obsidian-second-brain): two-tier model, council-gated promotion, content-type-split ingest, local-first synthesis |

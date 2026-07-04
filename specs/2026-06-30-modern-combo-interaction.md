@@ -1381,3 +1381,26 @@ to the falsified +3pp keep-routing lever); goryos and broodscale fire at oracle-
 `combo_kill_dists` / measured goldfish rates, not mulligan-derived rates. Every other fix is APL
 sequencing, cascade re-seam, kill-line modeling, storm payoff-fetch, or combat down-modeling -- none
 touches the mulligan.
+
+---
+
+## Mid-execution Amendment 4 -- 2026-07-04 write-back (Rule 6 reconciliation)
+
+The 2026-07-04 verification pass (workflow wotqbyhve, council-ratified KEEP-EXECUTING, unanimous
+3-0) found the spec doc had drifted behind the code: four combo-arc landings from 2026-07-02 were
+never written back as amendments. Recording them now so spec-on-disk reflects what shipped:
+
+- **BATCH I0** -- `d01441a` (2026-07-01) "mismodel BATCH I0 honesty flags + landlessbelcher
+  registration (arc #5 unblock)". Trustworthy-minimum for arc #5 is met by I0 alone.
+- **Step 5 ruby_storm** -- `715ce2c` (2026-07-02) "Ruby Storm kill reachability + hand-audited
+  storm sequencing (was 0/50 storm wins)".
+- **Step 6 goryos** -- `d9c6b12` (2026-07-02) "consolidated Goryo's Reanimator Modern APL + real
+  June list" (`apl/goryos_reanimator_match.py`, 461L; replaces goryos INFLATED + grixis INVERTED cells).
+- **Step 7 broodscale** -- `63f1275` (2026-07-02) "hand-written Gruul Broodscale Modern APL + real
+  June list" (`apl/gruul_broodscale_match.py`, 509L; replaces synthetic INFLATED stub).
+
+Spine (Amendment 1: `372bb19` + `7a52ffb`), yawgmoth (Amendment 2: `003a5d1`), grixis (Amendment 3:
+`fd542fd`) were already recorded. **Status stays EXECUTING** -- this is NOT stalled (newest combo
+commit landed ~2026-07-02, <2 days before review; the 2026-07-03 HEAD is a separate puzzle-trainer
+arc). The drift-detect "61h EXECUTING" flag is a false-positive on arc-switch, not abandonment.
+REMAINING slice: re-scoped steps 2, 3, 4, 9, 10, 11, 12, 13, 14 (per the 2026-07-01 re-scope).

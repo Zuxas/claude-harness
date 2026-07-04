@@ -19,8 +19,10 @@ HARNESS_ROOT = Path("E:/vscode ai project/harness")
 RULES_FILE = HARNESS_ROOT / "knowledge" / "rules" / "mtg-rules-engine.md"
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))
+sys.path.insert(0, str(HARNESS_ROOT / "agents"))
 
 import urllib.request
+from ollama_client import call_ollama  # shared streaming client (B4)
 OLLAMA_API = "http://localhost:11434/api/generate"
 TODAY = datetime.now().strftime("%Y-%m-%d")
 
@@ -31,8 +33,32 @@ def log(msg):
 # AI Backend — Gemma (free) or GPT-4o (better code, ~$0.02/call)
 # ---------------------------------------------------------------------------
 
-# Active model — set by CLI flag
-_AI_MODEL = "gemma4"  # default — 12B is faster and more reliable
+def _ollama_model_available(model_name):
+    """Check if a model is installed in Ollama without making a generate call."""
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        installed = [m["name"] for m in data.get("models", [])]
+        return any(m == model_name or m.startswith(model_name.split(":")[0]) for m in installed)
+    except Exception:
+        return False
+
+# Model preference order for APL code generation.
+# qwen2.5-coder is a code-specialized model; better at structured Python than
+# general-purpose Gemma. Falls back to gemma4 (always available).
+# Mirrors auto_pipeline._APL_CODE_MODEL_PREFERENCE.
+_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]
+
+def _pick_apl_model():
+    for model in _APL_CODE_MODEL_PREFERENCE:
+        if _ollama_model_available(model):
+            return model
+    return "gemma4"
+
+# Active model — resolves to qwen2.5-coder:7b when available, else gemma4.
+# Overridden by the CLI --model flag when explicitly passed.
+_AI_MODEL = _pick_apl_model()
 
 def _get_system_prompt():
     from apl_cookbook import APL_COOKBOOK
@@ -61,16 +87,13 @@ def ask_ai(prompt, max_tokens=4096):
         return _call_ollama(prompt, max_tokens)
 
 def _call_ollama(prompt, max_tokens=4096):
+    # Migrated onto shared ollama_client (streaming + retry). num_ctx=8192
+    # leaves prompt room for the max_tokens=4096 output. Preserves the legacy
+    # "ERROR: {e}" contract that ask_ai callers depend on.
     system = _get_system_prompt()
-    body = json.dumps({
-        "model": _AI_MODEL, "prompt": prompt, "system": system,
-        "stream": False, "options": {"temperature": 0.2, "num_predict": max_tokens}
-    }).encode()
     try:
-        req = urllib.request.Request(OLLAMA_API, data=body,
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=600) as resp:
-            return json.loads(resp.read()).get("response", "")
+        return call_ollama(prompt, _AI_MODEL, system=system, temperature=0.2,
+                           max_tokens=max_tokens, num_ctx=8192, timeout=600)
     except Exception as e:
         return f"ERROR: {e}"
 
@@ -624,14 +647,18 @@ if __name__ == "__main__":
                         help="Run until this time, e.g. '8:00' or '23:30' (24h format)")
     parser.add_argument("--duration", type=int, default=None,
                         help="Run for N minutes, e.g. --duration 30")
-    parser.add_argument("--model", default="gemma4",
-                        help="AI model: gemma4, gemma4:26b, gpt4o, gemini")
+    parser.add_argument("--model", default=None,
+                        help="AI model: qwen2.5-coder:7b, gemma4, gemma4:26b, gpt4o, gemini "
+                             "(default: auto-pick qwen2.5-coder:7b > gemma4)")
     args = parser.parse_args()
-    
-    # Set AI model (module-level variable)
-    model_map = {"gpt4o": "gpt-4o", "gpt": "gpt-4o", "gemini": "gemini-flash",
-                 "gemma": "gemma4", "gemma26b": "gemma4:26b", "26b": "gemma4:26b"}
-    sys.modules[__name__]._AI_MODEL = model_map.get(args.model, args.model)
+
+    # Set AI model (module-level variable). If --model is omitted, keep the
+    # auto-picked default (qwen2.5-coder:7b > gemma4) from _pick_apl_model().
+    if args.model:
+        model_map = {"gpt4o": "gpt-4o", "gpt": "gpt-4o", "gemini": "gemini-flash",
+                     "gemma": "gemma4", "gemma26b": "gemma4:26b", "26b": "gemma4:26b",
+                     "qwen": "qwen2.5-coder:7b", "qwen2.5-coder": "qwen2.5-coder:7b"}
+        sys.modules[__name__]._AI_MODEL = model_map.get(args.model, args.model)
     
     # Parse stop time
     stop_time = None

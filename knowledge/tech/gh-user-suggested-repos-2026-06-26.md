@@ -1,7 +1,8 @@
 ---
 title: User-Suggested GitHub Repos - Verdict (5 repos)
-status: SURFACED
+status: RESOLVED
 created: 2026-06-26
+reviewed: 2026-07-04
 note: "source: user-suggested 2026-06-26"
 dedup_against:
   - github-discovery-backlog-2026-06-26.md
@@ -10,6 +11,8 @@ dedup_against:
   - ext-eval-ml-calibration-2026-06-26.md
   - thingstolookinto.md
 ---
+
+> Reconciled 2026-07-04 (workflow): self-terminal verdict (0 folds, 5 skips) -- the finding IS the decision; nothing further to action.
 
 # User-Suggested GitHub Repos - Verdict (5 repos)
 

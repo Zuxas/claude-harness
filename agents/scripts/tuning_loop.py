@@ -36,8 +36,10 @@ SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
 HARNESS_ROOT = Path("E:/vscode ai project/harness")
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))
+sys.path.insert(0, str(HARNESS_ROOT / "agents"))
 
 import urllib.request
+from ollama_client import call_ollama  # shared streaming client (B4)
 from agent_hardening import (
     check_ollama_health, ollama_breaker, LoopController, AgentLogger
 )
@@ -102,20 +104,17 @@ def ask_gemma(question, context="", model="gemma4"):
     prompt = question
     if context:
         prompt = f"Context:\n{context}\n\nQuestion: {question}"
-    body = json.dumps({
-        "model": model, "prompt": prompt,
-        "system": "You are an expert MTG competitive analyst and deckbuilder. When suggesting card swaps, output ONLY in the exact format requested. No preamble.",
-        "stream": False,
-        "keep_alive": "30m",
-        "options": {"temperature": 0.3, "num_predict": 2048}
-    }).encode()
+    # Migrated onto shared ollama_client. retries=0 keeps the circuit breaker's
+    # fail-fast accounting: one real failure -> one record_failure (no internal
+    # client retries hammering a dead Ollama behind the breaker's back).
+    system = ("You are an expert MTG competitive analyst and deckbuilder. When "
+              "suggesting card swaps, output ONLY in the exact format "
+              "requested. No preamble.")
     try:
-        req = urllib.request.Request(OLLAMA_API, data=body,
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            result = json.loads(resp.read()).get("response", "")
-            ollama_breaker.record_success()
-            return result
+        result = call_ollama(prompt, model, system=system, temperature=0.3,
+                            max_tokens=2048, timeout=300, retries=0)
+        ollama_breaker.record_success()
+        return result
     except Exception as e:
         ollama_breaker.record_failure()
         log.error(f"Ollama call failed: {e}")

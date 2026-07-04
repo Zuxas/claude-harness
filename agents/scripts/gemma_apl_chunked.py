@@ -37,8 +37,10 @@ DECKS_DIR = SIM_ROOT / "decks"
 
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))
+sys.path.insert(0, str(HARNESS_ROOT / "agents"))
 
 from agent_hardening import AgentLogger, check_ollama_health, ollama_breaker
+from ollama_client import call_ollama  # shared streaming client (B4)
 import urllib.request
 
 log = AgentLogger("gemma-chunked")
@@ -49,19 +51,14 @@ TODAY = datetime.now().strftime("%Y-%m-%d")
 def ask_gemma(prompt, system="", temperature=0.2, max_tokens=2048):
     if not check_ollama_health():
         return None, "Ollama unavailable"
-    body = json.dumps({
-        "model": "gemma4", "prompt": prompt, "system": system,
-        "stream": False,
-        "keep_alive": "30m",
-        "options": {"temperature": temperature, "num_predict": max_tokens}
-    }).encode()
+    # Migrated onto shared ollama_client. retries=0 preserves the circuit
+    # breaker's fail-fast accounting (max_tokens=2048 fits the default 4096 ctx).
     try:
-        req = urllib.request.Request(OLLAMA_API, data=body,
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=180) as resp:
-            result = json.loads(resp.read()).get("response", "")
-            ollama_breaker.record_success()
-            return result, None
+        result = call_ollama(prompt, "gemma4", system=system,
+                            temperature=temperature, max_tokens=max_tokens,
+                            timeout=180, retries=0)
+        ollama_breaker.record_success()
+        return result, None
     except Exception as e:
         ollama_breaker.record_failure()
         return None, str(e)

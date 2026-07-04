@@ -1,42 +1,10 @@
 # harness/specs/ -- Spec Index
-# Last updated: 2026-07-03
+# Last updated: 2026-07-04 (verification-cleanup + b1 rescoped by council: prototype SHIPPED, formal-API remainder -> PROPOSED)
 
 Chronological list of all execution specs by status. Newest first within
 each status. After a spec ships, it stays in this index forever.
 
 ## EXECUTING
-
-- `2026-07-03-local-llm-delegation.md` — **EXECUTING** (ratified 2026-07-03,
-  council-reviewed first). Local-LLM delegation layer: user-controlled
-  `routing.yaml` (task->model, hybrid resolution) + thin custom `delegate` MCP
-  (Ollama tier-1 qwen2.5-coder:7b [installed] / llama.cpp tier-2
-  Qwen3-Coder-30B-A3B [new]) + "worth it?" policy + executor. Local LLM =
-  worker, council = Claude-only, NO auto council->executor pipe (case-by-case
-  delegation), tier-2 = fenced experiment on Gate 5.1 kill switch. Gate 2.1
-  proves subagent->MCP BEFORE the executor build. Council verdict:
-  harness/knowledge/tech/council-2026-07-03-local-llm-delegation.md. P1 in
-  progress: routing.yaml + fleet + tier-2 server.
-
-- `2026-07-03-puzzle-trainer-v0.md` — **EXECUTING** (user-directed 2026-07-03).
-  BLUEPRINT WP-D scoped to v0 per D7: T1 outs-math drill generator (category
-  `drill_outs`, hypergeometric scenarios per the Willis doc, real decklists from
-  mtg_meta.db; gates: zero mismatches vs scipy.stats.hypergeom on 100 drills,
-  30+ seeded) + T2 sim-mined single-turn KILL puzzles (fork at main phase,
-  bounded legal_main_actions orderings, APL-missed lethal → Scene-JSON export
-  into puzzle_inbox with winning order + eval delta; gates: 100% solutions
-  replay via apply_action, >=20 candidates per 500-game run, seed-pinned
-  determinism) + T3 `puzzle_ratings` Glicko-2 loop reusing
-  analysis/ratings.py `_update_rating` (gates: reference-case parity,
-  restart persistence). Explicitly OUT: action-picker UI, multi-turn
-  (WP-B#5), personal mining (v1), historic pack (v3), spaced repetition (v0.1).
-
-- `2026-07-01-b1-legal-action-api.md` — **EXECUTING** (Step 1 shipped 2026-07-01:
-  mtg-sim/docs/action-vocabulary.md, 13-kind Action vocabulary, all call sites verified;
-  Steps 2-7 open). THE ISMCTS gate: `reset/observe/legal_actions/
-  step/fork` decision API on the match engine + cheap fork + per-state RNG (subsumes the
-  fork/RNG-threading item — one refactor, one baseline re-anchor). 5 falsifiable gates
-  incl. action-replay parity and 10k random-walk conservation. Steps 1-3 = shippable
-  first slice. Source: AUDIT-ENGINE-APL-2026-07-01 Part A.
 
 - `2026-06-30-modern-combo-interaction.md` -- Interaction-aware Modern combo opponents (handoff #2).
   SPINE increment executed 2026-06-30 (Mid-execution Amendment 1): Component 2 Site 1 (mp1
@@ -76,23 +44,25 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
-- `2026-07-02-oracle-driven-responses.md` — **EXTENDS the 07-01 oracle-driven-responses
-  spec** (classifier core + golden test by reference) with the n=5000 battery evidence
-  (sim-calibration-2026-07-01: P1 Dimir-vs-Prowess **5.3%** vs anchors 40.0/37.2/**47.6** —
-  INVERTED, worse against fresher anchors; P2 cured but +19pp hot) and hard gates:
-  Gate 1 = P1 (n=5000, seed=42, PYTHONHASHSEED=0) into ±10pp of the 47.6% ladder anchor
-  WITHOUT P2 regressing past +19.3pp; plus seeded-replay byte-stability and a
-  no-decision-logic-change gate for non-response paths. Adds the capability-vs-policy
-  seam, CardDB classification cache, per-stage sizes (M-L, ~2-3 sessions), and the risk
-  register (13 global-random sites; fork × counter-window hidden-hand leak from the
-  decision_api audit). v1 = counters + instant-speed spot removal; replacement effects
-  and trigger ordering explicitly out.
-- `2026-07-01-oracle-driven-responses.md` — retire the counter/removal whitelists via
-  oracle-text classification (golden-tested against the existing table, feature-gated
-  gate-OFF-byte-identical, measure-don't-tune). Empirical driver: calibration probe
-  2026-07-01 — P2 prowess cell CURED (1.4%→62.0% vs truth ~53) but P1 dimir cell
-  INVERTED (64.6%→13.1% vs truth ~40): interaction under-modeling is now the measured
-  binding constraint. Parallel-safe with B1.
+- `2026-07-01-b1-legal-action-api.md` (REMAINDER) — **PROPOSED** (formal-API remainder after the
+  2026-07-04 council rescope). Steps 4 (priority-window enum), 5 (combat enum), 6 (real cheap-fork +
+  per-state RNG through ~13 global-random sites — ENGINE HOT ZONE, forces 100k baseline re-anchor per
+  gate G4), 7 (parity harness), gates G1-G5. RESUME TRIGGER: only when (a) a calibrated GBM leaf
+  evaluator lands AND a 1-ply probe shows search can close WR vs APLs, OR (b) a concrete search-driven
+  consumer needs cheap fork at scale the deepcopy path can't serve. Otherwise stays parked.
+
+- `2026-07-04-oracle-driven-responses-execution.md` — **PROPOSED, council-reviewed NEEDS-FIXES**
+  (2026-07-04, workflow wrzltwtou). THE KEYSTONE: consolidates + SUPERSEDES the 07-01 + 07-02 oracle-driven
+  -responses specs into one execution-ready plan. Resumes from the landed gated-OFF classifier
+  (`engine/response_capability.py`, `WANTS_ORACLE_RESPONSES`, @452923a): Stage 3 wires classification into
+  the counter window + instant-speed removal lookups + R1/R2 priority windows behind the gate; Stage 4 runs
+  the battery + flips the gate ON only on calibration PASS + hot-zone sign-off. Gate 1 = P1 Dimir-vs-Prowess
+  into ±10pp of the 47.6% anchor (n=5000, seed=42, PYTHONHASHSEED=0) w/o P2 past +19.3pp; + gate-OFF
+  byte-identity + seeded-replay stability + non-response locality. ENGINE HOT ZONE -> needs sign-off + a
+  documented 100k re-anchor; serialize its re-anchor with B1's. Council required 5 fixes before execution
+  (field-wide no-regress gate, Gate-4 restatement, `removal_matches` helper, git-track the battery driver,
+  correct the S3.4 consumer list) -- see the spec's Council Review section. #1 priority (interaction
+  under-modeling = the measured binding constraint on sim fidelity).
 - `2026-06-29-harness-orchestration-contract.md` — Adopt sandcastle's run()->RunResult domain model
   as the harness orchestration contract (IsolationStrategy enum, fork() distinct-key invariant,
   <promise>COMPLETE</promise> sentinel shared w/ Ralph, Output.object=Pydantic-retry). Build gated behind
@@ -125,6 +95,36 @@ each status. After a spec ships, it stays in this index forever.
   Design doc keeps its value; re-open on renewed visualization interest.
 
 ## SHIPPED
+
+- `2026-07-01-b1-legal-action-api.md` — **SHIPPED sub-slice** (`c1fe5a3`, 2026-07-01) + remainder
+  PROPOSED. Council RESCOPE 2026-07-04 (unanimous 3/3, workflow w6q14r3hu). Sub-slice = decision_api.py
+  + search_apl.py + action-vocabulary.md (Steps 1-3 + deepcopy-v0 fork); the deck-agnostic
+  enumerate-and-choose seam is PROVEN on the live engine but measured WEAKER than APLs (SearchAPL
+  30.8% N=107 vs GenericMatchAPL 39.2% vs hand-tuned 45.7%). Formal-API remainder -> PROPOSED (see below).
+
+- `2026-07-03-research-brain-integration.md` — **SHIPPED 2026-07-04** (all 5 SPs; 5-subagent
+  pipeline + independent verification; all gates PASS). Integrated `obsidian-second-brain`
+  (`research-brain/`) as the harness Research & Synthesis Tier: SP-1 docs, SP-2 council-gated
+  3-bucket promotion (`promote_concept.py`, git-proven zero writes to `knowledge/`), SP-3
+  local-only ingest (`ingest_research.py`), SP-4 nightly digest + liveness (`research_digest.py`),
+  SP-5 session-mining proposal-only (`mine_sessions.py`). All scheduled work local-only. User-gated
+  follow-ups (still open): register 05:10 task (`register-research-task.ps1 -Execute`, hot zone) +
+  optional research API keys + first ingest. Reconciled 2026-07-04 (workflow wotqbyhve): moved from
+  EXECUTING header — frontmatter was already SHIPPED, registry placement lagged.
+
+- `2026-07-03-local-llm-delegation.md` — **SHIPPED 2026-07-04** (reconciled from EXECUTING;
+  council-ratified SHIPPED unanimous 3-0, workflow wotqbyhve). Local-LLM delegation layer:
+  `routing.yaml` (two-lane, Gate-5.1) + `delegate` MCP (tier-1 Ollama qwen2.5-coder:7b / tier-2
+  llama.cpp Qwen3-Coder-30B-A3B) + `ollama_client.py` (B4) + `.mcp.json` + `/delegate` SKILL +
+  tier-2 launcher. All 5 artifact groups + 3 commits (9d41d91, 7bbd049, 5d02205); every gate closed
+  (incl. Gate 2.1 subagent→MCP echo ok:true, Gate 5.1 KEEP_FOR_SUBSET). Two optional leftovers →
+  IMPERFECTIONS (B4 legacy-site consolidation; tier-2 flag re-bench).
+
+- `2026-07-03-puzzle-trainer-v0.md` — **SHIPPED 2026-07-03** (v0 complete; reconciled from EXECUTING
+  header 2026-07-04). T1 outs-math drills (`analysis/puzzles/drill_generator.py`, commit 6f46c19),
+  T2 goldfish lethal miner (`mtg-sim/scripts/mine_lethal_puzzles.py`, commits 7eb405f + a89c0be),
+  T3 Glicko-2 puzzle ratings (`analysis/puzzles/rating_loop.py`, commit 1367176; 412-test suite).
+  Follow-on correctly PENDING (not v0 scope): T2 gauntlet real-opponent slice + no-untapped-blocker filter.
 
 - `2026-04-30-mulligan-parameter-sweep.md` — **Track A COMPLETE** 2026-06-28
   (scripts/mulligan_sweep.py goldfish threshold sweep, mtg-sim d5603bb historical hash);

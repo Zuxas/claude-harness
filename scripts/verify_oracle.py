@@ -24,6 +24,10 @@ import urllib.request
 
 SIM_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "mtg-sim")
 sys.path.insert(0, SIM_ROOT)
+# Shared streaming Ollama client lives at harness/agents/ (this file is in
+# harness/scripts/, so hop up one and into agents/).
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agents"))
+from ollama_client import call_ollama  # noqa: E402  (path set above)
 
 
 def get_oracle_text(card_name: str) -> str | None:
@@ -86,19 +90,10 @@ def grep_apl_context(apl_path: str, card_name: str, context_lines: int = 25) -> 
 
 
 def ask_gemma(prompt: str, model: str = "gemma4") -> str:
-    body = json.dumps({
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "options": {"temperature": 0.1, "num_predict": 1024},
-    }).encode()
-    req = urllib.request.Request(
-        "http://localhost:11434/api/generate",
-        data=body,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return json.loads(resp.read()).get("response", "").strip()
+    # Migrated onto shared ollama_client (streaming + retry). Raises on
+    # failure exactly like the prior urlopen path (caller maps to exit 2).
+    return call_ollama(prompt, model, temperature=0.1, max_tokens=1024,
+                       timeout=120)
 
 
 def verify_card(card_name: str, apl_path: str, verbose: bool = True) -> bool:

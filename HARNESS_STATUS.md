@@ -24,6 +24,12 @@ The harness has moved well past the 2026-04-18 "6 layers complete" snapshot belo
 - **Security: generated-code deny-list gate** in `auto_pipeline._save_apl_code` (injection->RCE/exfil
   defense, fail-closed) + a documented MCP Rule-of-Two policy. See IMPERFECTIONS
   `arl-generated-code-exec-unsandboxed` and `mcp-rule-of-two-interactive`.
+- **Research-Brain Tier (2026-07-04, EXECUTING)** — `obsidian-second-brain` installed on a
+  SEPARATE git-tracked vault (`research-brain/`) as a provisional Research & Synthesis Tier.
+  Self-rewrites on research ingest; bridged to curated `harness/knowledge/` by a human-gated,
+  council-verified 3-bucket promotion path (FAST | COUNCIL | NEEDS-CONTEXT). Scheduled work is
+  LOCAL-only (delegate MCP). NEVER auto-writes Tier K. Spec:
+  `specs/2026-07-03-research-brain-integration.md`; block: `knowledge/tech/research-brain.md`.
 
 **Authoritative current sources** (trust these over the historical log below):
 - `harness/IMPERFECTIONS.md` — live tracked issues + recent resolutions
@@ -61,25 +67,50 @@ his competitive history — every single time.
 No re-explaining. No generic advice. Specific, grounded, personalized.
 
 
-### Local Model Pipeline (Gemma 4 via Ollama)
+### Local Model Pipeline (Ollama: qwen2.5-coder + gemma4)
 **Problem solved:** Every question cost API tokens. Routine work like
 summarizing articles, compiling notes, quick lookups — all burned tokens
 that should have been free.
 
 **How it works now:**
-- Ollama runs Gemma 4 locally on RTX 3080 LHR (10GB VRAM)
-- Two models: gemma4 (12B, fast) and gemma4:26b (MoE, smarter)
-- `ask-gemma.ps1` — quick questions, optional file context, $0.00/query
-- `compile-knowledge.ps1` — feeds raw text to Gemma, outputs a formatted
+- Ollama runs two model families locally on RTX 3080 LHR (10GB VRAM):
+  **qwen2.5-coder (7b/14b)** for code/APL generation, **gemma4 (latest/26b)**
+  for prose, knowledge compilation, and LLM-judging. (This supersedes the
+  original Gemma-only design — see the 2026-06-27 addendum at the top of this file.)
+- `ask-gemma.ps1` — quick questions, optional file context, $0.00/query (gemma4)
+- `compile-knowledge.ps1` — feeds raw text to gemma4, outputs a formatted
   knowledge block with frontmatter, saves to knowledge/, updates _index.md
 - `process-inbox.ps1` — drop files named `domain--blockname.txt` into
-  `harness/inbox/`, script batch-compiles them all via Gemma
+  `harness/inbox/`, script batch-compiles them all via gemma4
+- `auto_pipeline.py` — APL generation prefers qwen2.5-coder:7b (code-specialized),
+  falls back to gemma4
 - Performance: ~18-20 tokens/sec, zero cost, complete privacy
 
 **Benefit:** Knowledge base grows without spending tokens. Copy-paste a
 Reddit post, Discord chat, article, or tournament report into a .txt file,
 drop it in inbox/, run the processor. Gemma compiles it into a structured
 block that Claude Code reads next session.
+
+### Local-LLM Delegation (delegate MCP) — 2026-07-03
+Spec: `specs/2026-07-03-local-llm-delegation.md` (EXECUTING). Lets Claude/agents
+hand bounded, high-output work to local models case-by-case, with user-controlled
+task->model routing. **Council decides (Claude/high-level AI only); local models
+are WORKERS, never council seats.**
+- **Control knob:** `agents/routing.yaml` — edit to reassign task_type -> model
+  (hybrid resolution: explicit > task_type > size-based auto).
+- **The MCP:** `agents/delegate_mcp/` (FastMCP over stdio, mirrors the analyzer's
+  mcp_server). Tools: `mcp__delegate__run(prompt, task_type?, model?)`,
+  `list_models`, `health`, `echo`. Registered in workspace-root `.mcp.json`.
+- **Shared client:** `agents/ollama_client.py` — the importable streaming client
+  (finishes spec 2026-06-26 B4); the delegate ollama backend wraps it.
+- **Two tiers (one_tier_hot on 10GB):** tier-1 Ollama qwen2.5-coder:7b (~92 tok/s,
+  all-GPU); tier-2 llama.cpp Qwen3-Coder-30B-A3B (~20 tok/s, MoE offload to 64GB).
+  Tier-2 = a fenced experiment; start via `scripts/start-llamacpp-tier2.ps1`
+  (it unloads Ollama first — the two can't co-reside, tier-2 alone is 9.8/10GB).
+- **Skill:** `.claude/skills/delegate/SKILL.md` (workspace root). Cross-vendor
+  council seat via Codex CLI is now installed (`codex exec --skip-git-repo-check`).
+- Status: built + tested; formal subagent->MCP gate pends a Claude Code restart to
+  load the MCP. Next: benchmark tier-2-vs-7b on real tasks (keep/drop kill switch).
 
 ### Token Compression (RTK)
 **Problem solved:** Claude Code terminal commands (git status, dir, cargo
@@ -264,8 +295,9 @@ across sessions. The human shifts from operator to strategist.
 ## DESIGN PRINCIPLES (for future Claude Code sessions)
 
 1. **Knowledge blocks are the source of truth.** Read them before answering.
-2. **Gemma handles cheap work, Claude handles complex work.** Don't use
-   Claude API tokens for tasks Gemma can do locally.
+2. **Local models handle cheap work, Claude handles complex work.**
+   qwen2.5-coder generates code/APLs and gemma4 handles prose/judging locally
+   ($0.00); don't use Claude API tokens for tasks the local models can do.
 3. **Everything writes back to knowledge blocks.** Sim results, analysis,
    session notes — all persist as markdown in harness/knowledge/.
 4. **MEMORY.md tracks state.** Update it when completing tasks.

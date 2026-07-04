@@ -1,8 +1,8 @@
 ---
 title: Mulligan parameter sweep -- IMPLEMENTATION PLAN (grounded)
-status: PROPOSED
+status: CLOSED-STALLED
 created: 2026-06-28
-updated: 2026-06-28
+updated: 2026-07-04
 project: mtg-sim
 scopes_spec: harness/specs/2026-04-30-mulligan-parameter-sweep.md
 related_imperfections:
@@ -11,6 +11,8 @@ related_imperfections:
 estimated_time: see Effort section
 recommendation: build-after-deps
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): OBSOLETE — premise falsified by mull-routing-falsification-2026-07-01 (keep-quality self-help -0.17pp; engine default reverted to crude, sim 6052de6). Parent 2026-04-30-mulligan-parameter-sweep Tracks B/C already CLOSED-STALLED per 2026-07-01-spec-triage.
 
 # Implementation Plan: Mulligan Parameter Sweep
 

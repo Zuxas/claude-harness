@@ -1,7 +1,8 @@
 ---
 title: R5 Planeswalker Loyalty Over Turns - PROOF + NO-REGRESSION design (READ-ONLY, for review)
-status: PROPOSED
+status: SUPERSEDED
 created: 2026-06-26
+updated: 2026-07-04
 project: mtg-sim
 estimated_time: design only (no engine code written); implementation is L (~12h+) once approved
 related:
@@ -17,10 +18,12 @@ worktree: E:/vscode ai project/mtg-sim-r5  (branch: modelability/r5-planeswalker
 branch_point_commit: 2280dced3c859c1cc001269dcb1485b706089dac  (main: "feat(ml): win-prob calibration + retrain model under current sklearn")
 depends_on: none (R5 is the independent, baseline-shifting rung; loyalty abilities are sorcery-speed so NO priority-stack/R1 or instant-combat/R2 dependency)
 supersedes:
-superseded_by:
+superseded_by: 2026-06-26-modelability-ladder.md
 related_findings:
 related_commits:
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): design implemented via SHIPPED 2026-06-26-modelability-ladder.md; frontmatter had stayed PROPOSED.
 
 # R5 Planeswalker Loyalty Over Turns - Implementation Design
 

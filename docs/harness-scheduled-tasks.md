@@ -8,6 +8,7 @@ Updated 2026-04-27 v1.3: snapshot + drift PR moved to early morning so handoff s
 |---|---|---|
 | 04:30 | Zuxas-Harness-SessionSnapshot | Snapshot + drift detect + lint + drift route |
 | 04:50 | Zuxas-Harness-DriftPR | Gemma reads overnight state, generates drift PR |
+| 05:10 | Zuxas-Harness-ResearchIngest | Research-ingest loop (ingest-research.ps1) + nightly digest (research_digest.py); local-only, opt-in via `harness/scripts/register-research-task.ps1 -Execute` |
 | 17:00 | MTG-Meta-Analyzer-Daily | meta-analyzer scraper |
 | 17:30 | Zuxas-Harness-Nightly-Modern | Modern nightly retune + gauntlet |
 | 18:30 | Zuxas-Harness-Nightly-Standard | Standard nightly retune + gauntlet |

@@ -35,6 +35,8 @@ SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
 sys.path.insert(0, str(SIM_ROOT))
 
 HARNESS_ROOT = Path("E:/vscode ai project/harness")
+sys.path.insert(0, str(HARNESS_ROOT / "agents"))
+from ollama_client import call_ollama  # shared streaming client (B4)
 OLLAMA_API = "http://localhost:11434/api/generate"
 
 # ---------------------------------------------------------------------------
@@ -46,23 +48,14 @@ def ask_gemma(question: str, context: str = "", model: str = "gemma4") -> str:
     prompt = question
     if context:
         prompt = f"Context:\n{context}\n\nQuestion: {question}"
-    
-    body = json.dumps({
-        "model": model,
-        "prompt": prompt,
-        "system": "You are an expert MTG competitive analyst. Answer concisely with specific, actionable advice.",
-        "stream": False,
-        "keep_alive": "30m",
-        "options": {"temperature": 0.3, "num_predict": 2048}
-    }).encode()
-    
+
+    # Migrated onto shared ollama_client (streaming + retry). Preserves the
+    # legacy "ERROR: {e}" contract callers check for.
+    system = ("You are an expert MTG competitive analyst. Answer concisely "
+              "with specific, actionable advice.")
     try:
-        req = urllib.request.Request(OLLAMA_API, data=body,
-                                     headers={"Content-Type": "application/json"},
-                                     method="POST")
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            data = json.loads(resp.read())
-            return data.get("response", "")
+        return call_ollama(prompt, model, system=system, temperature=0.3,
+                           max_tokens=2048, timeout=300)
     except Exception as e:
         print(f"[gemma] API call failed: {e}")
         return f"ERROR: {e}"
