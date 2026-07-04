@@ -13,13 +13,21 @@ backends:
   llamacpp:  { endpoint: "http://localhost:8080",  kind: openai_compat }
 
 task_types:
-  # --- tier-1: Ollama, qwen2.5-coder:7b, fully on GPU, fast ---
+  # Organized into TWO LANES on purpose. one_tier_hot=true means switching lanes
+  # unloads one model to load the other (a GPU swap). BATCH work by lane; do not
+  # interleave a tier-2 prose task between tier-1 mechanical tasks or you thrash.
+  # Lane assignment set by the Gate 5.1 benchmark (2026-07-03, wf delegation-closeout).
+
+  # === TIER-1 MECHANICAL LANE (Ollama qwen2.5-coder:7b, ~104 tok/s, all-GPU) ===
+  # Fast and correct on structured code (docstrings, utilities, unit tests, refactors).
   test_scaffold:   { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 16384, max_tokens: 1500 }
-  summarize:       { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 32768, max_tokens: 800 }
   boilerplate:     { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 8192,  max_tokens: 1200 }
   commit_message:  { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 8192,  max_tokens: 200 }   # low-output: explicit-route only; gate won't auto-pick (Claude writes these cheaper itself)
 
-  # --- tier-2: llama.cpp persistent server, Qwen3-Coder-30B-A3B, MoE expert-offload to 64GB RAM ---
+  # === TIER-2 PROSE / FAITHFULNESS LANE (llama.cpp Qwen3-Coder-30B-A3B, ~20 tok/s, MoE offload) ===
+  # Slower, but doesn't fabricate/omit on prose. Needs start-llamacpp-tier2.ps1 running.
+  # Gate 5.1: the 7B invented a detail + dropped a point on a summary; the 30B did not.
+  summarize:       { model: "Qwen3-Coder-30B-A3B", backend: llamacpp, max_ctx: 32768, max_tokens: 800 }   # moved from tier-1 2026-07-03 (7B fabricated on summaries)
   bulk_edit:       { model: "Qwen3-Coder-30B-A3B", backend: llamacpp, max_ctx: 32768, max_tokens: 4000 }
   draft_long:      { model: "Qwen3-Coder-30B-A3B", backend: llamacpp, max_ctx: 32768, max_tokens: 4000 }
 

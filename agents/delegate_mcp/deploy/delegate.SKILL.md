@@ -23,10 +23,15 @@ tell the user to restart Claude Code and approve the `delegate` server.
 
 Resolution order: explicit `model` > `task_type` (looked up in
 `harness/agents/routing.yaml`) > size-based auto. The user edits routing.yaml to
-reassign a task type; no code change needed. Current task_types:
-- tier-1 (Ollama, ~90-100 tok/s, all-GPU): `test_scaffold`, `summarize`,
-  `boilerplate`, `commit_message` (low-output — explicit only)
-- tier-2 (llama.cpp, ~20 tok/s, MoE offload): `bulk_edit`, `draft_long`
+reassign a task type; no code change needed. Two LANES (batch by lane — switching
+lanes is a one_tier_hot GPU swap):
+- **tier-1 MECHANICAL lane** (Ollama, ~104 tok/s, all-GPU): `test_scaffold`,
+  `boilerplate`, `commit_message` (low-output — explicit only). Fast + correct on
+  structured code.
+- **tier-2 PROSE / faithfulness lane** (llama.cpp, ~20 tok/s, MoE offload):
+  `summarize`, `bulk_edit`, `draft_long`. Slower but doesn't fabricate/omit on
+  prose (Gate 5.1 bench: the 7B invented a detail + dropped a point on a summary;
+  the 30B didn't). Needs `start-llamacpp-tier2.ps1` running.
 
 ## The "worth it?" gate — apply BEFORE delegating
 
