@@ -274,6 +274,10 @@ fresh baseline. Anchors from sim-calibration-2026-07-01.md.
 > byte-equality. This is a known limitation, not a gate failure.
 
 ### Gate 1 -- Calibration P1 (primary) + P2 no-regress [gate ON]
+
+> **ROUND-2 condition #3 (symmetric partial-confirm):** a P1 landing ABOVE the 47.6% ladder anchor
+> (past the 37.2% tournament truth) is ALSO partial-confirm + named residual, NOT a clean PASS -- Risk 3
+> predicts crude-policy overshoot. Undershoot AND overshoot both partial-confirm.
 - **Where it should land + why:** P1 (Dimir Midrange vs Izzet Prowess), gate-ON, moves from
   **5.3% into [37.6%, 57.6%]** (+/-10pp of the 47.6% ladder anchor) WITHOUT P2 (Izzet
   Prowess vs Mono Green Landfall, same protocol) regressing past **+19.3pp over its 52.2%
@@ -325,6 +329,9 @@ fresh baseline. Anchors from sim-calibration-2026-07-01.md.
 ### Carried BY REFERENCE (07-01 gates -- SHIPPED at stages 0-2, re-confirm after wiring)
 
 ### Gate 5 -- Golden (whitelist reproduction; = 07-01 G1)
+
+> **ROUND-2 condition #4 (pre-name allowances):** the <=2 tolerated golden-mismatch cases must be
+> PRE-NAMED on disk before any run -- otherwise the >2-mismatch tolerance is a soft escape hatch (Codex).
 100% of currently-whitelisted cards classify to the same predicate + cost the tables encode
 (ALREADY GREEN @ 452923a: 18 COUNTER_VALIDITY + 36 base + 15 ext, zero grammar-attributable
 mismatches; 4 documented table-side deviations). RE-RUN after Stage-3 wiring to confirm no
@@ -346,6 +353,12 @@ load-time + cached; design-2 cache-hit assert guards the inner loop).
 ### New for this execution spec (field-wide safety net)
 
 ### Gate 9 -- Field-wide no-regress over the cells S3.4 actually wires [gate ON]
+
+> **ROUND-2 condition #1 (STRONGEST hit -- Claude + Codex corroborated):** the "documented direction"
+> escape hatch below is post-hoc-authorable for exactly the anchorless cells this gate must protect.
+> BEFORE any gate-ON run, PRE-REGISTER to disk a manifest of {per-cell direction, truth anchor, measured
+> gate-OFF same-seed spread}. A gate-ON move must match the pre-registered direction/magnitude or it FAILS.
+> Remove the author-the-pass-later loophole.
 - **Where it should land + why:** Gate 1 calibrates only P1 (rise) and P2 (flat), but flipping
   `WANTS_ORACLE_RESPONSES` changes counter/removal legality FIELD-WIDE, so any cell whose APLs
   S3.4 wires can move. Over the wired cells -- UW Control, Affinity, combo, PLUS every cell
@@ -397,6 +410,14 @@ the signal lives at the cell aggregate.
 ---
 
 ## ENGINE HOT ZONE -- sign-off + 100k re-anchor required (READ PROMINENTLY)
+
+> **ROUND-2 condition #2 (F1, sharpest gameability hit):** the 100k FAIL clause must NOT accept
+> "shared-RNG re-consumption" as a blanket universal attribution -- that lets a real capability misfire
+> always be "attributed" and ride in as PASS. REQUIRE a pre-registered, QUANTIFIED expected RNG-reshuffle
+> envelope per moved cell; FAIL any swing beyond it even if nominally attributed.
+> **ROUND-2 condition #5 (scope):** GATE-OFF-DEFAULT ONLY. Do NOT flip the default ON or call the battery
+> "field-safe" until BOTH (a) this tightened 100k re-anchor passes AND (b) WP-B4 per-state RNG threading
+> has landed (so P2 is a genuine byte-gate, not a statistical carve-out).
 
 **This spec touches priority / response / combat-window decision logic in
 `mtg-sim/engine`.** Per both CLAUDE.md hot-zone protocols, the following are HOT ZONES and

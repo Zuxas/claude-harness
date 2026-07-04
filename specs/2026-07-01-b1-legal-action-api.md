@@ -140,3 +140,32 @@ Measured (Boros deck vs Murktide, real engine, PYTHONHASHSEED=0): SearchAPL 30.8
 vs GenericMatchAPL 39.2% (N=1159) vs hand-tuned Boros 45.7% (N=2471). Seam proven; skill is
 future work. Remaining B1: Step 4/5 (priority+combat enumeration), real Step 6 (cheap fork),
 Steps 2-7 formal gates. Report: E:\vscode ai project\PROTOTYPE-2026-07-01.md.
+
+---
+
+## WP-B4 scope -- per-state RNG threading (2026-07-04 recon; the pulled-forward slice)
+
+Concrete target sites for WP-B4 (replace global `random.*` with a per-state `random.Random` threaded
+through the game state, so forks/determinization are independent and P2 same-seed drift dies). Grepped
+from mtg-sim/engine/ on 2026-07-04:
+
+**Consumption sites (the ~13 -- these read the global RNG and must take a per-state rng):**
+- engine/card_handlers_verified.py -- 8 sites: `random.choice(g.zones.hand)` x3 (L6310/7018/9725 discard-
+  victim), `random.shuffle(library)` x3 (L7377/7389/11868), `random.shuffle(gy)` (L8420),
+  `random.choice(lands)` (L17336)
+- engine/opponent.py:245 -- `random.random() * 100` (roll)
+- engine/race.py:44 -- `random.random() * 100` (roll)
+- engine/runner.py:189 -- `random.random() < 0.5` (on-play coin flip)
+- engine/zones.py -- 1 site (library shuffle; confirm exact line at build time)
+
+**Seeding sites (replace `random.seed(...)` with constructing a per-state Random(seed)):**
+- engine/bo3_match.py:177/214, engine/match_runner.py:1815/1871, engine/runner.py:156
+
+**Out of scope (non-gameplay, may stay global):** engine/atomic_json.py:86 (retry-jitter).
+
+**Gates for WP-B4 (falsifiable):** (1) with a fixed seed, per-state RNG run is byte-identical to the
+current global-seed run for a single game (no behavior change, just plumbing); (2) two forks from the same
+state with the SAME rng seed are byte-identical, and with DIFFERENT seeds diverge only in RNG-dependent
+lines; (3) P2 cell becomes same-seed byte-STABLE at HEAD (the drift dies) -- this is the WP-A P2-gate
+unblock; (4) 100k canonical re-anchor (ENGINE HOT ZONE -- serialize with WP-A's, needs sign-off).
+Est: M (per blueprint WP-B item 4). SPEC-FIRST: formalize into its own spec before coding (house rule #1).
