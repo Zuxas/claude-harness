@@ -1,0 +1,32 @@
+# Local-LLM delegation routing table.
+# Spec: harness/specs/2026-07-03-local-llm-delegation.md (EXECUTING)
+# EDIT THIS FILE to reassign a task type to a different model. No code change needed.
+#
+# Resolution order on any delegate run():
+#   1. explicit `model` arg  -> used verbatim (hard override)
+#   2. else `task_type` arg  -> task_types[task_type].model
+#   3. else                  -> defaults.auto_small | auto_large (by prompt size)
+version: 1
+
+backends:
+  ollama:    { endpoint: "http://localhost:11434", kind: ollama }
+  llamacpp:  { endpoint: "http://localhost:8080",  kind: openai_compat }
+
+task_types:
+  # --- tier-1: Ollama, qwen2.5-coder:7b, fully on GPU, fast ---
+  test_scaffold:   { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 16384, max_tokens: 1500 }
+  summarize:       { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 32768, max_tokens: 800 }
+  boilerplate:     { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 8192,  max_tokens: 1200 }
+  commit_message:  { model: "qwen2.5-coder:7b",    backend: ollama,   max_ctx: 8192,  max_tokens: 200 }   # low-output: explicit-route only; gate won't auto-pick (Claude writes these cheaper itself)
+
+  # --- tier-2: llama.cpp persistent server, Qwen3-Coder-30B-A3B, MoE expert-offload to 64GB RAM ---
+  bulk_edit:       { model: "Qwen3-Coder-30B-A3B", backend: llamacpp, max_ctx: 32768, max_tokens: 4000 }
+  draft_long:      { model: "Qwen3-Coder-30B-A3B", backend: llamacpp, max_ctx: 32768, max_tokens: 4000 }
+
+defaults:
+  auto_small: "qwen2.5-coder:7b"       # short prompt / low difficulty
+  auto_large: "Qwen3-Coder-30B-A3B"    # long prompt / high difficulty
+  budget: { max_tokens: 4000, timeout_s: 300 }   # tier-2 floor 14 tok/s keeps a 4000-tok task under 300s (4000/14=286s)
+
+policy:
+  one_tier_hot: true    # tier-2 up => expect Ollama tier-1 unloaded (10GB VRAM ceiling); model swaps are cheap (warm page cache in 64GB)

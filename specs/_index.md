@@ -1,10 +1,21 @@
 # harness/specs/ -- Spec Index
-# Last updated: 2026-07-01
+# Last updated: 2026-07-03
 
 Chronological list of all execution specs by status. Newest first within
 each status. After a spec ships, it stays in this index forever.
 
 ## EXECUTING
+
+- `2026-07-03-local-llm-delegation.md` — **EXECUTING** (ratified 2026-07-03,
+  council-reviewed first). Local-LLM delegation layer: user-controlled
+  `routing.yaml` (task->model, hybrid resolution) + thin custom `delegate` MCP
+  (Ollama tier-1 qwen2.5-coder:7b [installed] / llama.cpp tier-2
+  Qwen3-Coder-30B-A3B [new]) + "worth it?" policy + executor. Local LLM =
+  worker, council = Claude-only, NO auto council->executor pipe (case-by-case
+  delegation), tier-2 = fenced experiment on Gate 5.1 kill switch. Gate 2.1
+  proves subagent->MCP BEFORE the executor build. Council verdict:
+  harness/knowledge/tech/council-2026-07-03-local-llm-delegation.md. P1 in
+  progress: routing.yaml + fleet + tier-2 server.
 
 - `2026-07-03-puzzle-trainer-v0.md` — **EXECUTING** (user-directed 2026-07-03).
   BLUEPRINT WP-D scoped to v0 per D7: T1 outs-math drill generator (category
