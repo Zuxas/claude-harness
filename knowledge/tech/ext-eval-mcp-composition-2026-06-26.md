@@ -2,7 +2,10 @@
 title: "External Eval — MCP Server Composition (FastMCP) to Expand Our Data/Tool Surface"
 status: SURFACED
 created: 2026-06-26
+reviewed: 2026-07-04
 ---
+
+> Reviewed 2026-07-04 (workflow): no executed build spec consumed this yet -- honest open backlog, intentionally kept SURFACED.
 
 # MCP Server Composition — Expanding Our Data/Tool Surface
 

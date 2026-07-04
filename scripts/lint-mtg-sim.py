@@ -290,11 +290,21 @@ def _parse_deck_file(path: Path) -> tuple[list[str], list[str]] | None:
     target = mainboard
     sb_seen = False
 
+    # Match the real deck loader (data.deck.load_deck_from_file): if the file has
+    # an EXPLICIT sideboard delimiter, use ONLY that and ignore blank lines --
+    # otherwise a cosmetic blank line separating mainboard card groups falsely
+    # dumps the rest into the SB. Blank-line transition kept ONLY as a fallback
+    # for files with no explicit delimiter. (2026-07-01: fixes the validator-vs-
+    # loader miscount that flagged tokyo/looting decks as 8-main/67-side.)
+    _has_explicit_sb = any(
+        raw.strip().lower().startswith(("sideboard", "sb:", "// sideboard", "#sb"))
+        for raw in lines
+    )
+
     for raw in lines:
         line = raw.strip()
         if not line:
-            # Blank line = transition to SB on first occurrence
-            if not sb_seen and mainboard:
+            if not _has_explicit_sb and not sb_seen and mainboard:
                 target = sideboard
                 sb_seen = True
             continue

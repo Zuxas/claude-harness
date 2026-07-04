@@ -45,6 +45,8 @@ MEMORY_FILE = HARNESS_ROOT / "agents" / "optimization_memory.json"
 
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(META_ANALYZER))
+sys.path.insert(0, str(HARNESS_ROOT / "agents"))
+from ollama_client import call_ollama  # shared streaming client (B4)
 
 # ARL hardening trio (mtg-sim/scripts): write-discipline + approval gate. Guarded so
 # auto_pipeline still runs if the modules are absent (e.g. a severed checkout).
@@ -232,60 +234,22 @@ def _generate_via_claude(deck_name, format_name="modern"):
 
 def _call_ollama(prompt: str, model: str, temperature: float = 0.3,
                   max_tokens: int = 512, num_ctx: int = 4096) -> str:
-    """Low-level Ollama API call. Returns response string or raises.
+    """Low-level Ollama call. Returns response string or raises.
 
-    Uses streaming mode to accumulate tokens -- avoids Ollama bug where
-    stream=False returns empty response for Gemma 4 after heavy load.
+    Thin shim over the shared harness/agents/ollama_client.call_ollama, which
+    this function was the original template for (B4 consolidation). Same
+    behavior: streaming token accumulation (avoids the stream=False empty
+    response bug), 3 attempts with 2s/8s backoff, empty-response treated as a
+    retryable failure, last error raised after retries are exhausted.
 
-    num_ctx (B1): defaults to 4096, which is fine for the short decomposed
-    calls (max_tokens 300-600). The monolith fallback requests
-    max_tokens=4096, so it passes num_ctx=8192 to leave room for the
-    prompt + output inside the context window (previously prompt+output
-    exceeded the hardcoded 4096 ctx and silently truncated the output).
+    num_ctx (B1): callers pass 8192 for the max_tokens=4096 monolith fallback
+    to leave prompt room. keep_alive (B2) "30m" is the client default.
 
-    keep_alive (B2): "30m" keeps the model warm across nightly steps.
-
-    Resilience (D1): the HTTP call is retried up to 3 attempts with ~2s
-    then ~8s backoff on URLError / timeout / empty-response. The last
-    error is raised only after all retries are exhausted.
+    NOTE: retry warnings now go to ollama_client's stderr logger rather than
+    this module's log() into the nightly logs (minor observability shift).
     """
-    import urllib.request
-    import urllib.error
-    body = json.dumps({
-        "model": model, "prompt": prompt, "stream": True,
-        "keep_alive": "30m",
-        "options": {"temperature": temperature, "num_predict": max_tokens,
-                    "num_ctx": num_ctx, "num_batch": 1024},
-    }).encode()
-
-    backoffs = [2, 8]  # waits between attempts (3 attempts total)
-    last_err = None
-    for attempt in range(len(backoffs) + 1):
-        try:
-            req = urllib.request.Request(
-                "http://localhost:11434/api/generate", data=body,
-                headers={"Content-Type": "application/json"},
-            )
-            tokens = []
-            with urllib.request.urlopen(req, timeout=300) as resp:
-                for line in resp:
-                    if not line.strip():
-                        continue
-                    chunk = json.loads(line)
-                    tokens.append(chunk.get("response", ""))
-                    if chunk.get("done"):
-                        break
-            result = "".join(tokens).strip()
-            if not result:
-                raise ValueError("empty response from Ollama")
-            return result
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
-            last_err = e
-            if attempt < len(backoffs):
-                log(f"  Ollama call failed ({e}); retry "
-                    f"{attempt + 1}/{len(backoffs)} in {backoffs[attempt]}s", "WARN")
-                time.sleep(backoffs[attempt])
-    raise last_err
+    return call_ollama(prompt, model, temperature=temperature,
+                       max_tokens=max_tokens, num_ctx=num_ctx, timeout=300)
 
 
 def _classify_deck(deck_name: str, decklist: str) -> dict:
@@ -960,9 +924,45 @@ _SMOKE_MIN_WIN_RATE = 0.10   # at least 10% of games must deal lethal
 _SMOKE_MIN_KILL_TURN = 3     # faster than T3 means the APL is doing something wrong
 _SMOKE_MAX_KILL_TURN = 20    # slower than T20 on average = APL effectively does nothing
 
+# Wall-clock ceiling for the sandboxed smoke subprocess. A benign 50-game seeded
+# goldfish (incl. ~164MB oracle-DB load) finishes well under this; the cap exists
+# so a hostile generated file cannot hang the nightly ARL loop indefinitely.
+_SMOKE_SUBPROCESS_TIMEOUT = 300  # seconds
+
+_APL_SMOKE_RUNNER = Path(__file__).with_name("_apl_smoke_runner.py")
+
+
+def _stripped_env():
+    """Return a copy of os.environ with secrets removed, for the smoke subprocess.
+
+    SECURITY: the smoke subprocess IMPORTS + EXECUTES model-generated APL code
+    whose gen prompt can carry untrusted scraped oracle text (injection->RCE
+    path). We hand it an environment with NO API keys / tokens so that even if
+    a hostile file runs, os.environ.get('ANTHROPIC_API_KEY') & friends are absent
+    and cannot be exfiltrated. Blacklist (not whitelist) so PATH / SystemRoot /
+    PYTHONPATH etc. survive and functional parity is preserved on Windows.
+    Drops, case-insensitively: any *_API_KEY, anything containing TOKEN, plus
+    obvious SECRET/PASSWORD/CREDENTIAL markers no game sim ever needs.
+    """
+    env = {}
+    for k, v in os.environ.items():
+        ku = k.upper()
+        if ku.endswith("_API_KEY") or "TOKEN" in ku or "SECRET" in ku \
+                or "PASSWORD" in ku or "CREDENTIAL" in ku:
+            continue
+        env[k] = v
+    return env
+
 
 def _smoke_test_apl(deck_name, format_name, n=50):
-    """Import the auto-generated APL + run N goldfish games.
+    """Import the auto-generated APL + run N goldfish games IN A SANDBOXED SUBPROCESS.
+
+    SECURITY: the generated APL is untrusted (its gen prompt can include scraped
+    oracle text -> injection). It is imported + executed in a SEPARATE PROCESS with
+    a SECRET-STRIPPED environment (_stripped_env: no *_API_KEY / *TOKEN* / secrets)
+    and under a wall-clock timeout, so an injection->RCE cannot read this process's
+    API keys nor hang the ARL loop. The static deny-list (_scan_generated_code) still
+    runs earlier at write time; this is defence-in-depth, not a replacement.
 
     Gate: crash-free AND semantic sanity:
       - win_rate >= _SMOKE_MIN_WIN_RATE (APL must actually deal lethal sometimes)
@@ -970,46 +970,67 @@ def _smoke_test_apl(deck_name, format_name, n=50):
 
     Semantic gate catches APLs that pass by never finding matching cards in the
     deck (win_rate=0%) or by winning impossibly fast (hallucinated kill T1).
-    All metrics logged regardless of pass/fail for visibility.
+    Return-dict shape is unchanged for benign code; adds a "timeout" status.
     """
     safe = _safe_slug(deck_name)
     deck_path = SIM_ROOT / "decks" / "auto" / f"{safe}_{format_name}.txt"
     if not deck_path.exists():
         return {"status": "no_deck_file", "passed": False}
+
+    import tempfile
+    mod_name = f"apl.auto_apls.{safe}"
+    out_fd, out_path = tempfile.mkstemp(prefix="apl_smoke_", suffix=".json")
+    os.close(out_fd)
     try:
-        import importlib
-        if str(SIM_ROOT) not in sys.path:
-            sys.path.insert(0, str(SIM_ROOT))
-        mod_name = f"apl.auto_apls.{safe}"
-        if mod_name in sys.modules:
-            importlib.reload(sys.modules[mod_name])
-        else:
-            importlib.import_module(mod_name)
-        mod = sys.modules[mod_name]
-        cls = None
-        for attr_name in dir(mod):
-            obj = getattr(mod, attr_name)
-            if isinstance(obj, type) and attr_name.endswith("APL") and attr_name != "BaseAPL":
-                cls = obj
-                cls_name = attr_name
-                break
-        if cls is None:
+        try:
+            proc = subprocess.run(
+                [sys.executable, str(_APL_SMOKE_RUNNER),
+                 "--sim-root", str(SIM_ROOT),
+                 "--mod-name", mod_name,
+                 "--deck-path", str(deck_path),
+                 "--deck-name", deck_name,
+                 "--n", str(n),
+                 "--seed", "42",
+                 "--out", out_path],
+                capture_output=True, text=True,
+                timeout=_SMOKE_SUBPROCESS_TIMEOUT,
+                cwd=str(SIM_ROOT),
+                env=_stripped_env(),
+            )
+        except subprocess.TimeoutExpired:
+            return {"status": "timeout", "passed": False,
+                    "error": f"smoke subprocess exceeded {_SMOKE_SUBPROCESS_TIMEOUT}s"}
+
+        # Read the runner's JSON result. Missing/empty/bad file OR nonzero exit
+        # (segfault, import error, kill) both map to the pre-existing "crashed".
+        raw = None
+        try:
+            with open(out_path, "r", encoding="utf-8") as fh:
+                raw = fh.read()
+            data = json.loads(raw) if raw.strip() else None
+        except (OSError, json.JSONDecodeError):
+            data = None
+        if data is None:
+            err = (proc.stderr or proc.stdout or "no result written").strip()
+            return {"status": "crashed", "passed": False, "error": err[:200]}
+
+        status = data.get("status")
+        if status == "crashed":
+            return {"status": "crashed", "passed": False,
+                    "error": (data.get("error") or "")[:200]}
+        if status == "no_apl_class":
             return {"status": "no_apl_class", "passed": False}
+        if status != "ok":
+            return {"status": "crashed", "passed": False,
+                    "error": f"unexpected runner status {status!r}"}
 
-        from data.deck import load_deck_from_file
-        from engine.runner import run_simulation
-        main, _ = load_deck_from_file(str(deck_path))
-        apl_instance = cls()
-        if not hasattr(apl_instance, 'name') or apl_instance.name is None:
-            apl_instance.name = deck_name
-        result = run_simulation(apl_instance, main, n=n, verbose_first=0, seed=42)
-
-        win_rate = result.win_rate()
-        avg_kt = result.avg_kill_turn()  # None if 0 wins
+        win_rate = data["win_rate"]
+        avg_kt = data["avg_kill_turn"]  # None if 0 wins
+        cls_name = data.get("class_name")
 
         metrics = {"win_rate": round(win_rate, 3),
                    "avg_kill_turn": round(avg_kt, 2) if avg_kt is not None else None,
-                   "games_completed": n,
+                   "games_completed": data.get("games_completed", n),
                    "class_name": cls_name}
 
         # Semantic gate
@@ -1023,8 +1044,11 @@ def _smoke_test_apl(deck_name, format_name, n=50):
                     "passed": False, **metrics}
 
         return {"status": "passed", "passed": True, **metrics}
-    except Exception as e:
-        return {"status": "crashed", "passed": False, "error": str(e)[:200]}
+    finally:
+        try:
+            os.remove(out_path)
+        except OSError:
+            pass
 
 
 def _register_auto_apl(deck_name, format_name, smoke_result):
@@ -1180,19 +1204,14 @@ Output a structured playbook with these sections:
 Write from the pilot-seat perspective (use "you/they" not "the player/the opponent").
 Keep it concise and actionable."""
 
-    body = json.dumps({
-        "model": "gemma4", "prompt": prompt,
-        "system": "You are an expert MTG competitive guide writer.",
-        "stream": False, "keep_alive": "30m",
-        "options": {"temperature": 0.4, "num_predict": 4096}
-    }).encode()
-    
     try:
-        req = urllib.request.Request("http://localhost:11434/api/generate",
-                                     data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            playbook_content = json.loads(resp.read()).get("response", "")
-        
+        # Migrated onto shared ollama_client. num_ctx=8192 leaves prompt room
+        # for the max_tokens=4096 playbook output.
+        playbook_content = call_ollama(
+            prompt, "gemma4",
+            system="You are an expert MTG competitive guide writer.",
+            temperature=0.4, max_tokens=4096, num_ctx=8192, timeout=300)
+
         # Save as knowledge block
         safe = deck_name.lower().replace(" ", "-")
         block_path = HARNESS_ROOT / "knowledge" / "mtg" / f"playbook-draft-{safe}.md"

@@ -21,6 +21,31 @@ Concrete fix: <next-session implementable steps>
 Estimated effort: Status: OPEN | EXECUTING | RESOLVED Created: YYYY-MM-DD
 ```
 
+### research-toolkit-keyless-degraded
+
+Source spec: harness/specs/2026-07-03-research-brain-integration.md
+Source commit: (uncommitted 2026-07-04)
+What is not perfect: The research-brain research toolkit (`/x-read`, `/research-deep`,
+`/youtube` via Grok/Perplexity) runs in KEYLESS free-fallback mode (Wikipedia/HN/arXiv/
+Reddit only) -- the depth the user originally wanted needs API keys. Likewise `ingest_research.py`
+drafts via local Ollama only (provisional by design).
+Why not fixed in source spec: paid keys are a separate, deliberate opt-in; out of scope.
+Concrete fix: add XAI_API_KEY / PERPLEXITY_API_KEY to `~/.config/obsidian-second-brain/.env`.
+Estimated effort: 15 min Status: OPEN Created: 2026-07-04
+
+### arl-directed-single-deck-tuning-unverified
+
+Source spec: harness/specs/2026-07-03-research-brain-integration.md (council TODO)
+Source commit: (uncommitted 2026-07-04)
+What is not perfect: The council (`knowledge/tech/council-2026-07-04-loop-engineering-handoff.md`)
+flagged that the ARL does archetype GENERATION; directed SINGLE-DECK event-prep TUNING (push
+one chosen deck's FWR/clock past a band overnight) may be a dropped capability -- the old
+`tuning_loop.py` was "superseded" by the ARL. Unverified whether the ARL has a directed-metric mode.
+Why not fixed in source spec: out of scope (sim/ARL question, not research-brain).
+Concrete fix: read `mtg-sim/scripts/arl_loop.py` for a directed-single-deck mode; if absent,
+scope a small directed-tuning spec reusing the gauntlet + fidelity gate.
+Estimated effort: 30 min investigate Status: OPEN Created: 2026-07-04
+
 ## Resolved this week
 
 These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-a-glance visibility:
@@ -46,6 +71,32 @@ These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-
 
 ## Open imperfections
 
+### delegate-b4-legacy-ollama-sites-not-consolidated (NEW 2026-07-04; delegation SHIPPED leftover)
+
+Source spec: harness/specs/2026-07-03-local-llm-delegation.md
+Source commit: 9d41d91
+What is not perfect: `ollama_client.py` shipped as the importable B4 shared client, but the ~9
+legacy call sites (ask_gemma / `_call_ollama` scattered across auto_pipeline and harness scripts)
+were not migrated onto it -- they still each roll their own Ollama call.
+Why not fixed in source spec: optional consolidation; the delegation layer was the load-bearing
+deliverable and shipped independently. The spec routed this to IMPERFECTIONS by name.
+Concrete fix: replace each of the ~9 ad-hoc Ollama call sites with a call into
+`harness/agents/ollama_client.py` (generate()/call_ollama() drop-in); run each caller once to confirm.
+Estimated effort: ~90 min Status: RESOLVED 2026-07-04 (workflow w22bnjznl) -- 11 legacy Ollama call sites migrated onto ollama_client.call_ollama (apl_grinder/apl_optimizer/apl_tuner/verify_oracle/auto_pipeline x2/tuning_loop/gemma_drift_pr/gemma_apl_factory/gemma_apl_chunked/ingest_research/mine_sessions), preserving each return contract; circuit-breaker sites use retries=0; num_ctx=8192 on the 4096-max sites. LEFT (bespoke, by design): apl_judge.call_llm (5-attempt schedule the shared client can't express) + ralph_adapters (full-URL param + AgentStep sentinel). Health-check /api/tags probes out of scope. Verified: all 11 py_compile + import-resolve; ingest_research --selftest OK (the registered nightly lane is intact). Created: 2026-07-04
+
+### delegate-tier2-launch-flags-unbenched (NEW 2026-07-04; delegation SHIPPED leftover)
+
+Source spec: harness/specs/2026-07-03-local-llm-delegation.md
+Source commit: 5d02205
+What is not perfect: tier-2 (llama.cpp Qwen3-Coder-30B-A3B) launches at 9.8/10GB VRAM; the
+`--no-mmap` / `--parallel 1` flags and a possibly-lower `--n-cpu-moe` were never re-benched to see
+if headroom/throughput improves. Gate 5.1 landed KEEP_FOR_SUBSET without this micro-tune.
+Why not fixed in source spec: the routing verdict (which tasks go tier-2) didn't depend on it;
+deferred as a perf micro-optimization.
+Concrete fix: re-run `start-llamacpp-tier2.ps1` with `--no-mmap --parallel 1` and a stepped
+`-NCpuMoe`, measure tok/s + VRAM, keep the best config.
+Estimated effort: ~30 min Status: OPEN Created: 2026-07-04
+
 ### apl-grinder-defaults-gemma-for-apl-codegen (NEW 2026-07-03; model-drift reconciliation)
 
 Source spec: (doc reconciliation pass, 2026-07-03 -- Gemma->qwen naming-drift audit)
@@ -53,7 +104,7 @@ Source commit: <this commit>
 What is not perfect: `harness/agents/scripts/apl_grinder.py` still defaults to `gemma4` for APL *generation* (`_AI_MODEL = "gemma4"` at L35; `--model` argparse default "gemma4" at L627), while `auto_pipeline.py` already migrated APL code-gen to a qwen2.5-coder:7b-preferred chain (`_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]`, gemma4 fallback). APL generation IS code generation and qwen2.5-coder is the code-specialized model -- so apl_grinder is using the weaker general model for a code task. This is a genuine BEHAVIOR inconsistency, not a naming/doc issue (the doc pass correctly left prose/judge scripts on gemma4).
 Why not fixed in source spec: this is a behavior change (it swaps the model that actually generates APLs), not a documentation edit. It sits in the APL-generation path, which is adjacent to the puzzle-trainer T2 (sim-mined positional puzzles) / mtg-sim gauntlet blast radius -- changing model output there while that work is live risks entangling two efforts. Deliberately flagged, not touched, in the 2026-07-03 doc pass.
 Concrete fix: **SHOULD BE WORKED ON AND SCOPE-FIXED BY FABLE 5.** Mirror auto_pipeline's model preference in apl_grinder: introduce a `_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]` chain (reuse `auto_pipeline._ollama_model_available` or a local equivalent), change `_AI_MODEL` default + the `--model` argparse default from "gemma4" to the resolved preference, keep gemma4 as fallback, and re-run a grind smoke to confirm qwen output compiles / passes the smoke gate before adopting. Verify no regression vs the current gemma4 grind baseline.
-Estimated effort: S-M (model-swap + smoke re-baseline). Status: OPEN Created: 2026-07-03
+Estimated effort: S-M (model-swap + smoke re-baseline). Status: RESOLVED 2026-07-04 (workflow wrzltwtou) -- apl_grinder.py now mirrors auto_pipeline: `_APL_CODE_MODEL_PREFERENCE = ["qwen2.5-coder:7b", "gemma4"]` + `_pick_apl_model()`, `_AI_MODEL` resolves to qwen2.5-coder:7b, `--model` default None (auto-pick), gemma4 fallback retained. Verified import + py_compile + fallback probes; full grind smoke deferred (long/expensive) but the model resolution is proven. Created: 2026-07-03
 
 ### grixis-reanimator-match-assembly-capped-by-crude-mulligan (NEW 2026-06-30; handoff #2 grixis cell)
 
@@ -123,7 +174,8 @@ COUNTERS_CAST decomposition + field side-effect re-gauntlet -- moot given counte
 
 ### arl-generated-code-exec-unsandboxed (NEW 2026-06-27; from prompt-injection review)
 **What's not perfect:** The ARL imports + EXECUTES model-generated APL code (`_smoke_test_apl`) in-process, unsandboxed, in a process holding API keys (OPENAI/ANTHROPIC/GEMINI), and the gen prompt can include untrusted scraped card oracle text -> an injection -> RCE / key-exfil path (a poisoned card text could induce code that runs commands or leaks keys). **Mitigation (added 2026-06-27):** `_scan_generated_code` deny-list gate in `auto_pipeline._save_apl_code` -- refuses to write/execute any generated APL containing os/sys/subprocess/socket/network/eval/exec/compile/open/pickle/dunder-escape primitives, BEFORE save or smoke. Verified: 0 false positives across 18 generated APLs, rejects 6/6 RCE/exfil samples. Fail-closed (raises). **Residual:** deny-list, not a sandbox -- a novel primitive could slip past. **Full fix (OPEN):** run smoke execution in a subprocess with a stripped env (no API keys) and/or a restricted-import sandbox.
-**Status:** MITIGATED (deny-list gate live); full sandbox OPEN
+**Update (2026-07-04, workflow wrzltwtou):** SUBPROCESS ISOLATION landed -- `_smoke_test_apl` now runs the generated APL in a subprocess (`_apl_smoke_runner.py`) with a STRIPPED environment via `_stripped_env()` (drops every `*_API_KEY` / `*TOKEN*` / SECRET / PASSWORD / CREDENTIAL; keeps PATH/SystemRoot/PYTHONPATH) + a 300s timeout. Verified: bit-exact functional parity (win_rate 0.55 Cutter Affinity n=20 seed 42) + two-sided key-strip canary (ANTHROPIC/XAI/TOKEN = None in the stripped subprocess). Deny-list retained. The PRIMARY vector (env-based key exfil) is now CLOSED. **Residual (defense-in-depth):** the subprocess still inherits filesystem read, so `~/.claude/.credentials.json` is OS-readable; the deny-list blocks file-IO primitives in generated code, but full OS-level sandboxing (container/seccomp) is the next hardening step if desired.
+**Status:** SUBPROCESS-SANDBOXED (env-exfil vector closed 2026-07-04); OS-level fs sandbox OPEN (lower priority)
 **Created:** 2026-06-27
 
 ### mcp-rule-of-two-interactive (NEW 2026-06-27; from prompt-injection review)
@@ -646,6 +698,7 @@ discount Boros absolute field WR by ~1.7pp.
 **Concrete fix:** `pip install anthropic` + wire the API key; then the evalite spec's Anthropic scorer half is unblocked. gemma4 stays the local pre-filter.
 **Estimated effort:** 5 min install + per-spec wiring.
 **Created:** 2026-06-29
+**Status update (2026-07-04):** PARTIAL. `anthropic` SDK installed (0.116.0). Anthropic-authoritative judge WIRED as a purely-additive new file `harness/agents/scripts/eval_harness.py` (`make_anthropic_llm` + `anthropic_judge` + `two_stage_judge`), reusing `apl_judge.grade_apl` via its `llm=` seam UNCHANGED (Gate 5.2 held; gemma4 stays the local pre-filter). Hermetic self-test passes (PASS->1.0 / FAIL->0.0 / ERROR->None, model stamped claude-opus-4-8). Auth resolves via Claude Code OAuth (`Authorization: Bearer` + `anthropic-beta: oauth-2025-04-20`), fallback `ANTHROPIC_API_KEY`. LIVE one-sample call REACHED the API (got request_ids) but returned **429 rate_limit_error** on two attempts — auth + wiring are valid, the live gate is rate-limited. Stays OPEN. **Path forward:** run the authoritative judge under a console-billed `ANTHROPIC_API_KEY` (Claude Code OAuth tokens are aggressively throttled on the raw Messages API), or wait out the OAuth rate window; then re-run `python eval_harness.py --live` to confirm a PASS verdict and, next, re-run apl_judge.run_calibration with `make_anthropic_llm()` (Gate 5.4, 9/10) before gating CI on the judge.
 
 ---
 

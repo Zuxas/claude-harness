@@ -1,8 +1,11 @@
 ---
 title: GitHub Dig - MTG Rules Engines / Simulators / Clients (Cluster 1, vs our engine gaps)
-status: SURFACED
+status: RESOLVED
 created: 2026-06-26
+reviewed: 2026-07-04
 ---
+
+> Reconciled 2026-07-04 (workflow): consumed by the R1-R5 engine design specs (modelability-ladder) + the XMage-MIT engine finding; downstream consumption verified.
 
 # GitHub dig: full-rules MTG engines for closing our engine gaps
 

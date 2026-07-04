@@ -246,7 +246,11 @@ def run_calibration_step(dry_run=False):
 def process_inbox(dry_run=False):
     """Process any files sitting in the inbox."""
     inbox_dir = HARNESS_ROOT / "inbox"
-    files = [f for f in inbox_dir.iterdir() if f.is_file()]
+    # drift-pr--*.md are Gemma's daily reading-material drops, NOT compile inputs;
+    # they accumulate (~65) and were inflating the nightly "inbox files: N" counter
+    # (finding E, 2026-07-01). Exclude them from the process/count set.
+    files = [f for f in inbox_dir.iterdir()
+             if f.is_file() and not f.name.startswith("drift-pr--")]
     
     if not files:
         log("Inbox empty.")

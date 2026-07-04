@@ -641,6 +641,11 @@ function Check-LooseEnds {
 
     foreach ($c in $candidates) {
         if ($c.File.LastWriteTime -ge $cutoff) { continue }
+        # Honor an explicit disposition annotation (this check's own fix guidance says
+        # "annotate the file as dispositioned"). Added 2026-07-04 (workflow wotqbyhve):
+        # retired chains carrying a "RETIRED / DISPOSITIONED" banner are historical records,
+        # so their leftover unchecked boxes are intentional and must not re-trigger forever.
+        if ($c.Content -match '(?im)^\s*>?\s*RETIRED\s*/\s*DISPOSITIONED') { continue }
         $openBoxes = ([regex]::Matches($c.Content, '(?m)^\s*-\s\[\s\]')).Count
         if ($openBoxes -gt 0) {
             $age = ((Get-Date) - $c.File.LastWriteTime).TotalDays

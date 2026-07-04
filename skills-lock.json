@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "edit-article": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/personal/edit-article/SKILL.md",
+      "computedHash": "9a96975e2eaf1ce5c69c14429aea7d2039e2f6f5a73938520b653de84841d9e3"
+    },
+    "grilling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grilling/SKILL.md",
+      "computedHash": "32f747941943e607b2dfc86a46b2284dd3e101332eafafd7569389efbe848f81"
+    },
+    "resolving-merge-conflicts": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/resolving-merge-conflicts/SKILL.md",
+      "computedHash": "9050aa34dc026b5b28f5b63003a8742d0669daa6b2916c7a0f082ca9bfa50184"
+    }
+  }
+}

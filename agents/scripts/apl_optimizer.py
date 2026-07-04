@@ -38,8 +38,10 @@ from copy import deepcopy
 SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
 HARNESS_ROOT = Path("E:/vscode ai project/harness")
 sys.path.insert(0, str(SIM_ROOT))
+sys.path.insert(0, str(HARNESS_ROOT / "agents"))
 
 import urllib.request
+from ollama_client import call_ollama  # shared streaming client (B4)
 OLLAMA_API = "http://localhost:11434/api/generate"
 TODAY = datetime.now().strftime("%Y-%m-%d")
 
@@ -161,18 +163,13 @@ def log(msg):
 
 def ask_gemma(prompt, model="gemma4", max_tokens=4096):
     from apl_cookbook import APL_COOKBOOK
-    body = json.dumps({
-        "model": model, "prompt": prompt,
-        "system": "You are an expert MTG simulator engineer. Write precise Python code.\n\n" + APL_COOKBOOK,
-        "stream": False,
-        "keep_alive": "30m",
-        "options": {"temperature": 0.2, "num_predict": max_tokens}
-    }).encode()
+    # Migrated onto shared ollama_client (streaming + retry). num_ctx=8192
+    # leaves prompt room for max_tokens=4096. Preserves "ERROR: {e}" contract.
+    system = ("You are an expert MTG simulator engineer. Write precise "
+              "Python code.\n\n" + APL_COOKBOOK)
     try:
-        req = urllib.request.Request(OLLAMA_API, data=body,
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            return json.loads(resp.read()).get("response", "")
+        return call_ollama(prompt, model, system=system, temperature=0.2,
+                           max_tokens=max_tokens, num_ctx=8192, timeout=300)
     except Exception as e:
         return f"ERROR: {e}"
 

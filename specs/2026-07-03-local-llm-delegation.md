@@ -1,17 +1,25 @@
 ---
 title: "Local-LLM Delegation Layer (routing.yaml + delegate MCP + executor)"
-status: "EXECUTING"
+status: "SHIPPED"
 created: "2026-07-03"
-updated: "2026-07-03"
+updated: "2026-07-04"
 project: "harness"
 estimated_time: "multi-session (P1 ~60m, P2 ~120m, P3 ~90m, P4 ~60m, P5 ongoing)"
 related_findings:
   - "harness/specs/2026-06-26-harness-ollama-watcher-optimization.md"
   - "BLUEPRINT-2026-07-03.md (WP-I council, shipped)"
   - "compass_artifact_wf-21eaad84-...text_markdown.md (source research brief)"
-related_commits: ["9d41d91 (harness repo, P1-P4 delegation layer)"]
+related_commits: ["9d41d91 (harness repo, P1-P4 delegation layer)", "7bbd049 (deploy snapshot)", "5d02205 (Gate 5.1 two-lane routing)"]
 supersedes: null
 superseded_by: null
+---
+
+> **Reconciliation 2026-07-04:** Status corrected EXECUTING -> SHIPPED. The 2026-07-04
+> verification pass (workflow wotqbyhve, council-ratified SHIPPED, unanimous 3-0) confirmed all
+> 5 artifact groups on disk + 3 commits landed + every gate closed (incl. Gate 2.1 subagent->MCP
+> `echo` ok:true and Gate 5.1 KEEP_FOR_SUBSET applied). Frontmatter/index had lagged the changelog.
+> Two OPTIONAL leftovers moved to IMPERFECTIONS: B4 legacy ~9-site ollama_client consolidation;
+> tier-2 --no-mmap/--parallel-1 re-bench.
 ---
 
 # Local-LLM Delegation Layer

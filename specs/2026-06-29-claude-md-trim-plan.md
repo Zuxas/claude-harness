@@ -1,8 +1,8 @@
 ---
 title: "CLAUDE.md Conservative Trim + Skill-Menu Wiring Plan"
-status: "PROPOSED"
+status: "SHIPPED"
 created: "2026-06-29"
-updated: "2026-06-29"
+updated: "2026-07-04"
 project: "harness"
 estimated_time: "90-150 min (execution, when approved)"
 related_findings:
@@ -12,6 +12,8 @@ related_commits: []
 supersedes: null
 superseded_by: null
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): executed — harness CLAUDE.md v1.6 skill-menu gate + 2026-06-29 trim (commit 222417f moved ARL/telemetry specs to docs/). Frontmatter had stayed PROPOSED.
 
 # CLAUDE.md Conservative Trim + Skill-Menu Wiring Plan
 

@@ -1,7 +1,8 @@
 ---
 title: R2 Instant-Speed Combat Windows - PROOF + NO-REGRESSION design (READ-ONLY, for review)
-status: PROPOSED
+status: SUPERSEDED
 created: 2026-06-26
+updated: 2026-07-04
 project: mtg-sim
 estimated_time: design only (no engine code written); implementation is M (~6-8h) once approved
 related:
@@ -13,10 +14,12 @@ related:
 worktree: E:/vscode ai project/mtg-sim-r1  (branch: modelability/r2-instant-combat, off the R1 branch)
 depends_on: 2026-06-26-R1-stack-priority-design.md
 supersedes:
-superseded_by:
+superseded_by: 2026-06-26-modelability-ladder.md
 related_findings:
 related_commits:
 ---
+
+> Reconciled 2026-07-04 (workflow wotqbyhve): design implemented via SHIPPED 2026-06-26-modelability-ladder.md; frontmatter had stayed PROPOSED.
 
 # R2 Instant-Speed Combat Windows - Implementation Design
 

@@ -1,6 +1,8 @@
 ---
 title: GitHub Dig - Data / Deckbuilding / Meta / Classification (Cluster 3)
 date: 2026-06-26
+status: SURFACED
+reviewed: 2026-07-04
 cluster: 3-data-meta
 author: gh-discovery-subagent
 method: gh search repos (stars + updated passes), 12 queries, READMEs + LICENSE verified via gh api
@@ -11,6 +13,8 @@ dedup_against: ["thingstolookinto.md","ext-eval-*-2026-06-26.md"]
 license_note: "blank license in gh search == NO LICENSE / all-rights-reserved == ideas & architecture only, clean re-implement, do NOT copy code"
 north_star_layers: [engine, search-AI, data-meta, ML-classifier, MCP-tooling, productization]
 ---
+
+> Reviewed 2026-07-04 (workflow): status field added (was absent) so drift-detect can track it; still open backlog.
 
 # Cluster 3 - Data / Deckbuilding / Meta / Classification
 
