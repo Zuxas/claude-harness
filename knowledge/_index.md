@@ -50,3 +50,5 @@
 | mtg/sim-gruul-aggro | mtg | 2026-07-01 | apl-tuner-agent |
 | tech/council-2026-07-03-eugeniughelbur-kepano-repos | tech | 2026-07-03 | council verdict: adopt kepano defuddle; research-brain sandbox; reject the rest |
 | tech/research-brain | tech | 2026-07-04 | Research & Synthesis Tier (obsidian-second-brain): two-tier model, council-gated promotion, content-type-split ingest, local-first synthesis |
+
+| mtg/sim-urzatron | mtg | 2026-07-04 | apl-tuner-agent |
