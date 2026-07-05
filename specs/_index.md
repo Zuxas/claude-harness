@@ -96,6 +96,17 @@ each status. After a spec ships, it stays in this index forever.
 
 ## SHIPPED
 
+- `2026-07-04-bob-orchestrator-skill.md` — **SHIPPED-PARTIAL** 2026-07-04. `/bob`: global,
+  user-invoked hybrid-conductor orchestrator (installed `~/.claude/skills/bob/`; convention
+  `knowledge/tech/bob-convention-2026-07-04.md`). Takes any tasking doc → drives it to
+  proven-done or an honest documented stop; conductor in the main loop + `Workflow` fan-out;
+  tiered-by-blast-radius; read-only+claim+branch concurrency; live `bob-runs/<runid>/` monitor
+  + watch+intervene. Built BY dogfooding (ultracode `wwmp4vkiy`); blind refute-council caught
+  3 confirmed holes (G3 branch guard, G4 gameable evidence floor, G6 missing MEMORY/CLAUDE.md
+  hot zones) — ALL fixed. Self-acceptance (`wz714ufkq`): 8 gates exercised live (7 clean + G5
+  partial), `bob_run.py` 8/8 pytest. Two OPEN imperfections: G5 wait-primitive live proof +
+  evidence-floor mechanization. Subsumes the imagined `/goal`. Impl plan: same-name `-IMPL-PLAN.md`.
+
 - `2026-07-01-b1-legal-action-api.md` — **SHIPPED sub-slice** (`c1fe5a3`, 2026-07-01) + remainder
   PROPOSED. Council RESCOPE 2026-07-04 (unanimous 3/3, workflow w6q14r3hu). Sub-slice = decision_api.py
   + search_apl.py + action-vocabulary.md (Steps 1-3 + deepcopy-v0 fork); the deck-agnostic
