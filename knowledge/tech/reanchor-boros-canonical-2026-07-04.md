@@ -215,3 +215,19 @@ at N=100k both settle at/near their pre-migration values:
 Takeaway: goldfish kill-turn anchors are effectively UNCHANGED by WP-B4 at 100k; only the field
 match FWR moved, and that move is the Affinity fidelity fix + combo data-hole artifact (see above),
 not WP-B4.
+
+## CORRECTION 2026-07-04 (paper-anchor evidence, WP-F#2 spec workflow)
+
+The "Affinity fidelity fix (83.2 -> 38.8)" framing above is INCOMPLETE and partly FALSIFIED by real
+paper data (melee, post-ban window, n=23, clears the trustworthy n>=20 gate):
+- **Paper says Boros BEATS Izzet Affinity 72.7%** -- so the sim's current 38.8% cell is DEFLATED, not
+  "the fix." The affinity-offense-rebaseline arc OVERCORRECTED from the old 83.2% INFLATED bug straight
+  past the ~72.7% truth down to 38.8%. The sim's Affinity cell is wrong in BOTH the old and new versions,
+  in opposite directions.
+- Decomposing the -5.5pp field move with real anchors: the DOMINANT term is Affinity going UP +33.9pp
+  (+4.83pp field-weighted at 9% weight), OFFSET by Eldrazi Tron -53.5pp, Goryo's -32.5pp, Amulet -20.8pp.
+  Net ~-1.3pp -> FWR ~61.6%. So the direction (down) survives, but the "combo-sampler inflation masked the
+  Affinity drop" story is FALSE -- it's Affinity-UP offsetting fair/combo-DOWN.
+- Implication: 62.9% is ~right on NET but cell-level fidelity is off; the oracle-responses/Affinity engine
+  work has more to do (38.8% is too low vs 72.7% paper truth). See WP-F#2 spec
+  (2026-07-04-wp-f2-live-anchors-pipeline.md) Section 3a + imperfection #4.
