@@ -484,3 +484,29 @@ the M estimate).
   Affinity UP offsetting Tron/Goryo's/Amulet DOWN -- NOT the hypothesized combo
   deflation story). Flagged the matchup_matrix/MTGDecks-disabled premise error in
   the blueprint as Open Question #1.
+
+---
+
+## 12. Resolutions 2026-07-04 (user-answered; supersedes Section 11)
+
+- **OQ#1 -- data source: RESOLVED = keep melee(paper) + untapped(Arena); MTGGoldfish is NOT viable.**
+  User directed "use recent MTGGoldfish data." Verified (read-only, live DB, workflow agent): there is
+  NO MTGGoldfish scraper (roadmap-only, ROADMAP.md:63), no MTGGoldfish table, nothing flowing in either
+  fill path; AND MTGGoldfish publishes only metagame-shares + decklists, never a head-to-head WR grid
+  (2026-06-26-modern-data-acquisition.md:88,99-104; decklist download robots-disallowed). So it can
+  neither replace nor supplement the MATCHUP source. matchup_matrix stays frozen; the Section 4a
+  melee+untapped pipeline supersedes it (spec assumption (a), confirmed). MTGGoldfish's only possible
+  future role = FIELD-WEIGHT refresh (a separate roadmap scraper, robots-restricted) -- FLAGGED as a
+  follow-on, NOT a WP-F#2 dependency. (Honest correction of the user premise, evidence-backed.)
+- **OQ#2 -- min_matches: RESOLVED = the two-tier 10/20 rule (Section 4d).** Trustworthy n>=20, provisional
+  10<=n<20 (stays flagged), no-anchor n<10. Accepted.
+- **OQ#3 -- storage: RESOLVED = sidecar JSON file (Section 4b PRIMARY, non-hot-zone).** No new DB table;
+  `<dirname(resolved_db)>/anchors/current_window_modern.json`. The hot-zone table variant is dropped.
+- **OQ#4 -- cadence: RESOLVED = on-demand for v0, then PIGGYBACK the 6 AM background_fill.bat after the
+  melee block once G1-G4 pass.** No new scheduled task. (The piggyback is a modification to a running
+  scheduled path -- announce it when promoting from on-demand to piggyback.)
+- **OQ#5 -- label mapping: RESOLVED = confirm in Step 1** (Goryo's Vengeance / Izzet Affinity / Domain
+  Zoo / 5C Ramp -> field decks); G4's decomposition reconciliation depends on it. Accepted as a Step-1 gate.
+
+Status: OQs resolved; spec is council-check-ready. Execution still gated on the council-check + (for the
+piggyback promotion) a scheduled-path announcement.
