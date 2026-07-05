@@ -145,6 +145,19 @@ Steps 2-7 formal gates. Report: E:\vscode ai project\PROTOTYPE-2026-07-01.md.
 
 ## WP-B4 scope -- per-state RNG threading (2026-07-04 recon; the pulled-forward slice)
 
+> **SHIPPED 2026-07-04 (commit `ee83e45`, mtg-sim modern-postban-arc).** Landed + verified via workflow
+> w90zpqsk6 (spec-first PLAN -> cross-vendor council GO-WITH-CONDITIONS [Codex-corroborated, 7 binding
+> conditions incl. a full engine+apl census that caught 4 sites the plan missed] -> IMPLEMENT [14 files,
+> revert-safe] -> VERIFY-council GATES-MET/KEEP). Determinism PRESERVED (tests/test_determinism.py 6
+> passed, independently re-run), forks now independent+reproducible (decision_api.fork reseeds child rng),
+> global-random killed at all in-game sites; the two-stream interleave that caused P2 same-seed drift is
+> gone. REQUIRED FOLLOW-UPS: (1) the combined 100k baseline re-anchor -- documented one-time shifts in
+> `mtg-sim/docs/wpb4-documented-shifts-2026-07-04.md` (e.g. match Boros-vs-Affinity a181->189; goldfish
+> Amulet won100->98); (2) reconcile a minor humans-goldfish number discrepancy between the implement + verify
+> runs. NOTE (Gate-3 kept falsifiable): WP-B4 is NECESSARY for the WP-A P2 byte-gate but not PROVEN
+> sufficient -- residual drift could still be id()/set-ordering-sourced; confirm P2 is now byte-stable before
+> claiming the WP-A P2 unblock. The rest of b1 (Steps 4/5/7 + full legal-action API) stays PROPOSED.
+
 Concrete target sites for WP-B4 (replace global `random.*` with a per-state `random.Random` threaded
 through the game state, so forks/determinization are independent and P2 same-seed drift dies). Grepped
 from mtg-sim/engine/ on 2026-07-04:
