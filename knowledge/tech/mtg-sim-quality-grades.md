@@ -107,7 +107,20 @@ older than the latest finding for that domain.
 | Standard | B | 14 decks, most use generic APLs, RC prep active for May 29. |
 | Pioneer | C+ | 15 decks, 57 cards in L1 backlog, 5 matchups have deck-name mapping issues. |
 
-## Latest measurements (post-2026-04-27 mtg-sim session, pre-Phase-3.5)
+## Canonical 100k anchor (CURRENT)
+
+**Boros Energy vs post-ban Modern field: 62.9% field-weighted match [62.8-62.9]
+Wilson** (N=100k/matchup, 1.7M games, 17 opponents, HEAD ee83e45 branch
+modern-postban-arc, POST-WP-B4). Measured 2026-07-04. Mirror excluded (FWR
+renormalized over 17 non-mirror opponents). Supersedes the 2026-05-01 68.4%
+anchor (now historical). The -5.5pp delta is MULTI-CAUSAL (Affinity fidelity
+correction 83.2->38.8 is the single largest mover; field refresh net-modest;
+combo cells inflated by the post-ban DB hole -> sampler; WP-B4 unmeasured), NOT
+a WP-B4 regression. Worst cells: Eldrazi Ramp 16.5%, Temur Crashcade 24.8%,
+Izzet Prowess 32.7%, Affinity 38.8% (largest field share, now LOSING). Full
+decomposition: `reanchor-boros-canonical-2026-07-04.md`.
+
+## Latest measurements (post-2026-04-27 mtg-sim session, pre-Phase-3.5) -- HISTORICAL
 
 | Metric | Canonical | Variant Jermey | Edge |
 |---|---|---|---|
@@ -115,7 +128,7 @@ older than the latest finding for that domain.
 | Goldfish T4 share | 53.4% | 58.6% | +5.2pp |
 | 1k Modern field-weighted | 65.6% | 78.4% | +12.8pp |
 
-100k canonical headline pending (Task 2 in flight at time of writing).
+Superseded as the headline by the 62.9% post-ban 100k anchor above.
 
 ## Highest-leverage upgrades (ranked)
 
@@ -145,8 +158,9 @@ These are the changes that would improve grades fastest:
   before Phase 3.5 starts. All grades reflect that session's commits.
 
 ---
-## STALENESS NOTE (2026-07-01 reconciliation)
-Grades below were last formally regenerated 2026-05-01 and are ~61 days stale. Newer measured numbers exist but are scattered: post-ban Modern refresh (2026-06-30, 18-deck field), affinity rebaseline ~76% Boros (spec 2026-07-01-affinity-offense-rebaseline, SHIPPED PARTIAL), mulligan falsification WR decomposition (mull-routing-falsification-2026-07-01.md). A formal regrade requires a gauntlet run on the post-ban field — do NOT trust the per-domain letter grades below for current-field decisions; trust mismodeled_matchups.py flags + the EXECUTING spec amendments instead.
+## STALENESS NOTE (2026-07-01 reconciliation; HEADLINE thread closed 2026-07-04)
+Grades below were last formally regenerated 2026-05-01 and are stale. Newer measured numbers exist but are scattered: post-ban Modern refresh (2026-06-30, 18-deck field), affinity rebaseline ~76% Boros (spec 2026-07-01-affinity-offense-rebaseline, SHIPPED PARTIAL), mulligan falsification WR decomposition (mull-routing-falsification-2026-07-01.md). This note said "a formal regrade requires a gauntlet run on the post-ban field."
+**UPDATE 2026-07-04: that awaited post-ban gauntlet HAS now run** (62.9% FWR anchor at HEAD ee83e45 -- see "Canonical 100k anchor" above + reanchor-boros-canonical-2026-07-04.md). The HEADLINE thread is closed. The per-domain LETTER GRADES below still need their own regrade pass (this run re-anchored the Boros field WR, it did not re-letter every graded row). Until then: do NOT trust the per-domain letter grades below for current-field decisions; trust the 62.9% anchor + mismodeled_matchups.py flags + the EXECUTING spec amendments instead. NOTE the reanchor surfaced documentation drift in mismodeled_matchups.py: the combo cells + Temur Crashcade flags describe the played-out run_match path, but the canonical gauntlet ran combo cells via the com-sampler and Temur Crashcade played-out -- a future regrade should reconcile those flags.
 
 
 ---
