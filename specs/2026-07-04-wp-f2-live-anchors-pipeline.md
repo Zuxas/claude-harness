@@ -510,3 +510,51 @@ the M estimate).
 
 Status: OQs resolved; spec is council-check-ready. Execution still gated on the council-check + (for the
 piggyback promotion) a scheduled-path announcement.
+
+---
+
+## 13. Council-check NEEDS-FIXES 2026-07-04 (apply before execution -- cross-vendor, Codex-corroborated)
+
+Council-check (workflow wcyhvbzhd; 2 blind Claude seats + Codex gpt-5.5, all NEEDS-FIXES, chair verified
+the two decisive claims against source). Design FOUNDATION is SOUND (sidecar additive/non-hot-zone,
+byte-identity reversible via G3, paper source works). These 7 corrections are REQUIRED before execution
+and OVERRIDE the relevant sections:
+
+1. **Consumption seam is under-modeled (load-bearing).** `run_matchup.py` has TWO g1-source paths:
+   `_run_combo` (L84-100; db-then-com at L100) feeds ONLY the provisional COMBO cells; `_run_fair` Path A
+   (L162-210) short-circuits to `g1_source="bo3"` at L202 with NO db/live lookup and feeds the TRUSTWORTHY
+   Affinity/Prowess cells (the spec's own "(bo3 played-out)" labels in Section 3). "Insert live before com"
+   (Section 4c) would re-anchor combo cells but SILENTLY NO-OP on Affinity -- the +4.83pp G4 dominant term.
+   FIX: name BOTH insertion points -- (a) live-before-com in `_run_combo`, AND (b) a live/db lookup ABOVE
+   the Path A bo3 branch at L162, overriding a played-out bo3 with paper.
+
+2. **Untapped is INERT for Modern.** `get_untapped_matchup_matrix` returns `{}` for modern (`_FORMAT_MAP`
+   untapped_queries.py:69-75 omits modern; L94-96 -> {}). MTGA has no Modern format. FIX: mark untapped
+   inert-for-v0 / PAPER-ONLY for Modern in Section 4a + Step 2 (don't wire a silently-empty source). OQ#1's
+   "keep untapped" is vacuous for Modern.
+
+3. **G4 is NOT an accuracy test.** It validates arithmetic re-derived from the same sparse anchors it wires
+   in (-1.29pp -> ~61.6%). FIX: relabel G4 a WIRING/REPRODUCTION check, not a "load-bearing accuracy gate";
+   the ~61.6% FWR is DIRECTION-ONLY and must NOT be quoted as a headline.
+
+4. **Provisional tier under-guarded.** n=10-18 point estimates (Wilson +/-25-30pp) can be NOISIER than the
+   com-sampler they replace, with zero gate proving the swap improves calibration. FIX: provisional cells
+   are FLAGGED / SHRUNK-toward-prior, NOT hard-replaced; only n>=20 (trustworthy) hard-replaces + unflags.
+   (Codex core rec + Seat B.)
+
+5. **Eldrazi Tron in G4.** The required-movers criterion hard-requires Eldrazi Tron DOWN (-53.5pp), but
+   imperfection #2 says that number is uncalibrated / possibly a naming artifact and OQ#5 defers its mapping
+   to Step 1. FIX: remove Tron from the required-movers criterion, or gate it behind OQ#5 resolving clean.
+
+6. **Field-weight dependency (connects to the MTGGoldfish gap).** G4 multiplies every re-anchored cell by an
+   ESTIMATED field weight (mtg-sim format_config = "documented best-estimate, not a pulled snapshot"; a
+   field-share shift alone moved one cell's FWR contribution 8.61pp). So OQ#1's "field refresh is NOT a
+   WP-F#2 dependency" CONTRADICTS G4's actual dependence on those weights. FIX: add a field-weight
+   sensitivity note / stop-condition to G4, and acknowledge current field WEIGHTS have no live refresh source
+   (MTGGoldfish field-share scraper is unbuilt, ROADMAP.md:63) -- this is the real gap the user's MTGGoldfish
+   instinct pointed at (weights, not matchups). Consider building that scraper as a paired follow-on.
+
+7. **Minor.** G4 dead-band [62.5%, 62.9%) is neither PASS nor FALSIFIED -- add a tiebreak. Correct the named
+   seam candidates (full_field_gauntlet/bo3_gauntlet/gauntlet_any_deck) to the ACTUAL seam (run_matchup.py).
+
+Verdict: SOUND foundation, execution-ready AFTER fixes 1-7. Not a redesign -- prose/wiring/gate corrections.
