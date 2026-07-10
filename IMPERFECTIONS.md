@@ -49,19 +49,25 @@ Estimated effort: 30 min investigate Status: OPEN Created: 2026-07-04
 ### affinity-prowess-sim-vs-live-anchor-contradiction
 
 Source spec: harness/inbox/promoted/arc5-deck-choice-memo-2026-07-09.md (arc #5) + WP-F#2 live-anchors
-Source commit: mtg-sim bob/bob-20260709-224538-0021 (not merged)
+Source commit: mtg-sim modern-postban-arc @ b3d42bc + harness docs-boros-buildoff-arc6 @ d13c3c1 (merged 2026-07-09)
 What is not perfect: For Boros Energy Modern, the sim bo3 cells and the WP-F#2 live anchors disagree
 in DIRECTION on the two highest-uncertainty matchups. Affinity: sim bo3 42.7% (the "izzet affinity"
 mismodel flag calls it INFLATED -> true even lower ~44), but the live anchor says Boros WINS 72.7%
-(n~23), and the 2026-07-04 log flagged the sim Affinity cell as DEFLATED (rebaseline over-corrected
-past truth). Izzet Prowess: sim bo3 38.6% vs live 54.6% (n~50). The flag's "INFLATED" label is stale
-relative to the current matrix. Affinity is 9.0% of the modeled field, so this contradiction blocks a
-trustworthy field-weighted deck-choice EV (arc #5).
+(live_n=23), and the 2026-07-04 log flagged the sim Affinity cell as DEFLATED (rebaseline over-corrected
+past truth). Izzet Prowess: sim bo3 38.6% vs live 54.6% (live_n=22). Note the contradiction is TWO-way
+(sim bo3 n=100k vs live n~22-23, with the 07-04 DEFLATED finding agreeing with live); the "izzet affinity"
+flag's "INFLATED" text is STALE/method-mismatched (calibrated vs a ~76% run_match n=300 lowcurve read,
+truth ~44), NOT an independent third source -- the bo3 42.7 cell already sits at/below that ~44. Affinity
+is 9.0% of the modeled field, so this contradiction blocks a trustworthy field-weighted deck-choice EV
+(arc #5).
 Why not fixed here: resolving the sim-vs-live direction is engine/calibration hot-zone work
 (WP-A oracle-driven-responses + WP-F#2 live-anchor pipeline); arc #5 reports, does not adjudicate.
 Concrete fix: WP-F#2 integrate the live anchors as calibration targets; re-examine the Affinity cell
 direction (arc #3 rebaseline may have over-deflated); reconcile the "izzet affinity" mismodel flag
-direction against live. Grow live-n beyond 23-50 before adopting either number.
+direction against live. Grow live-n beyond ~22-23 before adopting either number (anchors-as-alarm is a
+valid terminal state -- do not force a flag flip on n~22). Also decompose the SIM-INTERNAL spread first
+(run_match pinned ~76% lowcurve vs bo3 job 42.7% base Boros): build effect vs method effect, before
+adjudicating against live.
 Estimated effort: (WP-F#2 scope) Status: OPEN Created: 2026-07-09
 
 ## Resolved this week
