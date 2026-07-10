@@ -46,6 +46,24 @@ Concrete fix: read `mtg-sim/scripts/arl_loop.py` for a directed-single-deck mode
 scope a small directed-tuning spec reusing the gauntlet + fidelity gate.
 Estimated effort: 30 min investigate Status: OPEN Created: 2026-07-04
 
+### affinity-prowess-sim-vs-live-anchor-contradiction
+
+Source spec: harness/inbox/promoted/arc5-deck-choice-memo-2026-07-09.md (arc #5) + WP-F#2 live-anchors
+Source commit: mtg-sim bob/bob-20260709-224538-0021 (not merged)
+What is not perfect: For Boros Energy Modern, the sim bo3 cells and the WP-F#2 live anchors disagree
+in DIRECTION on the two highest-uncertainty matchups. Affinity: sim bo3 42.7% (the "izzet affinity"
+mismodel flag calls it INFLATED -> true even lower ~44), but the live anchor says Boros WINS 72.7%
+(n~23), and the 2026-07-04 log flagged the sim Affinity cell as DEFLATED (rebaseline over-corrected
+past truth). Izzet Prowess: sim bo3 38.6% vs live 54.6% (n~50). The flag's "INFLATED" label is stale
+relative to the current matrix. Affinity is 9.0% of the modeled field, so this contradiction blocks a
+trustworthy field-weighted deck-choice EV (arc #5).
+Why not fixed here: resolving the sim-vs-live direction is engine/calibration hot-zone work
+(WP-A oracle-driven-responses + WP-F#2 live-anchor pipeline); arc #5 reports, does not adjudicate.
+Concrete fix: WP-F#2 integrate the live anchors as calibration targets; re-examine the Affinity cell
+direction (arc #3 rebaseline may have over-deflated); reconcile the "izzet affinity" mismodel flag
+direction against live. Grow live-n beyond 23-50 before adopting either number.
+Estimated effort: (WP-F#2 scope) Status: OPEN Created: 2026-07-09
+
 ## Resolved this week
 
 These have been resolved and moved to `harness/RESOLVED.md`. Listed here for at-a-glance visibility:
