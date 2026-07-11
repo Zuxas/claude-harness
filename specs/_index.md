@@ -63,6 +63,14 @@ each status. After a spec ships, it stays in this index forever.
   (field-wide no-regress gate, Gate-4 restatement, `removal_matches` helper, git-track the battery driver,
   correct the S3.4 consumer list) -- see the spec's Council Review section. #1 priority (interaction
   under-modeling = the measured binding constraint on sim fidelity).
+- `2026-07-04-wp-f2-live-anchors-pipeline.md` — **PROPOSED** (2026-07-04). Live current-window Modern
+  matchup-WR anchors pipeline (melee paper + untapped -> sidecar the gauntlet reads for per-cell
+  calibration). Carries the Affinity/Prowess sim-vs-live contest; imperfection #4 advanced 2026-07-10 by
+  the bo3-vs-run_match divergence finding (IMPERFECTIONS `bo3-run_fair-vs-run_match-divergence`).
+- `2026-07-04-apl-improvement-loop.md` — **PROPOSED** (2026-07-04). The repeatable BUILD cycle + gate
+  battery for keeping Modern/Standard match APLs current + honest (trigger -> select -> source -> build ->
+  gate -> decide -> maintain); prioritized queue incl. the in-flight Izzet Affinity arc (direction now
+  CONTESTED, see the same divergence IMPERFECTION).
 - `2026-06-29-harness-orchestration-contract.md` — Adopt sandcastle's run()->RunResult domain model
   as the harness orchestration contract (IsolationStrategy enum, fork() distinct-key invariant,
   <promise>COMPLETE</promise> sentinel shared w/ Ralph, Output.object=Pydantic-retry). Build gated behind

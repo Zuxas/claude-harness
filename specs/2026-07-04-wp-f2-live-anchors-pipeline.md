@@ -453,7 +453,7 @@ the M estimate).
    Section 3a DEFLATED call along a second axis and narrows the disagreement toward a
    bo3-`_run_fair`-specific under-rating. See `mtg-sim/mismodeled_matchups.py['izzet
    affinity'] note_2026_07_10` and `harness/IMPERFECTIONS.md
-   bo3-run_fair-underrates-vs-run_match` (OPEN). Still NOT resolved: n=23 is too small
+   bo3-run_fair-vs-run_match-divergence` (OPEN). Still NOT resolved: n=23 is too small
    to close the ~10pp run_match-vs-paper gap, and generality beyond Affinity is untested.
 5. **Single-deck v0.** The publisher is specified for `boros_energy` first;
    generalizing to every field deck's row is a mechanical follow-on (same query,
