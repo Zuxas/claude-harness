@@ -445,6 +445,16 @@ the M estimate).
    pipeline gives paper truth (Affinity 72.7%, Prowess 54.5%) that contradicts the
    sim cells (38.8%, 32.7%); resolving the engine cells is the oracle-responses
    spec's job. This spec only makes the disagreement measurable.
+   **Note (2026-07-10, method-decomposed -- partially advances, does not resolve):**
+   decomposing by METHOD (not just source) shows the bo3 `_run_fair` Affinity cell
+   (base 42.7 / lowcurve 48.0 g1) reads ~15-25pp BELOW two non-bo3 measurements --
+   current-engine `run_match` MATCH (63.0%, POST-WP-B4, n=300 seed42) and this
+   section's live paper anchor (72.7%, n=23) -- both Boros-FAVORED. Corroborates the
+   Section 3a DEFLATED call along a second axis and narrows the disagreement toward a
+   bo3-`_run_fair`-specific under-rating. See `mtg-sim/mismodeled_matchups.py['izzet
+   affinity'] note_2026_07_10` and `harness/IMPERFECTIONS.md
+   bo3-run_fair-underrates-vs-run_match` (OPEN). Still NOT resolved: n=23 is too small
+   to close the ~10pp run_match-vs-paper gap, and generality beyond Affinity is untested.
 5. **Single-deck v0.** The publisher is specified for `boros_energy` first;
    generalizing to every field deck's row is a mechanical follow-on (same query,
    loop the deck list).
