@@ -70,7 +70,8 @@ valid terminal state -- do not force a flag flip on n~22). Also decompose the SI
 adjudicating against live.
 Estimated effort: (WP-F#2 scope) Status: OPEN Created: 2026-07-09
 
-### bo3-run_fair-underrates-vs-run_match
+### bo3-run_fair-vs-run_match-divergence
+(formerly bo3-run_fair-underrates-vs-run_match -- slug neutralized 2026-07-11; direction of the bo3-vs-run_match gap is UNRESOLVED)
 
 Source spec: harness/inbox/promoted/arc5-deck-choice-memo-2026-07-09.md (bob decomposition 2026-07-10)
 Source commit: mtg-sim 578a0d9 (bob/bob-20260710-182604-17f1)
@@ -78,9 +79,10 @@ What is not perfect: For Boros-vs-Affinity, the bo3 `_run_fair` gauntlet path (r
 42.7 / lowcurve 48.0 g1) rates Boros ~15-25pp BELOW both the current-engine run_match MATCH (63.0%,
 docs/wpb4-documented-shifts-2026-07-04.md:8) and live paper (72.7%, n=23). The build effect
 (base->lowcurve) is only ~+5pp, so the gap is a METHOD/harness discrepancy, not a build one. `_run_fair`
-IS the gauntlet field-read path, so if it systematically under-rates favorable matchups, every gauntlet
-FWR built on _run_fair bo3 cells is suspect -- broader than Affinity (this is likely the same class as
-the arc-#5 "sim under-states Boros" finding).
+IS the gauntlet field-read path, so if the bo3 path is the biased one (DIRECTION UNRESOLVED -- bo3 may
+under-rate OR run_match may over-rate; the registry's own izzet-affinity/urzatron text gives over-rate
+reasons, and SB games 2-3 are inside the gap), every gauntlet FWR built on _run_fair bo3 cells is
+suspect -- broader than Affinity.
 Why not fixed here: root-causing why bo3 `_run_fair` diverges from run_match is engine/harness territory
 (mtg-sim/engine + run_matchup.py wiring) = hot zone; the arc-5 decomposition only MEASURED it (one
 serialized lowcurve cell + cached builds + the WP-B4 shift doc).
@@ -88,8 +90,9 @@ Concrete fix: (1) re-run current-engine run_match on lowcurve-vs-affinity to pin
 (one serialized sim); (2) diff `engine/bo3_match.run_bo3_set` (the _run_fair path) vs `run_match` for
 Affinity to find the divergence (sideboarding? mulligan mode? seat assignment? metric g1-vs-match?);
 (3) cross-check on 1-2 other fair cells (e.g. Eldrazi Tron, WP-F#2 spec Section 3 shows -53.5pp) to see
-if the under-rating generalizes; if confirmed, treat _run_fair bo3 cells as a lower bound / re-source
-the gauntlet's fair-cell path.
+if the divergence generalizes; if the bo3 path is confirmed low, treat _run_fair bo3 cells as a POSSIBLE
+lower bound -- BUT combo cells are flagged INFLATED-for-Boros (~34% weight), so the 62.9% FWR net sign is
+INDETERMINATE, not necessarily a lower bound / re-source the gauntlet's fair-cell path.
 Estimated effort: 1-2h investigate (hot-zone diff) Status: OPEN Created: 2026-07-10
 
 ## Resolved this week

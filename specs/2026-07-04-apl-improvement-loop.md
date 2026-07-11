@@ -283,7 +283,7 @@ not a solo call.
    RUN IN PARALLEL: **continue** the Izzet Affinity arc (#2 deck, mid-arc,
    INFLATED flag -- NOTE 2026-07-10: direction now CONTESTED (bo3 `_run_fair` cell
    likely DEFLATED not INFLATED, a bo3-method artifact; see `mtg-sim/mismodeled_matchups.py['izzet
-   affinity'] note_2026_07_10` + `harness/IMPERFECTIONS.md bo3-run_fair-underrates-vs-run_match`).
+   affinity'] note_2026_07_10` + `harness/IMPERFECTIONS.md bo3-run_fair-vs-run_match-divergence`).
    Read that note before resuming; do not assume INFLATED / do not tune toward either anchor
    without re-checking.) -- resume at its next unfinished phase, do not restart.
 5. **[WP-A BRANCH GATE] interactive tier** -- BLOCKED until WP-A ships AND

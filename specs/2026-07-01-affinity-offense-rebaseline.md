@@ -10,7 +10,7 @@ related_findings:
   - (this spec authored from a read-only diagnose+verify+design workflow, run wf_a65d79db-35c, 2026-07-01)
 related_imperfections:
   - izzet-affinity-cell-sign-inverted (IMPERFECTIONS.md — PRIMARY target; stays OPEN at post-fix ~76% Boros;
-    NOTE 2026-07-10: ~76% is PRE-WP-B4/stale — POST-WP-B4 run_match reads 63.0%, see IMPERFECTIONS.md bo3-run_fair-underrates-vs-run_match)
+    NOTE 2026-07-10: ~76% was a lowcurve read; this cell's POST-WP-B4 run_match reads 63.0% (60.3->63.0, a build/config diff not staleness), see IMPERFECTIONS.md bo3-run_fair-vs-run_match-divergence)
   - locked-modern-boros-affinity-baseline-stale-63.5 (IMPERFECTIONS.md:573 — 63.5 is CONFIRMED FICTION; corrected)
   - engine-mp1-damage-dealt-discarded-for-nonstorm-decks (IMPERFECTIONS.md:638 — Munitions is one instance; affinity now sets WANTS_BURN, engine gate still OPEN)
   - affinity-construct-pt-stale-between-recomputes (IMPERFECTIONS.md — NEW shipped limit from this arc)
