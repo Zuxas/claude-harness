@@ -100,7 +100,20 @@ combat consistent (a fidelity DESIGN call -- APL-driven attack/block vs generic 
 (b) fix the separable battle-cry drop in match_engine combat (~1pp here, maybe more elsewhere); (c) cross-check
 Eldrazi Tron + 1-2 fair cells for GENERALITY before treating _run_fair FWR as a systematic lower bound -- combo
 cells are flagged INFLATED-for-Boros (~34% wt), so the 62.9% FWR net sign stays INDETERMINATE.
-Estimated effort: measure+diff DONE; remaining fix = engine hot-zone (sign-off) Status: CHARACTERIZED (mechanism known; fix pending sign-off) Created: 2026-07-10 Updated: 2026-07-13
+UPDATE 2026-07-13 (run bob-20260713-014937-9d75): fix (b) battle-cry drop DONE -- match_state.resolve_combat
+now applies attacker-only battle cry, leak-proof (mtg-sim 7b06a98 + test); moved bo3_g1 48.0->48.7 (~1pp, so
+battle cry is NOT the gap). fix (c) GENERALITY DONE + SURPRISING: the engine gap FLIPS SIGN by matchup --
+Boros-vs-Affinity run_match 69.7 > field-read 48.7 (+21), Boros-vs-Eldrazi-Tron run_match 43.5 << field-read
+84.9 (-41), so run_match is NOT uniformly pro-attacker. At MATCH level vs paper anchors the field-read
+(MatchGameState/bo3) MISSES by 24.9pp (Affinity 47.8 vs 72.7, n=23) and 58.2pp (Tron 91.5 vs 33.3, n=15) --
+OUTSIDE both anchors' 95% CIs; run_match lands INSIDE both (misses ~5-7pp). On BOTH cells (n=2, tiny anchors)
+run_match tracks paper far better. ATTRIBUTION (fable-corrected): localizes the problem to the MatchGameState
+ENGINE PATH -- NOT proven to be the declare_attackers/declare_blockers APLs specifically (isolating that needs a
+generic-combat-inside-MatchGameState experiment). RECOMMENDATION (NOT executed, bigger sign-off): do NOT swap
+the gauntlet on n=2; but this is a REAL fidelity lead on the 62.9% FWR anchor (which rides on the field-read).
+NEXT dedicated run: 4-6 more fair cells vs paper + isolate combat inside MatchGameState. Verdict: run-dir
+evidence/g2g3-verdict.md.
+Estimated effort: measure+diff+battle-cry+generality DONE; remaining = MatchGameState combat isolation + more-cell calibration (engine hot-zone, sign-off) Status: CHARACTERIZED + battle-cry FIXED; combat-model fidelity lead OPEN Created: 2026-07-10 Updated: 2026-07-13
 
 ## Resolved this week
 
