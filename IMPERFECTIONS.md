@@ -71,7 +71,7 @@ adjudicating against live.
 Estimated effort: (WP-F#2 scope) Status: OPEN Created: 2026-07-09
 
 ### bo3-run_fair-vs-run_match-divergence
-(formerly bo3-run_fair-underrates-vs-run_match -- slug neutralized 2026-07-11; direction of the bo3-vs-run_match gap is UNRESOLVED)
+(formerly bo3-run_fair-underrates-vs-run_match -- slug neutralized 2026-07-11. CHARACTERIZED 2026-07-13: the gap is a COMBAT-AGENCY engine difference, +21.7pp -- see the block below)
 
 Source spec: harness/inbox/promoted/arc5-deck-choice-memo-2026-07-09.md (bob decomposition 2026-07-10)
 Source commit: mtg-sim 578a0d9 (bob/bob-20260710-182604-17f1)
@@ -83,17 +83,24 @@ IS the gauntlet field-read path, so if the bo3 path is the biased one (DIRECTION
 under-rate OR run_match may over-rate; the registry's own izzet-affinity/urzatron text gives over-rate
 reasons, and SB games 2-3 are inside the gap), every gauntlet FWR built on _run_fair bo3 cells is
 suspect -- broader than Affinity.
-Why not fixed here: root-causing why bo3 `_run_fair` diverges from run_match is engine/harness territory
-(mtg-sim/engine + run_matchup.py wiring) = hot zone; the arc-5 decomposition only MEASURED it (one
-serialized lowcurve cell + cached builds + the WP-B4 shift doc).
-Concrete fix: (1) re-run current-engine run_match on lowcurve-vs-affinity to pin the method magnitude
-(one serialized sim); (2) diff `engine/bo3_match.run_bo3_set` (the _run_fair path) vs `run_match` for
-Affinity to find the divergence (sideboarding? mulligan mode? seat assignment? metric g1-vs-match?);
-(3) cross-check on 1-2 other fair cells (e.g. Eldrazi Tron, WP-F#2 spec Section 3 shows -53.5pp) to see
-if the divergence generalizes; if the bo3 path is confirmed low, treat _run_fair bo3 cells as a POSSIBLE
-lower bound -- BUT combo cells are flagged INFLATED-for-Boros (~34% weight), so the 62.9% FWR net sign is
-INDETERMINATE, not necessarily a lower bound / re-source the gauntlet's fair-cell path.
-Estimated effort: 1-2h investigate (hot-zone diff) Status: OPEN Created: 2026-07-10
+CHARACTERIZED (2026-07-13, bob run bob-20260712-080403-5863; driver mtg-sim/scripts/diag_run_match_vs_bo3_affinity.py):
+Holding APL+build+decks+mix+seed CONSTANT (lowcurve, match APLs, n=3000, seed42, PYTHONHASHSEED=0,
+n_workers=1), the two match ENGINES differ +21.7pp: bo3_g1 (MatchGameState/_run_fair field-read) 48.0 vs
+run_match (TwoPlayerGameState) 69.7 -- both reproduced bit-exact. MECHANISM = COMBAT AGENCY: run_match calls
+NEITHER declare_attackers NOR declare_blockers (grep=0; generic alpha-strike match_runner.py:926-948 +
+biggest-attacker block :1161-1184), while the bo3 field-read drives BOTH via the real match APLs
+(match_engine.py:461/:518). ~20pp is this agency difference; a battle-cry drop in match_engine combat
+(Card.effective_power excludes _battle_cry_instances, data/card.py:158-164) is a MEASURED ~1.3pp secondary
+bug. DIRECTION: live paper 72.7 (n=23, Wilson [52,87]) contains run_match, excludes bo3's 48 (just below the
+lower bound) -> weak real-data vote the field-read UNDER-rates THIS cell, but run_match reaches ~72 partly
+via cruder combat, so NEITHER engine is crowned correct. GENERALITY untested. Verdict: run-dir evidence/g3-verdict.md.
+Concrete fix: steps (1) measure + (2) diff are DONE 2026-07-13 (above). REMAINING (all ENGINE HOT ZONE ->
+sign-off): (a) decide which combat model the gauntlet field-read SHOULD use, or make match_engine + match_runner
+combat consistent (a fidelity DESIGN call -- APL-driven attack/block vs generic heuristic -- not a clean bug);
+(b) fix the separable battle-cry drop in match_engine combat (~1pp here, maybe more elsewhere); (c) cross-check
+Eldrazi Tron + 1-2 fair cells for GENERALITY before treating _run_fair FWR as a systematic lower bound -- combo
+cells are flagged INFLATED-for-Boros (~34% wt), so the 62.9% FWR net sign stays INDETERMINATE.
+Estimated effort: measure+diff DONE; remaining fix = engine hot-zone (sign-off) Status: CHARACTERIZED (mechanism known; fix pending sign-off) Created: 2026-07-10 Updated: 2026-07-13
 
 ## Resolved this week
 
@@ -1126,3 +1133,253 @@ first-attempt-seen via a `DISTINCT puzzle_id` check against `puzzle_attempts`
 **Estimated effort:** 1-2h + a test asserting a second attempt on the same
 puzzle leaves the user rating unchanged.
 **Status:** OPEN
+
+
+---
+
+## Modern APL fidelity audit findings (2026-07-12, /bob run bob-20260712-075952-3f0d)
+Source: worktree report reports/apl_fidelity_audit_2026-07-12.md (commit f5eb30b on bob/bob-20260712-075952-3f0d). 19 entries: 1 CRASH + 18 DEGRADED.
+
+# IMPERFECTIONS -- DRAFT entries (APL fidelity audit 2026-07-12)
+
+Drafted by agent-106 from the Wave 2 audit (31 Modern decks, n=50 each, seat B vs Boros Energy).
+One entry per CRASH/DEGRADED deck (19 total: 1 CRASH + 18 DEGRADED). House format. Conductor applies
+at the gate. Entries that EXTEND an existing IMPERFECTIONS/registry item are flagged; the rest are NET-NEW.
+
+Evidence root: evidence/w2/cluster-*.md. Runners: C:/temp/mtg-sim-audit-3f0d/scripts/_audit_*.py (uncommitted).
+
+---
+
+### jeskai-control-match-teferi-bounce-stale-remove  [CRASH -- high, NET-NEW]
+
+- **Source spec/commit:** apl/jeskai_control_match.py:136 (MATCH_APL key `jeskaimodern`); audit run bob-20260712-075952-3f0d cluster-18.
+- **What's not perfect:** Teferi's -3 bounce does `opponent.zones.battlefield.remove(bounce)` where `bounce = max(opp_nonlands, ...)` and `opp_nonlands` is computed once at the top of `main_phase` (~L79). By L136 the chosen permanent may already have left the battlefield (via the L122-124 removal path or a prior bounce), so `list.remove` raises `ValueError: list.remove(x): x not in list`. 24 exceptions across 20/50 games (7.6% of main-phase turns), swallowed by `_simple_play_turn` (Teferi turn aborted, game continues). Exact Grixis `crash-every-turn` template. Jeskai Control is a fair deck NOT covered by ComboKillSampler, so it runs live in the gauntlet. Secondary: dead constant `VERDICT='Supreme Verdict'` while the deck runs 'Wrath of the Skies' (WRATHS gate never matches; wipe still fires 23/50 via a separate path).
+- **Why not fixed:** engine/ + apl/ are read-only hot zones for this audit run; no edits permitted. Fix is a targeted APL change requiring sign-off.
+- **Concrete fix:** re-check `bounce in opponent.zones.battlefield` (or re-derive `opp_nonlands`) immediately before the `remove` at L136, and skip/re-pick if absent -- snapshot-target-before-mutate. Separately, align the VERDICT constant to 'Wrath of the Skies' (or remove the dead gate).
+- **Estimated effort:** small (guard + constant fix; add a Teferi-bounce regression test mirroring the Grixis no-crash test).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### grixis-reanimator-combo-underassembles-post-crashfix  [DEGRADED -- high, EXTENDS existing]
+
+- **Source spec/commit:** apl/grixis_reanimator (MurktideMatchAPL-adjacent reanimator path); registry `grixis reanimator` (INVERTED); IMPERFECTIONS `grixis-reanimator-match-apl-crashes-every-turn` (crash now FIXED). Audit cluster-02.
+- **What's not perfect:** origin crash confirmed fixed (0/50 clean, incl. SIM_DEBUG=1). But the combo only half-assembles (Abhorrent Oculus 48%, Archon of Cruelty 12%) and B's kill clock T7.8 badly trails the real T2-5 -> the reanimator gameplan under-fires. Registry cell CORROBORATED: sim ~75% favored vs truth ~38% (we are the DOG). Engine still cannot model combo consistency or OUR graveyard hate.
+- **Why not fixed:** structural -- the missing ingredient is INTERACTION modeling (assemble on a real clock AND let our GY hate/removal answer it), the subject of handoff #2. Read-only hot zone this run.
+- **Concrete fix:** handoff #2 `modern-interaction-aware-combo.md` -- real combo APL + engine answer hooks. Validation gate: Grixis lands ~25-45 (primer 38) by modeling interaction, NOT by tuning kill dists.
+- **Estimated effort:** large (multi-session; gated ultracode with no-regression surface).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### izzet-affinity-kappa-finisher-underfires  [DEGRADED -- high, EXTENDS existing]
+
+- **Source spec/commit:** apl/affinity_match.py; decks/izzet_affinity_modern.txt; registry `izzet affinity` (INFLATED); IMPERFECTIONS `locked-modern-boros-affinity-baseline-stale-63.5`. Audit cluster-02.
+- **What's not perfect:** enablers assemble (Urza's Saga 62%, Pinnacle Emissary 52%) but the actual clock/finisher Kappa Cannoneer lands only 20% of games, so B wins just 20% vs a real ~44-56. Registry CORROBORATED: sim ~85-88% vs truth ~44%. This is the mechanistic source of the stale 63.5 Modern lock. Galvanic Blast reach / Thoughtcast card-advantage under-modeled downstream of the Kappa under-fire.
+- **Why not fixed:** read-only hot zone this run; it is the dedicated subject of handoff #3.
+- **Concrete fix:** handoff #3 `modern-affinity-offense-rebaseline.md` -- fix `apl/affinity_match.py` finisher/clock so Kappa lands and attacks (deploy + Galvanic reach + Thoughtcast advantage), NOT by nerfing Boros. Then re-establish + date the Modern-lock number and drop/re-scope the Affinity registry cell. Gate: Boros-vs-Affinity moves to ~44-56 mechanistically.
+- **Estimated effort:** medium (one session).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### gruul-broodscale-synthetic-stub-no-combo  [DEGRADED -- high, EXTENDS existing]
+
+- **Source spec/commit:** apl Gruul Broodscale (self-documented SYNTHETIC stub); registry `gruul broodscale` (INFLATED/STUB). Audit cluster-02.
+- **What's not perfect:** creatures deploy (Basking Broodscale 62%, Glaring Fleshraker 54%, Grumgully 64%) but the infinite Broodscale +1/+1-counter combo fires 0% -- entirely unmodeled. B kill T10.2 is a fair-creature clock, not the real T3-5 combo clock. Registry CORROBORATED: sim ~89% vs truth ~55%. By-design coverage hole, not a crash.
+- **Why not fixed:** the APL was shipped as a field-filling stub; modeling the infinite loop needs the interaction-aware combo framework (handoff #2), read-only this run.
+- **Concrete fix:** handoff #2 -- author a real Broodscale combo APL that assembles the infinite loop on a realistic clock, gated by our disruption. Gate: Broodscale ~45-65 (primer 55).
+- **Estimated effort:** medium-large (part of the #2 combo pass).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### glockulous-match-apl-reanimator-engine-absent  [DEGRADED -- high, NET-NEW]
+
+- **Source spec/commit:** apl/glockulous_match.py:83-92 (GlockulousMatchAPL, AUTO_GENERATED=True, docstring self-flags "Needs manual audit"). Audit cluster-101.
+- **What's not perfect:** the Persist->reanimate Archon/Oculus engine NEVER fires. Persist is a noncreature spell, so it falls into the L83-92 branch that only fires when the opponent has no creatures and treats it as +2 face damage -- mis-modeled as burn, never reanimation (Persist 3/50, Archon 1/50, Psychic Frog 27/50). Archon (8 CMC) is only ever hard-cast. A T3-4 reanimator plays as mono-creature beatdown that almost never closes (7/50 wins) -> Boros WR inflated to 86%. Runs live (0 crashes) and is NOT sampler-covered.
+- **Why not fixed:** auto-generated shell never manually audited; needs a real reanimator APL. Read-only hot zone this run.
+- **Concrete fix:** build a real reanimator match APL (mirror the fixed Grixis reanimator engine-owned Persist + ETB path) or route glockulous -> grixisreanimator. Fold into handoff #2 (combo/reanimator opponents).
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### neoform-match-apl-never-combos  [DEGRADED -- high, NET-NEW]
+
+- **Source spec/commit:** apl neoform (NeoformMatchAPL, AUTO_GENERATED=True, "Needs manual audit"); decks/neoform_modern.txt. Audit cluster-18.
+- **What's not perfect:** the combo never assembles: Neoform cast 6/50 (dumped as ~2 face burn in the noncreature branch, NOT the Allosaurus Rider sac -> Griselbrand line), Allosaurus Rider 0/50, Griselbrand 0/50, payoff-on-battlefield 0/50, B wins 0/50 vs a real T2-T3 combo. The APL just deploys creatures cheapest-first and treats noncreatures as 2 face burn. CRITICAL: neoform is NOT in the Modern 'combo' sampler set, so the real gauntlet uses this broken APL LIVE (no ComboKillSampler mitigation) -- the Boros-vs-Neoform cell is fully fictional.
+- **Why not fixed:** auto-generated shell never manually audited; read-only hot zone this run.
+- **Concrete fix:** author a real Neoform combo APL (Rider pitch -> Neoform/Eldritch Evolution -> Griselbrand) under handoff #2 AND/OR add neoform to the combo sampler set as an interim mitigation. Update mismodeled_matchups.py with a neoform INFLATED cell.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### ruby-storm-grapeshot-never-reaches-lethal-count  [DEGRADED -- high, NET-NEW]
+
+- **Source spec/commit:** apl RubyStormMatchAPL (WANTS_STORM=True). Audit cluster-04.
+- **What's not perfect:** enablers fire (Pyretic Ritual 72%, Ruby Medallion 68%, Manamorphose 64%, Ral 60%, Past in Flames 44%) but Grapeshot fires only 22% and converts to lethal in 0/50 games -- B win rate 0/50. Damage sync is wired (WANTS_STORM) yet the combo assembles enablers but never reaches a lethal storm count vs a T5 clock, badly distorting a real T3-4 combo matchup.
+- **Why not fixed:** the storm-count -> Grapeshot -> lethal payoff path is not converting; needs the interaction-aware combo work / a payoff-path fix. Read-only hot zone this run.
+- **Concrete fix:** verify the storm-count -> Grapeshot -> lethal payoff path (is storm count accrued and passed to Grapeshot damage? is the kill checked before the clock runs out?). Part of handoff #2. Add a ruby-storm registry cell.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### temur-breach-no-match-apl-genericapl-lacks-wants-storm  [DEGRADED -- high, NET-NEW]
+
+- **Source spec/commit:** apl/temur_breach.py:23 (TemurBreachAPL is a GenericAPL); routing `temurbreach -> GoldfishAdapter(TemurBreachAPL)` (NO dedicated match APL). Audit cluster-04.
+- **What's not perfect:** enablers fire (Ruby Medallion 84%, Manamorphose 82%, Pyretic Ritual 76%, Ral 64%, Past in Flames 38%) but B wins 0/50. There is no dedicated match APL, so it routes to GoldfishAdapter(TemurBreachAPL), and TemurBreachAPL does NOT set WANTS_STORM -> main-phase storm/spell damage is NEVER propagated -> the deck structurally cannot win via storm burn. (Deck is a Ral/Ruby-Medallion storm list, no Underworld Breach.) Same class as ruby_storm, compounded by the missing match APL.
+- **Why not fixed:** missing match APL + missing WANTS_STORM flag; read-only hot zone this run.
+- **Concrete fix:** author a Temur Breach match APL (or reuse the RubyStormMatchAPL shell) with WANTS_STORM=True so storm damage propagates. Part of handoff #2. Add a temur-breach registry cell.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### amulet-titan-scapeshift-rampout-line-dead  [DEGRADED -- medium, NET-NEW]
+
+- **Source spec/commit:** apl/amulet_titan_match.py (payoff via zones.battlefield.append at :199); decks/amulet_titan_modern.txt. Audit cluster-00.
+- **What's not perfect:** Primeval Titan resolves 54% (27/50) and Amulet of Vigor deploys (32/50), but the Scapeshift/Summoner's Pact ramp-out line NEVER fires (Scapeshift 0/50, Summoner's Pact 0/50, Cultivator Colossus 4/50). The deck under-clocks ~2 turns (kill T6.5 vs real T3-4) -> the matchup reads as a slow durdle vs a real explosive clock. Runs clean (0 crashes).
+- **Why not fixed:** the ramp/Pact/Scapeshift lines are not implemented in the APL; read-only hot zone this run.
+- **Concrete fix:** implement the Summoner's Pact -> Titan tutor and the Scapeshift ramp-out line in the APL so the deck hits its T3-4 clock. NOTE for instrumentation: Titan is put into play via battlefield.append (bypasses cast_spell) -- any cast-hook-only fire meter under-counts it.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### dimir-midrange-proxied-to-murktide-match-apl  [DEGRADED -- medium, NET-NEW]
+
+- **Source spec/commit:** get_match_apl('dimirmidrange') returns MurktideMatchAPL; decks/dimir_midrange_modern.txt. Audit cluster-00.
+- **What's not perfect:** STRUCTURAL MISMODEL -- the dimir_midrange decklist (Orcish Bowmasters / Counterspell / Kaito / Sheoldred's Edict / Fatal Push) is piloted by MurktideMatchAPL, a DIFFERENT deck's pilot that hunts Murktide/DRC/Ragavan/EI/Unholy Heat (all absent). CORRECTED per verify.md (agent-107 seat-gated cast spy, n=20): the interaction DOES get cast -- Counterspell 7/20, Fatal Push 7/20, Sheoldred's Edict 6/20, Bowmasters 9/20 (~30-45%) -- but BLINDLY via generic fallback casting, not the deck's intended reactive logic (cluster-00's cast-hook missed generic-path casts and misreported 0/50). Still times out at turn 11.5 with 10/50 wins; DEGRADED class unchanged -- mechanism is "wrong pilot casts interaction unintelligently", not "interaction never cast".
+- **Why not fixed:** wrong APL routed to the deck; needs either a dedicated Dimir Midrange match APL or a corrected route. Read-only hot zone this run.
+- **Concrete fix:** build a real Dimir Midrange match APL (holds counters reactively, uses Fatal Push/Edict as removal, Bowmasters on the draw step) or route to a suitable existing tempo/midrange APL. Add a registry note.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### dimir-oculus-routed-to-standard-excruciator-proxy  [DEGRADED -- medium, NET-NEW]
+
+- **Source spec/commit:** match registry `dimiroculus -> DimirExcruciatorStandardMatchAPL` (Standard proxy); goldfish registry maps dimir_oculus -> Murktide (mismatch). Audit cluster-101.
+- **What's not perfect:** the deck's real threats deploy via generic-deploy (Psychic Frog 31/50, Abhorrent Oculus 35/50) but the match registry routes it to a STANDARD proxy whose own named cards (Requiting Hex, Kaito, Spell Snare) are absent from the Modern list, so it falls to GenericAPL.main_phase (no CURVE attr). Distortion: (1) Counterspell dumped MAIN-PHASE 21/50 instead of held reactively; (2) no Abhorrent Oculus manifest-dread engine, no delve/Murktide sequencing, no Unearth recursion. A tempo-counter deck modeled as generic midrange creature-dump. Also a goldfish-vs-match registry mismatch (goldfish->Murktide, match->Standard Excruciator).
+- **Why not fixed:** wrong APL routed + registry mismatch; read-only hot zone this run.
+- **Concrete fix:** build/route a real Modern Dimir tempo match APL (hold counters, manifest-dread Oculus engine, delve sequencing) and reconcile the goldfish/match registry entries so they point at the same model.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### goryos-vengeance-combo-underfires-wins-off-fair-plan  [DEGRADED -- medium, EXTENDS existing]
+
+- **Source spec/commit:** apl Goryo's Vengeance; registry `goryos vengeance` (INFLATED); decks/goryos_vengeance_modern.txt. Audit cluster-02.
+- **What's not perfect:** the Goryo's + Ephemerate reanimation combo assembles only ~20% of games (Atraxa reanimated 20%); the deck's wins come from the Psychic Frog fair plan (64% fire) and land late (B kill T7.7 vs real combo clock T3-4). Registry CORROBORATED: sim ~84-92% vs truth ~73% (sign correct, optimistic).
+- **Why not fixed:** the combo assembly + our removal-on-the-fragile-threat modeling is the interaction-aware combo work (handoff #2). Read-only hot zone this run.
+- **Concrete fix:** handoff #2 -- assemble the combo on a real clock, model our removal disrupting the single fragile threat. Gate: Goryo's ~65-80 (primer 73).
+- **Estimated effort:** medium (part of #2).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### neobrand-match-apl-routing-stub-never-combos  [DEGRADED -- medium, EXTENDS existing / MITIGATED]
+
+- **Source spec/commit:** apl NeobrandMatchAPL (main_phase = _play_land + _cast_all_castable; decklist header reads audit:stub reason='combo kill-sampler opponent'). Audit cluster-18.
+- **What's not perfect:** the combo never assembles: Neoform 0/50, Griselbrand 0/50, Eldritch Evolution 0/50, payoff-on-battlefield 0/50; only Summoner's Pact cast 21/50 (fizzles). B wins 0/50 vs a real T1-T2 combo. Raw APL distortion is total. MITIGATED: neobrand IS in the Modern 'combo' sampler set -> as an opponent it is routed to ComboKillSampler in production, which fakes the T1-T2 kill, so the run_match APL is not used as-is.
+- **Why not fixed:** intentional audit stub covered by the sampler in production; a real APL only matters if the sampler is ever removed (which is the direction handoff #2 points). Read-only hot zone this run.
+- **Concrete fix:** when handoff #2 replaces the sampler with an interaction-aware model, give Neobrand a real combo APL (Pact/Neoform -> Griselbrand on a T1-2 clock, disruptable). Until then, no action -- the sampler covers it.
+- **Estimated effort:** medium (deferred until #2 removes the sampler).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### mono-red-aggro-clock-underfires-facedamage-undermodeled  [DEGRADED -- medium, NET-NEW]
+
+- **Source spec/commit:** apl MonoRedMatchAPL (Burn); decks/mono_red_aggro_modern.txt. Audit cluster-18.
+- **What's not perfect:** cards fire cleanly (Swiftspear 29/50, Goblin Guide 28/50, Boros Charm 23/50, Skewer 23/50, Lava Spike 19/50, Searing Blaze 14/50; Bolt 9/50 undercounted -- base _cast_all_castable burn-face path bypasses cast_spell) but the CLOCK under-fires: B wins only 2/50, both at T6/T8, vs a real T4 burn clock (~3 turns slow). Some low WR is legit (Boros runs Guide of Souls + Phlage lifegain, burn's worst matchup), but a T4-clock deck winning 2/50 and never before T6 indicates face-damage accumulation is materially under-modeled. Live in the gauntlet (fair aggro, not sampler-covered).
+- **Why not fixed:** the burn-to-face sequencing/accumulation appears under-modeled in the APL/engine; read-only hot zone this run. Needs measurement to separate legit-lifegain from model gap.
+- **Concrete fix:** instrument mono_red vs a non-lifegain control at n~100 -- confirm face-damage/turn matches a real burn clock; fix the burn sequencing so the deck reaches ~T4 lethal when unobstructed. Also route Lightning Bolt through cast_spell so it is counted.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### uw-control-no-wincon-inevitability-conversion  [DEGRADED -- medium, NET-NEW]
+
+- **Source spec/commit:** apl UWControlModernMatchAPL (AwareMatchAPL priority stack). Audit cluster-04.
+- **What's not perfect:** the answer suite fires (Narset 60%, Counterspell 56%, Teferi 54%, Wrath of the Skies 38%, Supreme Verdict 24%) and the late kill turn is correct for the archetype (B wins avg T12.7), but B win rate is only 3/50 (6.0%) vs a real ~40-50% Boros matchup -- the deck rarely converts stabilization into a win. Wincon/inevitability (Celestial Colonnade / planeswalker ults / card-advantage grind) is under-modeled. Partly an engine-inevitability limit, not a pure APL gap. NOT called on kill turn alone (per advisor).
+- **Why not fixed:** modeling long-game inevitability (manlands, PW ults, decking) is an engine-level gap beyond a single APL; read-only hot zone this run.
+- **Concrete fix:** model the control wincon path -- Colonnade attacks once stabilized, PW ultimate as a closer, card-advantage-to-decking inevitability. Likely a shared engine-inevitability improvement (also helps other grind decks), scoped separately from the combo/affinity handoffs.
+- **Estimated effort:** medium-large (engine inevitability, cross-archetype).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### yawgmoth-match-apl-targets-obsolete-build  [DEGRADED -- medium, NET-NEW]
+
+- **Source spec/commit:** apl/yawgmoth_match.py (`_check_combo_kill`); decks/yawgmoth_modern.txt (2026 Agatha's Soul Cauldron build). Audit cluster-05.
+- **What's not perfect:** the APL was written for an OLD Yawgmoth combo build (Collected Company / Blood Artist / Zulaport / Eldritch Evolution / Geralf's Messenger, all hardcoded) but the shipped decklist is the 2026 Cauldron build containing NONE of those. So `_check_combo_kill`'s drain path is unreachable (no Blood Artist/Zulaport) and its Ballista path is unreachable (Walking Ballista cast ~21x but enters as a 0/0 X-spell, dies to SBA, never accrues counters -> 0/50 on battlefield). Agatha's Soul Cauldron reaches battlefield 82% but has ZERO ability modeling -- an inert 4-of. `_combo_fired` 0/50. The 44% WR comes from off-plan creature beatdown + incidental Yawgmoth pinging + Grist, not the combo (kill T8.5 vs real Cauldron clock ~T4-6).
+- **Why not fixed:** APL is out of date vs the current decklist; read-only hot zone this run.
+- **Concrete fix:** rewrite the APL for the Cauldron build -- X-cost Ballista counters, Agatha's Soul Cauldron ability modeling, and the Yawgmoth draw-loop-into-Ballista lethal. Alternatively flag the matchup mismodeled until rewritten.
+- **Estimated effort:** medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### belcher-match-apl-generic-cast-stub  [DEGRADED -- low, EXTENDS existing / MITIGATED]
+
+- **Source spec/commit:** engine/apl belcher_match.py (52-line generic-cast stub); IMPERFECTIONS `combo-decks-not-sampled-in-gauntlet-run_match`. Audit cluster-00.
+- **What's not perfect:** Goblin Charbelcher 0/50 and all ritual/payoff signatures 0/50 -- total whiff, 0/50 wins. Charbelcher is an activated ability the stub never activates, and the landless deck cannot make mana generically. MITIGATED: production routes Belcher through ComboKillSampler (format_config 'combo'), NOT this run_match APL path -- so it is not a live-matchup distortion. Corroborates the existing IMPERFECTIONS entry.
+- **Why not fixed:** intentional stub covered by the sampler in production; read-only hot zone this run.
+- **Concrete fix:** give Belcher a real combo APL (mana rituals -> Charbelcher activation for lethal) when handoff #2 replaces the sampler with an interaction-aware model. Until then no action -- sampler covers it.
+- **Estimated effort:** small-medium (deferred until #2).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### dimir-murktide-unholy-heat-never-cast  [DEGRADED -- low, NET-NEW]
+
+- **Source spec/commit:** apl/murktide_match.py (MurktideMatchAPL; payoff via zones.battlefield.append at :182); decks/dimir_murktide_modern.txt. Audit cluster-00.
+- **What's not perfect:** threats and finisher fire (Ragavan 32/50, Murktide Regent 29/50 via battlefield scan, DRC 19/50, Expressive Iteration 19/50) but the deck's premier removal Unholy Heat is NEVER cast (0/50), so it never interacts, under-clocks (kill T8.0 vs real T4-5), and loses to our aggro more than it should (14/50 wins). Runs clean.
+- **Why not fixed:** the Unholy Heat removal path is not wired into the APL; read-only hot zone this run.
+- **Concrete fix:** implement Unholy Heat as targeted removal in the APL (delirium-aware damage, priority on our threats). NOTE: Murktide Regent enters via battlefield.append (bypasses cast_spell) -- cast-hook-only meters under-count it.
+- **Estimated effort:** small-medium.
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+### izzet-prowess-slickshot-low-fire-culprit-unproven  [DEGRADED -- low, NET-NEW / TENTATIVE]
+
+- **Source spec/commit:** apl Izzet Prowess; decks/izzet_prowess_modern.txt. Audit cluster-02. NOT in the mismodel registry.
+- **What's not perfect:** Prowess wins only 18% vs our Boros Energy, which reads low for a real near-coin-flip (~55-60% Boros expected); the key evasive-burst threat Slickshot Show-Off lands only 16% (4-of), while Swiftspear 70% / Cori-Steel 60% fire fine. BUT the 16% may be CORRECT plot-hold behavior vs lifegain -- the APL holds Slickshot plotted until a burst turn that the high-lifegain threshold rarely triggers -- so the culprit is unproven. Sign is likely right (82% Boros looks inflated) but needs a primer cross-check before treating as an APL bug.
+- **Why not fixed:** TENTATIVE -- not yet confirmed whether the low Slickshot fire is a bug or correct plot-hold vs lifegain; needs a primer/real-world win-rate cross-check first. Read-only hot zone this run.
+- **Concrete fix:** cross-check Boros-vs-Prowess against a primer win rate. If Boros is genuinely inflated, tune the Slickshot plot-release threshold (release on a lethal-burst turn even vs lifegain). If 16% is correct behavior, add a registry note instead of an APL change. Verify before acting.
+- **Estimated effort:** small (measurement first, then a threshold tweak if confirmed).
+- **Status:** OPEN
+- **Created:** 2026-07-12
+
+---
+
+*Drafted 2026-07-12 by agent-106. 19 entries (1 CRASH + 18 DEGRADED). PASS decks (esper_blink rare
+stale-ref, living_end _combo_fired-never-resets, orzhov_blink, uw_blink, sultai_midrange, humans,
+domain_zoo, eldrazi_tron, eldrazi_ramp, jeskai_blink, both Boros) NOT drafted here -- esper_blink and
+living_end each carry a low-severity note in cluster-101 / cluster-18 the conductor may promote if desired.
+Conductor applies these at the gate. No engine files edited; no git add/commit.*
