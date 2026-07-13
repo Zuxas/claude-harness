@@ -113,7 +113,20 @@ generic-combat-inside-MatchGameState experiment). RECOMMENDATION (NOT executed, 
 the gauntlet on n=2; but this is a REAL fidelity lead on the 62.9% FWR anchor (which rides on the field-read).
 NEXT dedicated run: 4-6 more fair cells vs paper + isolate combat inside MatchGameState. Verdict: run-dir
 evidence/g2g3-verdict.md.
-Estimated effort: measure+diff+battle-cry+generality DONE; remaining = MatchGameState combat isolation + more-cell calibration (engine hot-zone, sign-off) Status: CHARACTERIZED + battle-cry FIXED; combat-model fidelity lead OPEN Created: 2026-07-10 Updated: 2026-07-13
+UPDATE 2026-07-13 (run bob-20260713-103202-7918 -- 5-cell + combat isolation; fable-corrected):
+5 FAIR cells at MATCH level vs paper: Affinity fr47.8/rm78.0/paper72.7(n=22); Eldrazi Tron fr91.5/rm40.3/33.3(15);
+Izzet Prowess fr38.0/rm85.0/54.5(22); Jeskai Blink fr69.9/rm73.0/53.3(15); Dimir(PROXY) fr100/rm88.4/83.3(12).
+Wilson CI coverage: run_match INSIDE 4/5 paper CIs, field-read OUTSIDE 3/5 -- so run_match IS more calibrated on
+this sample (NOT 'neither better' -- earlier framing corrected). But NO-GO on swapping the gauntlet combat model,
+on honest legs: (a) N=5 + tiny anchors (n=12-23) can't license a swap either way; (b) run_match's Prowess miss
+(85 vs 54.5, its one 95%-significant rejection); (c) run_match is SINGLE-GAME -- a swap DISCARDS the gauntlet's real
+sideboarding. Real-APL sign split 2-2 (Dimir proxy excluded). ATTRIBUTION (Affinity-scoped): combat BLOCKING is the
+driver -- Affinity NO-BLOCK monkeypatch moves bo3_match 47.8->78.0 (+30.2pp = run_match, ~=paper); IzzetAffinityMatchAPL.
+declare_blockers OVER-blocks vs reality. Tron/Prowess mechanisms NOT probed (attack-all lever coded, not run). LEVER =
+per-cell APL combat calibration (Affinity declare_blockers highest-value; each needs its own isolation probe + a
+sign-off-able per-APL fix), NOT an engine-model swap. Drivers: mtg-sim scripts/diag_run_match_vs_bo3_affinity.py +
+diag_combat_isolation_probe.py. Verdict: run-dir evidence/verdict.md.
+Estimated effort: characterize+battle-cry+generality+5cell+isolation DONE; remaining = per-cell APL combat-fidelity fixes (start Affinity declare_blockers; each engine hot-zone, sign-off) Status: combat-model NO-GO-on-swap; per-APL combat calibration OPEN (Affinity blocking = top lever) Created: 2026-07-10 Updated: 2026-07-13
 
 ## Resolved this week
 
