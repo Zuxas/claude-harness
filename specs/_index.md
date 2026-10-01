@@ -13,6 +13,9 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
+- `2026-07-01-b1-legal-action-api.md` (REMAINDER) — **PROPOSED** after the 2026-07-04 council rescope.
+  Steps 4-7 and gates G1-G5 stay parked until the spec's resume trigger is met.
+
 - `2026-05-01-skill-system-harness.md` — Dynamic capability loading for the harness.
   Bundle knowledge + scripts + behavior rules into loadable skills (mtg-sim-quality,
   meta-analysis, apl-generation, harness-ops). ~78% context reduction per turn.
@@ -56,6 +59,16 @@ each status. After a spec ships, it stays in this index forever.
 
 (retroactively populated -- see harness/specs/RETROACTIVE.md for the 14
 commits from 2026-04-26/2026-04-27 session that pre-date this directory)
+
+- `2026-09-30-rules-engine-v2-design.md` -- **SHIPPED milestone one 2026-09-30.** Isolated `engine/v2` with
+  typed legal actions, observation-only policies, transactional state changes, deterministic replay, and two
+  synthetic decks. M0-M6 pass; M7 is reported-only at 20.55-22.42 games/s against a 20 games/s floor.
+- `2026-09-30-card-identity-gate.md` -- **SHIPPED 2026-09-30.** Exact card names in every mode, with no
+  fuzzy substitution, placeholders, or network fallback; the Scryfall snapshot is versioned in `SNAPSHOT.json`.
+- `2026-09-30-strict-mode.md` -- **SHIPPED 2026-09-30.** Legacy output is labelled experimental; strict mode
+  disables silent fallback, result floors, real-data substitution, and swallowed errors.
+- `2026-07-01-b1-legal-action-api.md` -- **SHIPPED sub-slice** (`c1fe5a3`, 2026-07-01), with the formal-API
+  remainder still proposed. The sub-slice proved the deck-agnostic enumerate-and-choose seam on the live engine.
 
 - `2026-04-27-guide-attack-trigger-fix.md` — Shipped.
 - `2026-04-27-oracle-parser-orphan-fix.md` — Shipped.
