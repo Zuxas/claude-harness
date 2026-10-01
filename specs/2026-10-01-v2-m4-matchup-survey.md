@@ -1,6 +1,6 @@
 ---
 title: "Engine v2 milestone four, step 1: asymmetric matchup survey + recommendation"
-status: "PROPOSED"
+status: "EXECUTING"
 created: "2026-10-01"
 updated: "2026-10-01"
 project: "mtg-sim"
@@ -112,3 +112,4 @@ Dart, graveyard-reading statics via delirium); they are scoped to the minimum th
 - 2026-10-01: survey written (PROPOSED). Awaiting the user's choice before any engine code.
 - 2026-10-01: manual oracle review corrected fetch, delirium, exile-play, flashback, Bauble, plot, and Thundering
   Falls requirements; acceptance split into four asymmetric seat/start cells. Still PROPOSED; no engine code.
+- 2026-10-01: APPROVED by the user as one implementation block (Burn vs decks/auto/izzet_prowess_modern.txt); EXECUTING.
