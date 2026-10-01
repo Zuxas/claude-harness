@@ -13,10 +13,6 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
-- `2026-10-01-v2-m4-matchup-survey.md` -- **EXECUTING (approved 2026-10-01).** Survey recommends Burn vs Izzet Prowess as the first
-  asymmetric v2 matchup. The corrected card-by-card scope and four-cell 10,000-game gate await approval; no engine
-  implementation has started (`mtg-sim` survey commit `0e79a4e`).
-
 - `2026-07-01-b1-legal-action-api.md` (REMAINDER) — **PROPOSED** after the 2026-07-04 council rescope.
   Steps 4-7 and gates G1-G5 stay parked until the spec's resume trigger is met.
 
@@ -72,6 +68,11 @@ commits from 2026-04-26/2026-04-27 session that pre-date this directory)
   activated abilities, search, replacement effects, modal spells, alternative costs, and suspend. The
   10,000-game gate had zero crashes, invariant violations, or dead ends; 1,000 sampled replays were exact.
   Best-of-three completed 500 exact match replays using a supported test sideboard.
+- `2026-10-01-v2-m4-matchup-survey.md` -- **SHIPPED milestone four 2026-10-01** (Burn vs Izzet Prowess,
+  `decks/auto/izzet_prowess_modern.txt`): 14 new cards + Monk token; 10,000 games in four seat/start cells, 0 errors /
+  dead ends / illegal accepted, 1,252 exact replays, 400/400 repeats, 29 inspected logs, M7 floor met. Hidden
+  information no longer appears in the event log. mtg-sim 4bb475c..926617f.
+
 - `2026-10-01-v2-m3-gameplay-launcher.md` -- **SHIPPED milestone three 2026-10-01**
   (`mtg-sim` `055a373`). Added an anonymized, log-derived conformance corpus with 2,067 of 2,078 normalized
   episodes passing and 11 explained unsupported/ambiguous cases, plus an explicit experimental v2 launcher

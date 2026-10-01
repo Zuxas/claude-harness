@@ -1,6 +1,6 @@
 ---
 title: "Engine v2 milestone four, step 1: asymmetric matchup survey + recommendation"
-status: "EXECUTING"
+status: "SHIPPED"
 created: "2026-10-01"
 updated: "2026-10-01"
 project: "mtg-sim"
@@ -10,6 +10,8 @@ related_findings:
   - "mtg-sim data/v2_matchup_survey.json (scripts/v2_matchup_survey.py)"
 related_commits:
   - "mtg-sim 0e79a4e (survey script and output; no engine code)"
+  - "mtg-sim 4bb475c, be19229 (S0 hidden information out of the event log)"
+  - "mtg-sim deaf256 (S1-S9 implementation), b5dccfb (focused tests + fixes), 926617f (validation, logs, docs)"
 supersedes: null
 superseded_by: null
 ---
@@ -108,8 +110,82 @@ Dart, graveyard-reading statics via delirium); they are scoped to the minimum th
   skill or agreement with observed matchup percentages.
 - Legacy engines and their tests remain unchanged. Sideboards and best-of-three play stay out of scope.
 
+## Results (SHIPPED 2026-10-01)
+
+All acceptance gates pass. `python scripts/v2_matchup_validation.py --games 10000 --workers 20` ->
+`data/v2_m4_validation.json`, logs `data/v2_m4_logs/` (mtg-sim 926617f). Invariants on in every game; pairings
+rotate random/random, aggro/aggro, aggro/random (untuned pilots).
+
+| Cell (2,500 games each) | Errors | Dead ends | Illegal accepted (probes) | Exact replays | Turn-limit draws | Burn - Prowess (diagnostic) | Mean turns |
+|---|---|---|---|---|---|---|---|
+| Burn seat 0, Burn starts | 0 | 0 | 0 (107,794) | 313 | 0 | 1,614 - 886 | 11.72 |
+| Burn seat 0, Prowess starts | 0 | 0 | 0 (107,163) | 313 | 0 | 1,493 - 1,007 | 11.57 |
+| Burn seat 1, Burn starts | 0 | 0 | 0 (106,356) | 313 | 0 | 1,600 - 900 | 11.56 |
+| Burn seat 1, Prowess starts | 0 | 0 | 0 (107,504) | 313 | 0 | 1,514 - 986 | 11.70 |
+| **Total** | **0** | **0** | **0 (428,817)** | **1,252** | **0** | 6,221 - 3,779 | |
+
+- Replay: 1,252 records sampled across all four cells (every 8th seed) replayed through JSON to the exact transition
+  hashes and final full-state hash. Repeated game + policy seeds: 400/400 identical (100 per cell).
+- Manual inspection: 29 complete logs (6-9 per cell), chosen greedily from 600 candidate games per cell so that every
+  mechanic seen in that cell is covered, plus a win by each deck in every cell. Read and checked: fetches incl.
+  fail-to-find, Steam Vents shock choice, Thundering Falls enters tapped + surveil (also when played from exile),
+  Mutagenic Growth for life, scry / surveil / Expressive Iteration (hand / bottom / exile, then the exiled card
+  cast or played this turn), DRC surveil and delirium (must-attack decision, flying), Violent Urge first strike +
+  double strike under delirium, Cutter equip / flurry token / optional attach / trample excess to the player / token
+  dies -> ceases to exist + Cutter unattached and stays, Lava Dart flashback sacrificing a Mountain (incl. Steam
+  Vents) and exiled, Bauble private look + draw at the next turn's upkeep after the Bauble is gone, Slickshot pump,
+  plot and the free cast on a later own turn.
+- Throughput: 57.8 games/s wall (20 workers, invariants on); 39.5 games/s single-core Burn-vs-Prowess (random
+  pilots, invariants off). M7 benchmark (unchanged synthetic workload): 20.7-23.3 games/s CPU on a loaded machine
+  (MTGO etc. running, ~70% CPU), measured side by side with the pre-M4 engine (be19229): 20.71 vs 20.71 and
+  22.70 vs 22.03 -- no regression; the 20 games/s floor is met (thin margin, as before).
+- Tests: v2 199 passed (new `tests/v2/test_m4_prowess.py` 31 focused rules tests; hidden-information leak test
+  extended to Prowess games; transaction shadow-rollback covers every new op). Full mtg-sim suite 366 passed, same 3
+  failures / 4 collection errors as the baseline. Legacy engines unchanged (no diff outside engine/v2, tests/v2,
+  scripts). Strict refusal intact: the Prowess sideboard (Murktide Regent, Unholy Heat, ...) is refused before play.
+
+### Implementation decisions
+- D0 Hidden information (found while planning S3, fixed first): the log used to reveal drawn cards (card k had
+  ciid == ObjectId == k at setup and hidden moves logged object ids). Now no ObjectId of a library / hand card
+  appears in any event; hidden moves, draws, mulligan bottoms, continuations, looks and library arrangements log
+  keyed commitments (the transition hashes still commit to the content). ENGINE_VERSION v2-m4.0.
+- D1 Phyrexian mana is chosen when the spell is announced (card ruling), as cost variants ("normal" pays {G};
+  "phyrexian:G" pays 2 life with the rest of the cost in PayCost). Generic over any Phyrexian symbols.
+- D2 One `ArrangeCards` action per private library decision, enumerating every legal placement and order; the
+  decider alone sees the cards (`my_look`) and keeps knowing where it put them (`my_known`, cleared when a card
+  leaves the library or the library is shuffled). Expressive Iteration with fewer cards follows hand, then bottom.
+- D3 Statics are evaluated on demand (`rules/statics.py`): additive P/T and keyword grants only (Equipment, delirium,
+  gained first / double strike), not a general layer system. Delirium counts card types of cards (tokens excluded).
+- D4 Tokens are card-less instances (excluded from card conservation) with a hashed token definition; 704.5d.
+- D5 Equipment: `attachments` in state; equip is a targeted, sorcery-speed activated ability (ActivateAbility gained
+  `targets`); 701.3b same-creature no-op; 704.5n unattach; an Equipment leaving the battlefield is unattached.
+- D6 Trample: the damage division gets a ("player", n) entry only once every blocker is assigned lethal damage
+  (counting marked damage); a trampler with one blocker gets a decision; no blockers left -> all to the player.
+- D7 Flashback: an alternative cost from the graveyard with a sacrifice component (PayCost `sacrifice`); the stack
+  object carries `flashback`, and any move off the stack becomes exile.
+- D8 Delayed triggers are state records detected from step occurrences, one-shot, independent of their source.
+- D9 Plot: a special action paying from the pool (like suspend); the later cast is an ordinary optional ProposeCast
+  (`cost="plot"`) from exile on a later own main phase with an empty stack -- normal casting machinery, no
+  resolution-time continuation.
+- D10 Flurry counts every spell its controller cast this turn (incl. before the Cutter entered); the attach choice is
+  a paused resolution with no priority in between (card ruling).
+
+### Known limitations
+- Mutagenic Growth's {G} payment cannot occur with this real list (no green source); it is exercised only in focused
+  tests. Equip, plot and trample-to-player are rare under the simple pilots (about 1 game in 200 per cell for plotted
+  casts) -- covered by focused tests and the inspected logs, not by volume.
+- Trample's lethal-damage check is exact for this card pool (one attacker per blocker, no deathtouch).
+- Known-card positions in `my_known` are exact for this card pool (only the owner reorders their library).
+- Pilots are untuned; win rates are diagnostic, not matchup predictions. Sideboards / best-of-three for this pair
+  remain out of scope (the Prowess sideboard is refused).
+- Two real defects were found by the focused tests before validation (Steam Vents / Thundering Falls missing from
+  the land-entry replacement table; flurry predicted the token ObjectId) -- the 1,000-game smoke run had not caught
+  them, so the focused tests carry real weight.
+
 ## Changelog
 - 2026-10-01: survey written (PROPOSED). Awaiting the user's choice before any engine code.
 - 2026-10-01: manual oracle review corrected fetch, delirium, exile-play, flashback, Bauble, plot, and Thundering
   Falls requirements; acceptance split into four asymmetric seat/start cells. Still PROPOSED; no engine code.
 - 2026-10-01: APPROVED by the user as one implementation block (Burn vs decks/auto/izzet_prowess_modern.txt); EXECUTING.
+- 2026-10-01: SHIPPED. All gates pass (four cells, 10,000 games, 0 errors / dead ends / illegal accepted; 1,252
+  exact replays; 400/400 repeats; logs inspected; M7 equal to the pre-M4 engine, floor met). mtg-sim 4bb475c..926617f.
