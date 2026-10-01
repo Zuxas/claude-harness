@@ -1,5 +1,5 @@
 # harness/specs/ -- Spec Index
-# Last updated: 2026-05-01
+# Last updated: 2026-10-01
 
 Chronological list of all execution specs by status. Newest first within
 each status. After a spec ships, it stays in this index forever.
@@ -63,6 +63,11 @@ commits from 2026-04-26/2026-04-27 session that pre-date this directory)
 - `2026-09-30-rules-engine-v2-design.md` -- **SHIPPED milestone one 2026-09-30.** Isolated `engine/v2` with
   typed legal actions, observation-only policies, transactional state changes, deterministic replay, and two
   synthetic decks. M0-M6 pass; M7 is reported-only at 20.55-22.42 games/s against a 20 games/s floor.
+- `2026-09-30-v2-m2-burn-mirror-proposal.md` -- **SHIPPED milestone two 2026-10-01**
+  (`mtg-sim` `c083785..60cd745`). The exact 60-card Modern Burn mirror runs through v2 with triggers,
+  activated abilities, search, replacement effects, modal spells, alternative costs, and suspend. The
+  10,000-game gate had zero crashes, invariant violations, or dead ends; 1,000 sampled replays were exact.
+  Best-of-three completed 500 exact match replays using a supported test sideboard.
 - `2026-09-30-card-identity-gate.md` -- **SHIPPED 2026-09-30.** Exact card names in every mode, with no
   fuzzy substitution, placeholders, or network fallback; the Scryfall snapshot is versioned in `SNAPSHOT.json`.
 - `2026-09-30-strict-mode.md` -- **SHIPPED 2026-09-30.** Legacy output is labelled experimental; strict mode
