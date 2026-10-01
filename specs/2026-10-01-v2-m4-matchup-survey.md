@@ -178,6 +178,18 @@ rotate random/random, aggro/aggro, aggro/random (untuned pilots).
 - Known-card positions in `my_known` are exact for this card pool (only the owner reorders their library).
 - Pilots are untuned; win rates are diagnostic, not matchup predictions. Sideboards / best-of-three for this pair
   remain out of scope (the Prowess sideboard is refused).
+- Log commitments are keyed by a secret derived from the game seed, and validation seeds are small sequential
+  integers: a log reader who knows or enumerates the seed can open them (whoever holds the seed can replay the
+  whole game anyway). The log hides hidden cards from a reader without the seed, not from an adversary; policies
+  only ever receive observations, never the log. The instrumented leak test scans ObjectIds of hidden cards; card
+  instance ids of hidden cards are covered by structural review (hidden events carry none), not by that scan.
+- Pilot behaviour added to SimpleAggroPolicy beyond answering the new decision kinds (for mechanic coverage, not
+  win rate): pump spells (Giant Growth / Mutagenic Growth / Violent Urge) target its own creatures; it floats
+  {1}{R} when an unattached Equipment and a creature exist; it takes an available equip ahead of fetch / Bauble
+  activations regardless of life; library decisions are seeded-random; it always attaches the flurry token. All
+  can be reverted (the 10k validation would then be re-run).
+- Order of work: S1-S9 were implemented first and the focused tests written immediately afterwards (not strictly
+  test-first per slice).
 - Two real defects were found by the focused tests before validation (Steam Vents / Thundering Falls missing from
   the land-entry replacement table; flurry predicted the token ObjectId) -- the 1,000-game smoke run had not caught
   them, so the focused tests carry real weight.
@@ -189,3 +201,4 @@ rotate random/random, aggro/aggro, aggro/random (untuned pilots).
 - 2026-10-01: APPROVED by the user as one implementation block (Burn vs decks/auto/izzet_prowess_modern.txt); EXECUTING.
 - 2026-10-01: SHIPPED. All gates pass (four cells, 10,000 games, 0 errors / dead ends / illegal accepted; 1,252
   exact replays; 400/400 repeats; logs inspected; M7 equal to the pre-M4 engine, floor met). mtg-sim 4bb475c..926617f.
+  Milestone 1-3 gates re-run on the M4 engine (10k fuzz + 10k replays, Burn mirror 10k, Bo3 500): all pass.
