@@ -13,7 +13,7 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
-- `2026-10-01-v2-m4-matchup-survey.md` -- **PROPOSED.** Survey recommends Burn vs Izzet Prowess as the first
+- `2026-10-01-v2-m4-matchup-survey.md` -- **EXECUTING (approved 2026-10-01).** Survey recommends Burn vs Izzet Prowess as the first
   asymmetric v2 matchup. The corrected card-by-card scope and four-cell 10,000-game gate await approval; no engine
   implementation has started (`mtg-sim` survey commit `0e79a4e`).
 
