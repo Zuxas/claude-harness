@@ -68,6 +68,10 @@ commits from 2026-04-26/2026-04-27 session that pre-date this directory)
   activated abilities, search, replacement effects, modal spells, alternative costs, and suspend. The
   10,000-game gate had zero crashes, invariant violations, or dead ends; 1,000 sampled replays were exact.
   Best-of-three completed 500 exact match replays using a supported test sideboard.
+- `2026-10-01-v2-m3-gameplay-launcher.md` -- **SHIPPED milestone three 2026-10-01**
+  (`mtg-sim` `055a373`). Added an anonymized, log-derived conformance corpus with 2,067 of 2,078 normalized
+  episodes passing and 11 explained unsupported/ambiguous cases, plus an explicit experimental v2 launcher
+  path with strict refusal, deterministic records, replay, single-game, and Bo3 support. Legacy remains default.
 - `2026-09-30-card-identity-gate.md` -- **SHIPPED 2026-09-30.** Exact card names in every mode, with no
   fuzzy substitution, placeholders, or network fallback; the Scryfall snapshot is versioned in `SNAPSHOT.json`.
 - `2026-09-30-strict-mode.md` -- **SHIPPED 2026-09-30.** Legacy output is labelled experimental; strict mode
