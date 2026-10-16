@@ -2,7 +2,11 @@
 playbook_generator.py -- Auto-generate playbook HTML from sim data + gauntlet results.
 
 Reads knowledge blocks (sim, tune, gauntlet/grind) and produces standalone HTML
-playbooks in the My-Website/{format}/ directory.
+playbook DRAFTS in <workspace>/playbook-drafts/{format}/ -- outside the website repo,
+so a run can never overwrite or publish a finished playbook. Promote a draft by hand.
+--all only drafts decks with evidence they belong to the format (a tune block with a
+matching "Format:" line, or an existing playbook in that format); sim blocks carry no
+format, and trusting --format alone filed Standard decks under modern/ (2026-10-11).
 
 CLI:
     python playbook_generator.py "Boros Energy" --format modern
@@ -26,6 +30,7 @@ from agent_hardening import AgentLogger
 PROJECT_ROOT = Path("E:/vscode ai project")
 KNOWLEDGE_DIR = PROJECT_ROOT / "harness" / "knowledge" / "mtg"
 WEBSITE_DIR = PROJECT_ROOT / "My-Website"
+DRAFTS_DIR = PROJECT_ROOT / "playbook-drafts"
 
 # ---------------------------------------------------------------------------
 # YAML Frontmatter + Markdown Parser
@@ -496,16 +501,14 @@ def generate_playbook_html(data: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def find_existing_playbook(deck_slug: str, fmt: str) -> Path | None:
-    """Check if a playbook already exists for this deck."""
-    fmt_dir = WEBSITE_DIR / fmt
-    # Try common naming patterns
-    for pattern in [
-        f"{deck_slug}-playbook.html",
-        f"{deck_slug}.html",
-    ]:
-        path = fmt_dir / pattern
-        if path.exists():
-            return path
+    """Find a published playbook for this deck (current or archived). Read-only."""
+    dirs = [WEBSITE_DIR / fmt] + sorted((WEBSITE_DIR / "archive").glob(f"*/{fmt}"), reverse=True)
+    for fmt_dir in dirs:
+        for pattern in [f"{deck_slug}-playbook.html", f"{deck_slug}.html"]:
+            path = fmt_dir / pattern
+            # Skip archive redirect stubs: they hold no content worth preserving.
+            if path.exists() and 'http-equiv="refresh"' not in path.read_text(encoding="utf-8"):
+                return path
     return None
 
 
@@ -573,6 +576,7 @@ def generate_playbook(
     fmt: str,
     dry_run: bool = False,
     log: AgentLogger | None = None,
+    require_format_evidence: bool = False,
 ) -> dict:
     """Generate or update a playbook for the given deck.
 
@@ -608,6 +612,11 @@ def generate_playbook(
 
     # 2. Check for existing playbook
     existing = find_existing_playbook(slug, fmt)
+    if require_format_evidence:
+        tune_fmts = {tb.get("format", "").lower() for tb in data["tune"]}
+        if fmt.lower() not in tune_fmts and existing is None:
+            log.warn(f"No evidence {deck_name} is a {fmt} deck. Skipping.")
+            return {"deck": deck_name, "status": "skipped", "reason": f"not known to be {fmt}"}
     if existing:
         log.info(f"Existing playbook found: {existing}")
         manual = extract_manual_content(existing)
@@ -635,8 +644,13 @@ def generate_playbook(
         )
 
     # 4. Output
-    out_dir = WEBSITE_DIR / fmt
+    out_dir = DRAFTS_DIR / fmt
     out_path = out_dir / f"{slug}-playbook.html"
+
+    if out_path.exists():
+        # A draft may have been hand-edited before promotion; never clobber it.
+        log.warn(f"Draft exists, not overwriting (delete it to regenerate): {out_path}")
+        return {"deck": deck_name, "status": "skipped", "reason": "draft exists"}
 
     if dry_run:
         log.info(f"[DRY RUN] Would write to: {out_path}")
@@ -705,7 +719,8 @@ def main():
         log.info(f"Discovered {len(slugs)} decks with data")
         for slug in slugs:
             title = slug_to_title(slug)
-            result = generate_playbook(title, args.format, args.dry_run, log)
+            result = generate_playbook(title, args.format, args.dry_run, log,
+                                       require_format_evidence=True)
             results.append(result)
     else:
         result = generate_playbook(args.deck, args.format, args.dry_run, log)
