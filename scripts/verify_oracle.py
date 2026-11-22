@@ -21,9 +21,14 @@ import os
 import json
 import re
 import urllib.request
+import urllib.error
 
 SIM_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "mtg-sim")
 sys.path.insert(0, SIM_ROOT)
+
+# verify_card() result codes, chosen to equal the documented process exit codes:
+# 0 PASS, 1 FAIL (oracle discrepancy), 2 UNAVAILABLE (model could not be reached).
+PASS, FAIL, UNAVAILABLE = 0, 1, 2
 
 
 def get_oracle_text(card_name: str) -> str | None:
@@ -101,17 +106,17 @@ def ask_gemma(prompt: str, model: str = "gemma4") -> str:
         return json.loads(resp.read()).get("response", "").strip()
 
 
-def verify_card(card_name: str, apl_path: str, verbose: bool = True) -> bool:
-    """Returns True if PASS, False if FAIL."""
+def verify_card(card_name: str, apl_path: str, verbose: bool = True) -> int:
+    """Return PASS, FAIL, or UNAVAILABLE (model could not be reached)."""
     oracle = get_oracle_text(card_name)
     if oracle is None:
         print(f"  SKIP  {card_name} -- oracle text not found in local DB")
-        return True  # not a failure, just skipped
+        return PASS  # not a failure, just skipped
 
     context = grep_apl_context(apl_path, card_name)
     if not context:
         print(f"  SKIP  {card_name} -- not mentioned in {os.path.basename(apl_path)}")
-        return True
+        return PASS
 
     prompt = f"""You are auditing an MTG simulation APL (Action Priority List) against official oracle text.
 
@@ -140,11 +145,18 @@ DISCREPANCIES:
 - [oracle clause] vs [apl line or "not modeled"]
 """
 
+    # Only connection-level failures mean "the model never answered" -- those
+    # fail the gate closed (UNAVAILABLE), never pass. A genuine bug in this
+    # script must still surface as a crash, not hide behind the infra label.
     try:
         response = ask_gemma(prompt)
-    except Exception as e:
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
         print(f"  ERROR {card_name} -- Gemma unavailable: {e}", file=sys.stderr)
-        return True  # don't fail the run if Gemma is down
+        return UNAVAILABLE
+
+    if not response.strip():
+        print(f"  ERROR {card_name} -- Gemma unavailable: empty response", file=sys.stderr)
+        return UNAVAILABLE
 
     passed = response.upper().startswith("RESULT: PASS") or "RESULT: PASS" in response[:50]
     status = "PASS " if passed else "FAIL "
@@ -153,7 +165,7 @@ DISCREPANCIES:
         # Print discrepancies indented
         for line in response.split("\n"):
             print(f"         {line}")
-    return passed
+    return PASS if passed else FAIL
 
 
 def extract_card_constants(apl_path: str) -> list[str]:
@@ -168,6 +180,16 @@ def extract_card_constants(apl_path: str) -> list[str]:
         if len(card_name) > 3 and not card_name.startswith("apl/") and "/" not in card_name:
             names.append(card_name)
     return list(dict.fromkeys(names))  # deduplicate, preserve order
+
+
+def batch_exit_code(results: list) -> int:
+    """Discrepancy outranks unavailable outranks pass, so a real FAIL seen
+    before the model went down is never masked by a later UNAVAILABLE."""
+    if FAIL in results:
+        return 1
+    if UNAVAILABLE in results:
+        return 2
+    return 0
 
 
 def main():
@@ -189,19 +211,19 @@ def main():
         print(f"Batch verifying {len(card_names)} cards in {os.path.basename(apl_path)}")
         print("-" * 60)
         results = [verify_card(name, apl_path) for name in card_names]
-        passed = sum(results)
-        failed = len(results) - passed
+        passed = results.count(PASS)
+        failed = results.count(FAIL)
+        unavailable = results.count(UNAVAILABLE)
         print("-" * 60)
-        print(f"Results: {passed} PASS  {failed} FAIL  (of {len(results)} checked)")
-        sys.exit(0 if failed == 0 else 1)
+        print(f"Results: {passed} PASS  {failed} FAIL  {unavailable} UNVERIFIED  (of {len(results)} checked)")
+        sys.exit(batch_exit_code(results))
     else:
         if len(args) < 2:
             print("Usage: verify_oracle.py <card_name> <apl_file>", file=sys.stderr)
             sys.exit(2)
         card_name = args[0]
         apl_path = os.path.abspath(args[1])
-        ok = verify_card(card_name, apl_path, verbose=True)
-        sys.exit(0 if ok else 1)
+        sys.exit(verify_card(card_name, apl_path, verbose=True))
 
 
 if __name__ == "__main__":
