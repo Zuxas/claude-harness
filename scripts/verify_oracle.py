@@ -90,6 +90,54 @@ def grep_apl_context(apl_path: str, card_name: str, context_lines: int = 25) -> 
     return "\n---\n".join(output_parts)
 
 
+# Engine files that hold the real card effects. Gemma sees the APL file only,
+# so cards whose effect lives here (Spell Snare, Lightning Bolt, Fatal Push...)
+# were reported as "not modeled" false positives (issue #74 section 3B). Feed it
+# the handler code too.
+_HANDLER_FILES = (
+    "engine/card_handlers_verified.py",
+    "engine/counter_resolver.py",
+    "engine/card_effects.py",
+    "engine/game_state.py",
+)
+
+
+def grep_handler_context(card_name: str, context_lines: int = 8,
+                         max_chars: int = 6000) -> str:
+    """Lines near every mention of card_name across the engine handler files.
+    Capped at max_chars so a heavily-referenced card can't blow the model's
+    context window."""
+    out = []
+    for rel in _HANDLER_FILES:
+        path = os.path.join(SIM_ROOT, rel)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+        hits = sorted(
+            {j for i, line in enumerate(lines) if card_name.lower() in line.lower()
+             for j in range(max(0, i - context_lines),
+                            min(len(lines), i + context_lines + 1))}
+        )
+        if not hits:
+            continue
+        chunk = "".join(f"  {k + 1:5d}: {lines[k]}" for k in hits)
+        out.append(f"# {rel}\n{chunk}")
+    joined = "\n---\n".join(out)
+    if len(joined) > max_chars:
+        joined = joined[:max_chars] + "\n  ... (handler context truncated)\n"
+    return joined
+
+
+def warm_up(model: str = "gemma4") -> None:
+    """One throwaway call so the first real card doesn't hit a cold model
+    (cold starts truncate and get mis-scored as FAIL). Best-effort."""
+    try:
+        ask_gemma("Reply with exactly: RESULT: PASS", model=model)
+    except Exception:
+        pass
+
+
 def ask_gemma(prompt: str, model: str = "gemma4") -> str:
     body = json.dumps({
         "model": model,
@@ -118,7 +166,22 @@ def verify_card(card_name: str, apl_path: str, verbose: bool = True) -> int:
         print(f"  SKIP  {card_name} -- not mentioned in {os.path.basename(apl_path)}")
         return PASS
 
-    prompt = f"""You are auditing an MTG simulation APL (Action Priority List) against official oracle text.
+    handler = grep_handler_context(card_name)
+    handler_section = (
+        f"""
+ENGINE HANDLER CODE (the card's real effect usually lives here, not in the APL;
+if the effect is implemented here, the card IS modeled -- do not report it as
+"not modeled" just because the APL file does not repeat it):
+{handler}
+"""
+        if handler
+        else ""
+    )
+
+    prompt = f"""You are auditing an MTG simulation against official oracle text. The
+simulation is split in two: an APL (Action Priority List) decides WHEN to play a
+card, and the engine handler code implements WHAT the card does. A card is
+correctly modeled if its effect is implemented in EITHER place.
 
 CARD: {card_name}
 
@@ -127,9 +190,9 @@ ORACLE TEXT (verbatim from Scryfall):
 
 APL IMPLEMENTATION (relevant lines from {os.path.basename(apl_path)}):
 {context}
-
-Task: Identify any discrepancies between the oracle text and the APL implementation.
-Focus on:
+{handler_section}
+Task: Identify any discrepancies between the oracle text and the implementation
+(APL + engine handler together). Focus on:
 - Mana costs (wrong cost paid, cost not paid at all)
 - Trigger conditions (when does the effect fire vs when APL fires it)
 - Effect targets (who gains life, who takes damage, what gets exiled)
@@ -210,6 +273,7 @@ def main():
             sys.exit(0)
         print(f"Batch verifying {len(card_names)} cards in {os.path.basename(apl_path)}")
         print("-" * 60)
+        warm_up()  # avoid a cold-start truncation on the first card
         results = [verify_card(name, apl_path) for name in card_names]
         passed = results.count(PASS)
         failed = results.count(FAIL)
