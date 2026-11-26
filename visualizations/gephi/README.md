@@ -1,7 +1,12 @@
 # Gephi visualizations
 
-GEXF 1.3 graph snapshots of the project, one per date. Generated from
+GEXF 1.3 graph snapshots of the project, one per date, kept on your machine. Generated from
 `harness/state/graph-snapshots/<date>.json` by `harness/scripts/json-to-gexf.py`.
+
+> **Local only.** The `.gexf` files generated here are gitignored and must not be
+> committed. A snapshot indexes every file under the workspace, including files
+> that are gitignored in their own repos and the names of private repos, so
+> publishing one leaks them. Regenerate locally with the commands below.
 
 ## Open in Gephi
 
