@@ -439,11 +439,16 @@ Phelia: SyntaxError). Infrastructure works; Gemma quality is the gap.
 Improving Gemma's prompt or escalating to Claude path are downstream
 follow-ups.
 
-**Auth-path topology:** `apl/auto_apl.py:_get_api_token` resolves
-from (1) `ANTHROPIC_API_KEY` env var, (2) Claude Code OAuth
-credentials at `~/.claude/.credentials.json`, (3) `.env` file.
+**Auth-path topology:** `agents/scripts/harness_auth.py:get_claude_token`
+is the single resolver (used by `apl_optimizer.py` and `auto_pipeline.py`),
+resolving from (1) `ANTHROPIC_API_KEY` env var, (2) a non-expired Claude Code
+OAuth token at `~/.claude/.credentials.json`, (3) an `ANTHROPIC_API_KEY=` line
+in the sim repo `.env`. For a raw HTTP call, `harness_auth.auth_header(token)`
+picks the header: an OAuth `sk-ant-oat...` token authenticates with
+`Authorization: Bearer`, a plain API key with `x-api-key` (#5).
 **VERIFIED 2026-04-29:** OAuth tokens (`sk-ant-oat01...`) work against
-`api.anthropic.com/v1/messages` — HTTP 200, valid completion returned.
+`api.anthropic.com/v1/messages` with the Bearer header — HTTP 200, valid
+completion returned.
 Prior 2026-04-28 probe showed HTTP 401 (transient policy state; now
 corrected). Implication: Claude path in auto-pipeline is FREE under
 Claude Max subscription. `--auto-pipeline-use-claude` requires no
