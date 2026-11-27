@@ -533,16 +533,26 @@ def _save_apl_code(deck_name, code, method="gemma"):
 
 
 def _ollama_model_available(model_name: str) -> bool:
-    """Check if a model is installed in Ollama without making a generate call."""
+    """Check if a model is installed in Ollama without making a generate call.
+
+    Matches the exact ``name:tag``. Ollama's /api/tags always reports a tag, and
+    a bare request name means ``:latest``, so asking for ``gemma4:26b`` does NOT
+    match an installed ``gemma4:latest`` -- the old ``startswith(family)`` check
+    did, so the preference chain never fell back and the later generate call
+    failed (#4)."""
     import urllib.request
+
+    def _norm(name: str) -> str:
+        return name if ":" in name else f"{name}:latest"
+
     try:
         req = urllib.request.Request("http://localhost:11434/api/tags")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
-        installed = [m["name"] for m in data.get("models", [])]
-        return any(m == model_name or m.startswith(model_name.split(":")[0]) for m in installed)
     except Exception:
         return False
+    installed = {_norm(m["name"]) for m in data.get("models", [])}
+    return _norm(model_name) in installed
 
 
 # Model preference order for APL code generation.
