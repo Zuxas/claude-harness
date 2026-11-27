@@ -632,12 +632,10 @@ def _generate_via_claude_v2(deck_name, format_name="modern"):
     production quality. Writes to apl/auto_apls/<slug>.py.
     """
     log(f"  Generating APL via Claude for {deck_name}...")
-    try:
-        import pathlib as _pl
-        _creds = json.loads((_pl.Path.home() / ".claude" / ".credentials.json").read_text())
-        _token = _creds["claudeAiOauth"]["accessToken"]
-    except Exception as _e:
-        log(f"  OAuth token unavailable ({_e}) -- falling back to Gemma", "WARN")
+    from harness_auth import get_claude_token
+    _token = get_claude_token()
+    if not _token:
+        log("  Claude credential unavailable -- falling back to Gemma", "WARN")
         return _generate_via_gemma(deck_name, format_name)
 
     prompt = _build_apl_prompt(deck_name, format_name)
