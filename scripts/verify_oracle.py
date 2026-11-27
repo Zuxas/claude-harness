@@ -138,12 +138,17 @@ def warm_up(model: str = "gemma4") -> None:
         pass
 
 
-def ask_gemma(prompt: str, model: str = "gemma4") -> str:
+def ask_gemma(prompt: str, model: str = "gemma4") -> tuple[str, str]:
+    """Return (response_text, done_reason). done_reason is 'length' when the
+    model hit the token cap and the answer is CUT OFF. num_predict is generous
+    because the answer itself is short -- the big context lives in the prompt --
+    so a 'length' stop almost always means the model rambled, not that a real
+    verdict got clipped."""
     body = json.dumps({
         "model": model,
         "prompt": prompt,
         "stream": False,
-        "options": {"temperature": 0.1, "num_predict": 1024},
+        "options": {"temperature": 0.1, "num_predict": 2048},
     }).encode()
     req = urllib.request.Request(
         "http://localhost:11434/api/generate",
@@ -151,7 +156,34 @@ def ask_gemma(prompt: str, model: str = "gemma4") -> str:
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
-        return json.loads(resp.read()).get("response", "").strip()
+        data = json.loads(resp.read())
+    return data.get("response", "").strip(), data.get("done_reason", "stop")
+
+
+_VERDICT_RE = re.compile(r"RESULT:\s*(PASS|FAIL)", re.IGNORECASE)
+
+
+def classify_verdict(response: str, done_reason: str = "stop") -> int:
+    """Map a model answer to PASS / FAIL / UNAVAILABLE. Fail-closed: a cut-off
+    or verdict-less answer is NEVER a silent PASS.
+
+    - A clear 'RESULT: PASS' / 'RESULT: FAIL' line is authoritative (the verdict
+      comes first, so truncation AFTER it does not change it).
+    - An empty answer is UNAVAILABLE (the model said nothing).
+    - A non-empty answer with no verdict line that was CUT OFF at the token cap
+      (done_reason == 'length') is UNAVAILABLE, not FAIL -- we simply never got a
+      verdict, so it is 'could not verify', not a reported discrepancy.
+    - A non-empty, non-truncated answer that ignored the format stays FAIL, so a
+      malformed-but-complete answer still gets a human's eyes."""
+    text = response.strip()
+    if not text:
+        return UNAVAILABLE
+    m = _VERDICT_RE.search(text)
+    if m:
+        return PASS if m.group(1).upper() == "PASS" else FAIL
+    if done_reason == "length":
+        return UNAVAILABLE
+    return FAIL
 
 
 def verify_card(card_name: str, apl_path: str, verbose: bool = True) -> int:
@@ -212,23 +244,24 @@ DISCREPANCIES:
     # fail the gate closed (UNAVAILABLE), never pass. A genuine bug in this
     # script must still surface as a crash, not hide behind the infra label.
     try:
-        response = ask_gemma(prompt)
+        response, done_reason = ask_gemma(prompt)
     except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
         print(f"  ERROR {card_name} -- Gemma unavailable: {e}", file=sys.stderr)
         return UNAVAILABLE
 
-    if not response.strip():
-        print(f"  ERROR {card_name} -- Gemma unavailable: empty response", file=sys.stderr)
+    verdict = classify_verdict(response, done_reason)
+    if verdict == UNAVAILABLE:
+        why = "empty response" if not response.strip() else f"no verdict (cut off, done_reason={done_reason})"
+        print(f"  ERROR {card_name} -- Gemma gave no usable verdict: {why}", file=sys.stderr)
         return UNAVAILABLE
 
-    passed = response.upper().startswith("RESULT: PASS") or "RESULT: PASS" in response[:50]
-    status = "PASS " if passed else "FAIL "
+    status = "PASS " if verdict == PASS else "FAIL "
     print(f"  {status} {card_name}")
-    if verbose and not passed:
+    if verbose and verdict == FAIL:
         # Print discrepancies indented
         for line in response.split("\n"):
             print(f"         {line}")
-    return PASS if passed else FAIL
+    return verdict
 
 
 def extract_card_constants(apl_path: str) -> list[str]:
