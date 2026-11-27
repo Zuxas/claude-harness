@@ -96,29 +96,9 @@ GOLDFISH RULES: No opponent interaction, no blocking. Focus on advancing the dam
 
 
 def _get_claude_token():
-    """Get Anthropic API token from Claude Code credentials."""
-    import os as _os
-    key = _os.environ.get("ANTHROPIC_API_KEY", "")
-    if key:
-        return key
-    creds_path = Path.home() / ".claude" / ".credentials.json"
-    if creds_path.exists():
-        try:
-            import time as _time
-            creds = json.loads(creds_path.read_text(encoding="utf-8"))
-            oauth = creds.get("claudeAiOauth", {})
-            token = oauth.get("accessToken", "")
-            expires = oauth.get("expiresAt", 0)
-            if token and expires > (_time.time() * 1000 + 300_000):
-                return token
-        except Exception:
-            pass
-    env_file = SIM_ROOT / ".env"
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if line.startswith("ANTHROPIC_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"')
-    return None
+    """Get a Claude credential via the shared harness_auth helper (#5)."""
+    from harness_auth import get_claude_token
+    return get_claude_token(env_file=SIM_ROOT / ".env")
 
 
 def call_claude_api(prompt, model="claude-sonnet-4-20250514"):
@@ -128,10 +108,8 @@ def call_claude_api(prompt, model="claude-sonnet-4-20250514"):
         log("  [WARN] No Claude API token found, falling back to Gemma")
         return ask_gemma(prompt)
     
-    if token.startswith("sk-ant-oat") or token.startswith("Bearer "):
-        auth = {"Authorization": f"Bearer {token.lstrip('Bearer ')}"}
-    else:
-        auth = {"x-api-key": token}
+    from harness_auth import auth_header
+    auth = auth_header(token)
     
     from apl_cookbook import APL_COOKBOOK
     payload = json.dumps({
