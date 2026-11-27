@@ -146,19 +146,26 @@ def ingest_all():
     
     log(f"Found {len(files)} files to process")
     
-    # Load existing index to skip already-processed files
-    existing = {}
+    # Load the existing index and CARRY IT FORWARD -- it IS the library, not
+    # just a skip list. Drop any entry whose source file no longer exists.
+    # Without this, a re-run wrote an index holding only this run's new chunks
+    # and silently dropped every previously-indexed book (#13).
+    all_chunks = []
+    books_processed = []
     if INDEX_FILE.exists():
         try:
             data = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
-            for chunk in data.get("chunks", []):
-                existing[chunk.get("source", "")] = True
-            log(f"  Existing index: {len(data.get('chunks', []))} chunks from {len(data.get('books', []))} books")
+            prev_chunks = data.get("chunks", [])
+            prev_books = data.get("books", [])
+            all_chunks = [c for c in prev_chunks if Path(c.get("source", "")).exists()]
+            books_processed = [b for b in prev_books if Path(b.get("source", "")).exists()]
+            dropped = len(prev_chunks) - len(all_chunks)
+            log(f"  Existing index: {len(prev_chunks)} chunks from {len(prev_books)} books"
+                + (f" ({dropped} chunks dropped: source file gone)" if dropped else ""))
         except Exception:
             pass
-    
-    all_chunks = []
-    books_processed = []
+    existing = {c.get("source", "") for c in all_chunks}
+
     skipped = 0
     errors = 0
     start = time.time()
@@ -216,7 +223,11 @@ def ingest_all():
         "chunks": all_chunks,
     }
     
-    INDEX_FILE.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+    # Atomic write: the index is large, and a crash mid-write would truncate
+    # the whole library. Write a temp file, then replace. (#13)
+    _tmp = INDEX_FILE.with_suffix(INDEX_FILE.suffix + ".tmp")
+    _tmp.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+    os.replace(_tmp, INDEX_FILE)
     
     log(f"")
     log(f"{'='*60}")
