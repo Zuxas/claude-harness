@@ -328,6 +328,27 @@ def prepare_entries(decks: list[dict]) -> list[dict]:
 # Matrix runner
 # ---------------------------------------------------------------------------
 
+def _rebuild_apl(info):
+    """Reconstruct an APL in a child process from the (module, class) info that
+    _get_apl_info produced (classes aren't picklable). Handles the generic and
+    goldfish-wrapped encodings; module-level so it is unit-testable (#17)."""
+    import importlib
+    mod_name, cls_name = info
+    if mod_name == "__generic__":
+        from apl.match_apl import GenericMatchAPL
+        return GenericMatchAPL()
+    if mod_name == "__goldfish__":
+        # Rebuild GoldfishAdapter(inner()) from the INNER apl's module:class. The
+        # old code returned ("apl.match_apl","GoldfishAdapter") and called
+        # GoldfishAdapter() with no inner -> TypeError on every goldfish pair.
+        from apl.match_apl import GoldfishAdapter
+        inner_mod, inner_cls = cls_name.split(":", 1)
+        m = importlib.import_module(inner_mod)
+        return GoldfishAdapter(getattr(m, inner_cls)())
+    mod = importlib.import_module(mod_name)
+    return getattr(mod, cls_name)()
+
+
 def _mp_worker(args):
     """Worker function for multiprocessing matchup execution.
 
@@ -336,20 +357,9 @@ def _mp_worker(args):
     """
     name_a, deck_a_cards, apl_a_info, name_b, deck_b_cards, apl_b_info, games, seed = args
 
-    import importlib
-
-    def _make_apl(info):
-        mod_name, cls_name = info
-        if mod_name == "__generic__":
-            from apl.match_apl import GenericMatchAPL
-            return GenericMatchAPL()
-        mod = importlib.import_module(mod_name)
-        cls = getattr(mod, cls_name)
-        return cls()
-
     try:
-        apl_a = _make_apl(apl_a_info)
-        apl_b = _make_apl(apl_b_info)
+        apl_a = _rebuild_apl(apl_a_info)
+        apl_b = _rebuild_apl(apl_b_info)
         results = run_match_set(apl_a, deck_a_cards, apl_b, deck_b_cards,
                                 n=games, mix_play_draw=True, seed=seed)
         return name_a, name_b, results.win_pct_a(), results.avg_turns, None
@@ -365,9 +375,11 @@ def _get_apl_info(apl):
     name = cls.__name__
     if name == "GenericMatchAPL":
         return ("__generic__", "GenericMatchAPL")
-    # GoldfishAdapter wraps an inner APL -- reconstruct the adapter
+    # GoldfishAdapter wraps an inner APL; encode the INNER module:class so the
+    # worker can rebuild GoldfishAdapter(inner()) (#17).
     if name == "GoldfishAdapter":
-        return (mod, name)
+        inner = apl.inner
+        return ("__goldfish__", f"{type(inner).__module__}:{type(inner).__name__}")
     return (mod, name)
 
 
@@ -383,6 +395,7 @@ def run_gauntlet(entries: list[dict], games: int = 500,
     Returns matrix dict: {(deck_a_name, deck_b_name): win_pct_a}
     """
     matrix = {}
+    failed_pairs = []  # (name_a, name_b) of matchups that errored (#17)
     pairs = []
 
     if single_deck:
@@ -394,7 +407,7 @@ def run_gauntlet(entries: list[dict], games: int = 500,
         if not target:
             log.error(f"Deck '{single_deck}' not found. Available: "
                       f"{', '.join(e['name'] for e in entries)}")
-            return matrix
+            return matrix, failed_pairs
         opponents = [e for e in entries if e["name"] != target["name"]]
         pairs = [(target, opp) for opp in opponents]
     else:
@@ -427,6 +440,7 @@ def run_gauntlet(entries: list[dict], games: int = 500,
             name_a, name_b, win_pct_a, avg_turns, error = result
             if error:
                 log.error(f"  {name_a} vs {name_b}: FAILED\n{error[:300]}")
+                failed_pairs.append((name_a, name_b))
                 ctrl.step(progress=False)
             else:
                 matrix[(name_a, name_b)] = win_pct_a
@@ -469,11 +483,14 @@ def run_gauntlet(entries: list[dict], games: int = 500,
 
             except Exception as e:
                 log.error(f"  FAILED: {e}")
+                failed_pairs.append((name_a, name_b))
                 ctrl.step(progress=False)
 
     summary = ctrl.summary()
     log.info(f"Gauntlet complete: {summary['steps']} matchups in {summary['elapsed']:.0f}s")
-    return matrix
+    if failed_pairs:
+        log.error(f"{len(failed_pairs)} matchup(s) FAILED and are excluded from the matrix")
+    return matrix, failed_pairs
 
 
 # ---------------------------------------------------------------------------
@@ -531,9 +548,22 @@ def compute_field_wr(matrix: dict, entries: list[dict],
         if weight_total > 0:
             field_wr[deck] = round(weighted_sum / weight_total, 1)
         else:
-            field_wr[deck] = 50.0  # no data
+            # No completed matchups -> no field WR. None (rendered N/A), NOT 50.0:
+            # a deck whose every pair failed must not sit in the rankings as if it
+            # were a real even result (#17).
+            field_wr[deck] = None
 
     return field_wr
+
+
+def _fw_fmt(v) -> str:
+    """Field-WR value for display: 'N/A' when there's no data (#17)."""
+    return "N/A" if v is None else f"{v:.1f}"
+
+
+def _fw_key(v) -> float:
+    """Sort key that ranks no-data decks last."""
+    return -1.0 if v is None else v
 
 
 # ---------------------------------------------------------------------------
@@ -570,8 +600,7 @@ def print_matrix(entries: list[dict], matrix: dict,
                     row += f"  {matrix[key]:>7.1f}%"
                 else:
                     row += f"  {'?':>8}"
-        fw = field_wr.get(deck, 0.0)
-        row += f"  {fw:>7.1f}%"
+        row += f"  {_fw_fmt(field_wr.get(deck)):>7}%"
         print(row)
 
     print("=" * len(header))
@@ -582,13 +611,24 @@ def print_matrix(entries: list[dict], matrix: dict,
 # Output: CSV
 # ---------------------------------------------------------------------------
 
+def _failed_set(failed_pairs):
+    """Both orderings of each failed pair, for O(1) cell lookup (#17)."""
+    s = set()
+    for a, b in (failed_pairs or []):
+        s.add((a, b))
+        s.add((b, a))
+    return s
+
+
 def write_csv(entries: list[dict], matrix: dict,
-              field_wr: dict[str, float], format_name: str) -> str:
+              field_wr: dict[str, float], format_name: str,
+              failed_pairs=None) -> str:
     """Write matchup matrix to CSV. Returns file path."""
     TEAM_DATA_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = TEAM_DATA_DIR / f"gauntlet_matrix_{format_name}.csv"
 
     names = [e["name"] for e in entries]
+    failed = _failed_set(failed_pairs)
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -600,11 +640,15 @@ def write_csv(entries: list[dict], matrix: dict,
             for opp in names:
                 if deck == opp:
                     row.append("--")
+                elif (deck, opp) in failed:
+                    row.append("FAIL")   # a failed matchup, NOT a real 0.0
                 else:
-                    key = (deck, opp)
-                    row.append(f"{matrix.get(key, 0):.1f}")
-            row.append(f"{field_wr.get(deck, 0):.1f}")
+                    row.append(f"{matrix.get((deck, opp), 0):.1f}")
+            row.append(_fw_fmt(field_wr.get(deck)))
             writer.writerow(row)
+        # Explicit failure accounting so a partial run can't masquerade as clean.
+        writer.writerow([])
+        writer.writerow(["# failed_matchups", str(len(failed_pairs or []))])
 
     log.info(f"CSV written: {csv_path}")
     return str(csv_path)
@@ -616,15 +660,18 @@ def write_csv(entries: list[dict], matrix: dict,
 
 def write_knowledge_block(entries: list[dict], matrix: dict,
                           field_wr: dict[str, float],
-                          format_name: str, games: int) -> str:
+                          format_name: str, games: int,
+                          failed_pairs=None) -> str:
     """Write a knowledge block markdown file. Returns file path."""
     KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
     today = date.today().isoformat()
     kb_path = KNOWLEDGE_DIR / f"gauntlet-{format_name}-{today}.md"
 
     names = [e["name"] for e in entries]
+    failed = _failed_set(failed_pairs)
+    n_failed = len(failed_pairs or [])
     # Sort by field WR descending
-    ranked = sorted(names, key=lambda n: -field_wr.get(n, 0))
+    ranked = sorted(names, key=lambda n: -_fw_key(field_wr.get(n)))
 
     lines = [
         "---",
@@ -639,6 +686,16 @@ def write_knowledge_block(entries: list[dict], matrix: dict,
         f"**Engine**: mtg-sim match engine (real two-player games)",
         f"**Games per pair**: {games}",
         f"**Decks tested**: {len(entries)}",
+    ]
+    if n_failed:
+        lines += [
+            "",
+            f"> ⚠️ **{n_failed} matchup(s) FAILED** and are excluded from the matrix. "
+            f"Field WR for an affected deck may be partial or **N/A**; these rankings "
+            f"are not complete. Failed pairs: "
+            + ", ".join(f"{a} vs {b}" for a, b in (failed_pairs or [])),
+        ]
+    lines += [
         "",
         "## Tier List (by field-weighted win rate)",
         "",
@@ -646,9 +703,9 @@ def write_knowledge_block(entries: list[dict], matrix: dict,
 
     # Tier thresholds
     for i, deck in enumerate(ranked, 1):
-        fw = field_wr.get(deck, 0)
+        fw = field_wr.get(deck)
         apl_src = next((e["apl_source"] for e in entries if e["name"] == deck), "?")
-        lines.append(f"{i}. **{deck}** -- {fw:.1f}% field WR ({apl_src})")
+        lines.append(f"{i}. **{deck}** -- {_fw_fmt(fw)}% field WR ({apl_src})")
 
     lines.extend(["", "## Matchup Matrix", ""])
 
@@ -679,11 +736,12 @@ def write_knowledge_block(entries: list[dict], matrix: dict,
         for opp in ranked:
             if deck == opp:
                 row += " -- |"
+            elif (deck, opp) in failed:
+                row += " FAIL |"
             else:
-                key = (deck, opp)
-                val = matrix.get(key, 0)
+                val = matrix.get((deck, opp), 0)
                 row += f" {val:.1f} |"
-        row += f" {field_wr.get(deck, 0):.1f} |"
+        row += f" {_fw_fmt(field_wr.get(deck))} |"
         lines.append(row)
 
     lines.extend([
@@ -808,8 +866,8 @@ Examples:
         return
 
     # 4. Run the gauntlet
-    matrix = run_gauntlet(entries, games=args.games, single_deck=args.deck,
-                          parallel_matchups=args.parallel)
+    matrix, failed_pairs = run_gauntlet(entries, games=args.games, single_deck=args.deck,
+                                        parallel_matchups=args.parallel)
     if not matrix:
         log.error("No results produced. Exiting.")
         sys.exit(1)
@@ -822,22 +880,29 @@ Examples:
     print_matrix(entries, matrix, field_wr)
 
     if not args.no_csv:
-        csv_path = write_csv(entries, matrix, field_wr, args.format)
+        csv_path = write_csv(entries, matrix, field_wr, args.format, failed_pairs)
         print(f"CSV: {csv_path}")
 
     if not args.no_kb:
         kb_path = write_knowledge_block(entries, matrix, field_wr,
-                                         args.format, args.games)
+                                         args.format, args.games, failed_pairs)
         print(f"Knowledge block: {kb_path}")
 
     # 7. Summary to log
-    ranked = sorted(field_wr.items(), key=lambda x: -x[1])
+    ranked = sorted(field_wr.items(), key=lambda x: -_fw_key(x[1]))
     log.section("Final Rankings")
     for i, (deck, fw) in enumerate(ranked, 1):
-        log.info(f"  {i}. {deck:<30} {fw:.1f}% field WR")
+        log.info(f"  {i}. {deck:<30} {_fw_fmt(fw)}% field WR")
 
     log.success(f"Gauntlet complete: {len(matrix)//2} matchups, "
                 f"{len(entries)} decks, {args.games} games/pair")
+
+    # Partial results must not look clean: surface failures and exit non-zero so
+    # a scheduled run records an error instead of writing a 50.0-padded CSV (#17).
+    if failed_pairs:
+        log.error(f"{len(failed_pairs)} matchup(s) failed; CSV/rankings are PARTIAL "
+                  f"(failed decks show N/A, not 50.0). Investigate before trusting them.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
