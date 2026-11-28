@@ -132,9 +132,9 @@ def find_new_archetypes(format_name="modern"):
         if arch["current_share"] < 0.02:  # skip <2% meta share
             continue
         
-        safe = arch["archetype"].lower().replace(" ", "_").replace("-", "_")
-        has_apl = any(safe in a for a in existing_apls)
-        has_deck = any(safe in d for d in existing_decks)
+        safe = _safe_slug(arch["archetype"])
+        has_apl = _slug_covered(safe, existing_apls)
+        has_deck = _slug_covered(safe, existing_decks)
         
         if not has_apl:
             new_archetypes.append({
@@ -153,6 +153,16 @@ def find_new_archetypes(format_name="modern"):
 
 def _safe_slug(deck_name):
     return deck_name.lower().replace(" ", "_").replace("-", "_").replace("'", "")
+
+
+def _slug_covered(slug, names):
+    """True if an archetype slug is already represented by a file stem in
+    `names`. Matches the slug exactly OR as a prefix at an underscore boundary,
+    so an APL/deck with a descriptive suffix still counts
+    (izzet_prowess -> izzet_prowess_nick_tokyo_standard) WITHOUT the old
+    substring bug where a slug contained mid-name counted as covered
+    (titan was 'in' amulet_titan). Both sides must already be _safe_slug'd."""
+    return any(name == slug or name.startswith(slug + "_") for name in names)
 
 
 def _already_generated(deck_name):
