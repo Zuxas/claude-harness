@@ -8,7 +8,10 @@ param(
     [string]$Domain
 )
 
-$harnessRoot = "E:\vscode ai project\harness"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$harnessRoot = "$HarnessRoot"
 $knowledgeDir = "$harnessRoot\knowledge"
 
 Write-Host "=== HARNESS CONTEXT LOADER ===" -ForegroundColor Cyan

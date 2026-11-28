@@ -15,10 +15,13 @@ param(
     [int]$Duration = 0
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 $env:OPENAI_API_KEY = [Environment]::GetEnvironmentVariable("OPENAI_API_KEY", "User")
 $env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable("GEMINI_API_KEY", "User")
 
-$Script = "E:\vscode ai project\harness\agents\scripts\apl_grinder.py"
+$Script = "$AgentScripts\apl_grinder.py"
 
 $Decks = @(
     @{Name="Boros Energy"; Target=4.5},
@@ -100,9 +103,9 @@ while ($keepGoing) {
         # Auto-apply improvements
         $safe = $name.ToLower().Replace(" ", "_")
         $today = Get-Date -Format "yyyy-MM-dd"
-        $grindFile = Get-ChildItem "E:\vscode ai project\mtg-sim\apl" -Filter "${safe}_grind_${today}*" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        $grindFile = Get-ChildItem "$SimRoot\apl" -Filter "${safe}_grind_${today}*" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($grindFile) {
-            Copy-Item $grindFile.FullName "E:\vscode ai project\mtg-sim\apl\${safe}.py" -Force
+            Copy-Item $grindFile.FullName "$SimRoot\apl\${safe}.py" -Force
             Write-Host "  APPLIED: $($grindFile.Name)"
             $totalImproved++
         }

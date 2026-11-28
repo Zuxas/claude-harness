@@ -16,7 +16,10 @@ param(
     [switch]$DryRun
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\calibrate.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\calibrate.py"
 $args_list = @()
 if ($Deck)       { $args_list += "--deck"; $args_list += $Deck }
 if ($Format)     { $args_list += "--format"; $args_list += $Format }

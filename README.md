@@ -62,9 +62,12 @@ standalone harness clone with no siblings, point `MTG_SIM_ROOT` /
 `MTG_META_ANALYZER_ROOT` at wherever those repos live (or leave them — scripts
 that need a missing sibling will say so rather than silently targeting `E:\`).
 
-> **Note:** the PowerShell wrappers under `scripts/*.ps1` still carry the old
-> hardcoded workspace path; porting them to the same convention is tracked in the
-> open issues (phases of the portability work).
+The PowerShell wrappers under `scripts/*.ps1` follow the same convention via
+`scripts/_roots.ps1` (dot-sourced at the top of each wrapper). They honour the
+same `HARNESS_ROOT` / `ZUXAS_PROJECT_ROOT` env overrides and otherwise derive the
+roots from the wrapper's own location (`$PSScriptRoot`). Run
+`powershell -File scripts\_roots.ps1 -ShowRoots` to print the resolved roots and
+confirm they match your layout.
 
 ## Running the pipeline
 
