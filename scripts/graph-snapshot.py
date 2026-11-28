@@ -51,10 +51,14 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from graph_privacy import resolve_private_folders, top_folder_of  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -121,16 +125,70 @@ PIP_HINTS = {
 # Tree walking
 # ---------------------------------------------------------------------------
 
-def walk_project(root: Path, warnings: list[str]) -> dict[str, dict]:
+def _gitignored_rel_paths(files: dict[str, dict], root: Path,
+                          warnings: list[str]) -> set[str]:
+    """Rel-to-root paths that are gitignored IN THEIR OWN REPO (#27).
+
+    Groups candidate files by the nearest ancestor repo (a dir containing .git,
+    not above `root`) and batch-runs `git check-ignore --stdin` per repo, so a
+    path ignored in mtg-sim is dropped even though it is tracked in this repo."""
+    cache: dict[Path, Path | None] = {}
+
+    def repo_for(start: Path) -> Path | None:
+        d = start
+        while True:
+            if d in cache:
+                return cache[d]
+            if (d / ".git").exists():
+                cache[start] = d
+                return d
+            if d == root or d.parent == d:
+                cache[start] = None
+                return None
+            d = d.parent
+
+    by_repo: dict[Path, list[tuple[str, Path]]] = defaultdict(list)
+    for rel, meta in files.items():
+        abs_p = Path(meta["abs_path"])
+        repo = repo_for(abs_p.parent)
+        if repo is not None:
+            by_repo[repo].append((rel, abs_p))
+
+    ignored: set[str] = set()
+    for repo, items in by_repo.items():
+        back: dict[str, str] = {}
+        for rel_to_root, abs_p in items:
+            rr = abs_p.relative_to(repo).as_posix()
+            back[rr] = rel_to_root
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(repo), "check-ignore", "--stdin"],
+                input="\n".join(back), capture_output=True, text=True, timeout=120)
+        except Exception as e:  # git missing, timeout, etc. -- fail open, warn
+            warnings.append(f"check-ignore failed for repo {repo.name}: {e}")
+            continue
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if line in back:
+                ignored.add(back[line])
+    return ignored
+
+
+def walk_project(root: Path, warnings: list[str],
+                 private_folders: frozenset = frozenset()) -> dict[str, dict]:
     """Walk the project tree, return a dict of {relative_path: {meta}}.
 
-    relative_path is forward-slash POSIX style, relative to root.
+    relative_path is forward-slash POSIX style, relative to root. Top-level
+    folders in `private_folders` are pruned entirely (#27).
     """
     files: dict[str, dict] = {}
 
     for dirpath, dirnames, filenames in os.walk(root):
         # In-place mutation of dirnames to skip subtrees
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        # At the top level, prune private repos (e.g. Team Resolve, My-Website)
+        if Path(dirpath) == root and private_folders:
+            dirnames[:] = [d for d in dirnames if d not in private_folders]
 
         for fname in filenames:
             full_path = Path(dirpath) / fname
@@ -340,16 +398,28 @@ def resolve_py_import(
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def build_snapshot(root: Path, verbose: bool = False) -> dict:
+def build_snapshot(root: Path, verbose: bool = False,
+                   private_folders: frozenset = frozenset(),
+                   include_gitignored: bool = False) -> dict:
     warnings: list[str] = []
+    excluded_private = sorted(private_folders)
 
     if verbose:
         print(f"[graph-snapshot] walking {root}", file=sys.stderr)
 
-    files = walk_project(root, warnings)
+    files = walk_project(root, warnings, private_folders=private_folders)
+
+    excluded_gitignored = 0
+    if not include_gitignored:
+        ignored = _gitignored_rel_paths(files, root, warnings)
+        if ignored:
+            files = {rel: m for rel, m in files.items() if rel not in ignored}
+            excluded_gitignored = len(ignored)
 
     if verbose:
-        print(f"[graph-snapshot] found {len(files)} candidate files", file=sys.stderr)
+        print(f"[graph-snapshot] found {len(files)} candidate files "
+              f"(excluded {excluded_gitignored} gitignored, "
+              f"private folders: {excluded_private or 'none'})", file=sys.stderr)
 
     project_top_folders = {f["top_folder"] for f in files.values() if f["top_folder"] != "(root)"}
 
@@ -439,6 +509,8 @@ def build_snapshot(root: Path, verbose: bool = False) -> dict:
             "files_by_type": dict(files_by_type),
             "files_by_top_folder": dict(files_by_top_folder),
             "edges_by_type": dict(edges_by_type),
+            "excluded_private_folders": excluded_private,
+            "excluded_gitignored_count": excluded_gitignored,
         },
         "nodes": sorted(nodes, key=lambda n: n["id"]),
         "edges": sorted(edges, key=lambda e: (e["from"], e["to"], e["type"])),
@@ -456,6 +528,12 @@ def main() -> int:
                         help="Output JSON path (default: harness/state/graph-snapshots/YYYY-MM-DD.json)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose progress output")
+    parser.add_argument("--include-private", action="store_true",
+                        help="Include private repos in the graph (default: exclude; local-only analysis)")
+    parser.add_argument("--private-folder", action="append", default=[],
+                        help="Extra private top-level folder to exclude (repeatable)")
+    parser.add_argument("--include-gitignored", action="store_true",
+                        help="Include gitignored paths (default: exclude via git check-ignore)")
     args = parser.parse_args()
 
     root = args.root.resolve()
@@ -463,7 +541,11 @@ def main() -> int:
         print(f"[graph-snapshot] ERROR: root does not exist: {root}", file=sys.stderr)
         return 2
 
-    snapshot = build_snapshot(root, verbose=args.verbose)
+    private_folders = (frozenset() if args.include_private
+                       else resolve_private_folders(args.private_folder))
+    snapshot = build_snapshot(root, verbose=args.verbose,
+                              private_folders=private_folders,
+                              include_gitignored=args.include_gitignored)
 
     out_path = args.out
     if out_path is None:
