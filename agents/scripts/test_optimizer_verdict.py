@@ -62,6 +62,53 @@ def test_mean_kill_ignores_none():
     assert ao._mean_kill([None, None]) is None
 
 
+def test_wr_guard_vetoes_significant_sub_1pp_drop():
+    # A real kill gain, with a CONSISTENT 0.4pp per-seed WR drop (below the 1pp
+    # floor). With no series (legacy) it passes as IMPROVED; with the paired
+    # per-seed WRs the consistent drop is significant and is vetoed as WORSE.
+    base = [5.0] * 10
+    patched = [4.6] * 10
+    assert ao.paired_verdict(base, patched, 0.90, 0.896) == "improved"
+    assert ao.paired_verdict(base, patched, 0.900, 0.896,
+                             base_wr_series=[0.90] * 10,
+                             patched_wr_series=[0.896] * 10) == "worse"
+
+
+def test_wr_guard_noisy_sub_1pp_drop_not_vetoed():
+    # Same tiny mean drop but high per-seed variance -> not significant -> the
+    # kill gain stands.
+    base = [5.0] * 10
+    patched = [4.6] * 10
+    bser = [0.90] * 10
+    pser = [0.896 + (0.05 if i % 2 else -0.05) for i in range(10)]  # mean 0.896, noisy
+    assert ao.paired_verdict(base, patched, 0.900, 0.896,
+                             base_wr_series=bser, patched_wr_series=pser) == "improved"
+
+
+def test_wr_guard_1pp_hard_veto_survives_noise():
+    # A >1pp overall drop is vetoed by the hard floor regardless of the series.
+    base = [5.0] * 10
+    patched = [4.4] * 10
+    assert ao.paired_verdict(base, patched, 0.90, 0.88,
+                             base_wr_series=[0.90] * 10,
+                             patched_wr_series=[0.88] * 10) == "worse"
+
+
+def test_wr_regressed_paired_helper():
+    base = [0.90] * 10
+    assert ao._wr_regressed(0.90, 0.896, base, [0.896] * 10) is True     # consistent small drop
+    assert ao._wr_regressed(0.90, 0.905, base, [0.905] * 10) is False    # WR went UP
+    noisy = [0.896 + (0.05 if i % 2 else -0.05) for i in range(10)]
+    assert ao._wr_regressed(0.90, 0.896, base, noisy) is False           # noisy -> not significant
+
+
+def test_selection_prefers_higher_winrate_over_faster_kill():
+    # A higher-WR patch beats a faster-kill one (WR primary, #37)...
+    assert ao._selection_key(0.91, 0.10) > ao._selection_key(0.90, 0.50)
+    # ...and among WR-neutral (same 1pp bucket) patches, faster kill wins.
+    assert ao._selection_key(0.903, 0.50) > ao._selection_key(0.898, 0.30)
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

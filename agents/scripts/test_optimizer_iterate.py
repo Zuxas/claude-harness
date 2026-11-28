@@ -56,9 +56,10 @@ def _install_stubs(tmp, seen_sources, analyzed_counter):
         "win_rate": 0.5, "avg_kill": 6.0, "fastest": 4, "games": n, "time": 1.0}
 
     def paired(apl, mainboard, seeds, n_per_seed):
+        # (per_seed_kills, overall_wr, per_seed_wr) -- 3-tuple since #37's WR guard
         if apl == "ORIG":
-            return ([6.0] * len(seeds), 0.5)   # baseline: slower
-        return ([5.0] * len(seeds), 0.6)       # candidate: faster -> improved
+            return ([6.0] * len(seeds), 0.5, [0.5] * len(seeds))   # baseline: slower
+        return ([5.0] * len(seeds), 0.6, [0.6] * len(seeds))       # candidate: faster -> improved
     opt._paired_runs = paired
 
     def fake_analyze(deck_name, apl_source, baseline, missing, use_claude, model):
