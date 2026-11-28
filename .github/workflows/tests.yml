@@ -1,0 +1,27 @@
+name: tests
+
+# Runs the harness test suite (pytest) on push and PR. This is the repo's first
+# CI, added in #8. Hardened: read-only token, no secrets exposed, minimal deps.
+"on":
+  push:
+  pull_request:
+
+# Least privilege: the suite only reads the checkout.
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to the v4/v5 major tags. For stricter supply-chain hardening these
+      # can be pinned to a full commit SHA (e.g. actions/checkout@<sha> # v4.x);
+      # left at the major tag here so the pin is verifiable without network.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+      - name: Run tests
+        run: pytest -q
