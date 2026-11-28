@@ -279,13 +279,44 @@ def _paired_runs(apl, deck, seeds, n_per_seed):
     return kills, (wins / total if total else 0.0)
 
 
+def _wr_regressed(base_wr, patched_wr, n_games=None, wr_drop_tol=0.01, k_wr=2.0):
+    """True if the win-rate dropped in a way the guard should veto (#37).
+
+    Sample-size-aware: the flat wr_drop_tol is kept as a floor (so this is never
+    MORE permissive than the old heuristic and the legacy no-n tests still pass),
+    and when n_games is known a sub-tolerance drop that is statistically
+    significant is ALSO vetoed, so the guard tightens as the sample grows -- like
+    the kill-turn guard. SE is the (unpaired) two-proportion SE; common random
+    numbers make the true paired SE smaller, so this is the conservative choice
+    (a tighter paired test would need per-game discordant counts we don't plumb).
+    """
+    drop = base_wr - patched_wr
+    if drop <= 0:
+        return False
+    if drop > wr_drop_tol:                      # flat floor (always applies)
+        return True
+    if n_games:
+        se = ((base_wr * (1 - base_wr) + patched_wr * (1 - patched_wr)) / n_games) ** 0.5
+        if se > 0 and drop > k_wr * se:         # sub-tolerance but significant
+            return True
+    return False
+
+
+def _selection_key(patched_wr, delta_kill):
+    """Rank improved candidates by win rate first, kill-turn only as the
+    tie-breaker among WR-neutral patches (#37). WR is bucketed to 1pp so run-to-run
+    WR noise doesn't let a slightly-noisier-WR/faster-kill patch jump ahead of a
+    genuinely higher-WR one; a full pp of WR wins outright."""
+    return (round(patched_wr, 2), delta_kill)
+
+
 def paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
-                   k=2.5, min_effect=0.05, wr_drop_tol=0.01):
+                   k=2.5, min_effect=0.05, wr_drop_tol=0.01, n_games=None):
     """Classify a patch from paired per-seed avg-kill samples + overall WR.
 
-    - A win-rate drop beyond tolerance is always WORSE. avg_kill is over
-      winning games only, so a patch that trades slow wins for losses must not
-      count as an improvement.
+    - A win-rate drop is always WORSE (sample-size-aware, see _wr_regressed).
+      avg_kill is over winning games only, so a patch that trades slow wins for
+      losses must not count as an improvement.
     - Otherwise require the paired mean kill improvement to exceed BOTH a
       minimum effect and k x the paired standard error. Under common random
       numbers a true no-op has zero paired variance (and zero mean), so it is
@@ -293,7 +324,7 @@ def paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
       significance, not a flat 0.05.
     Positive delta = patched kills faster.
     """
-    if patched_wr < base_wr - wr_drop_tol:
+    if _wr_regressed(base_wr, patched_wr, n_games, wr_drop_tol):
         return "worse"
     deltas = [b - p for b, p in zip(base_kills, patched_kills)
               if b is not None and p is not None]
@@ -638,7 +669,7 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
         # is the source accepted so far). Promoted at the end so iteration k+1
         # refines iteration k's winner instead of re-analyzing the original (#15).
         iter_best = None
-        iter_best_delta = 0.0
+        iter_best_key = None  # (wr_bucket, delta_kill), maximized -- WR first (#37)
 
         # Test each patch independently
         for i, patch in enumerate(patches):
@@ -683,7 +714,9 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
                                    "error": str(e)[:200]})
                 continue
 
-            verdict = paired_verdict(base_kills, patched_kills, base_wr, patched_wr).upper()
+            _n_games = len(_tune_seeds) * _n_per_seed
+            verdict = paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
+                                     n_games=_n_games).upper()
             base_mean = _mean_kill(base_kills)
             patched_mean = _mean_kill(patched_kills)
             delta_kill = (base_mean - patched_mean) if (base_mean and patched_mean) else 0.0
@@ -704,10 +737,12 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             }
             all_results.append(result)
 
-            if verdict == "IMPROVED" and delta_kill > iter_best_delta:
-                iter_best_delta = delta_kill
-                iter_best = {"patch": patch, "kills": patched_kills, "wr": patched_wr,
-                             "mean": patched_mean, "source": patched_source}
+            if verdict == "IMPROVED":
+                key = _selection_key(patched_wr, delta_kill)
+                if iter_best_key is None or key > iter_best_key:
+                    iter_best_key = key
+                    iter_best = {"patch": patch, "kills": patched_kills, "wr": patched_wr,
+                                 "mean": patched_mean, "source": patched_source}
 
             # Clean up temp file
             temp_apl_file.unlink(missing_ok=True)

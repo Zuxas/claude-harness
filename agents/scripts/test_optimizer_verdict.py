@@ -62,6 +62,38 @@ def test_mean_kill_ignores_none():
     assert ao._mean_kill([None, None]) is None
 
 
+def test_wr_guard_is_sample_size_aware():
+    # A 0.5pp WR drop + a real kill gain. With no sample size (legacy) the flat
+    # tolerance lets it through as IMPROVED; at a large sample the same drop is
+    # statistically significant and must be vetoed as WORSE.
+    base = [5.0] * 10
+    patched = [4.6] * 10
+    assert ao.paired_verdict(base, patched, 0.90, 0.895) == "improved"
+    assert ao.paired_verdict(base, patched, 0.90, 0.895, n_games=100000) == "worse"
+
+
+def test_wr_guard_small_n_keeps_flat_floor():
+    # A 2pp drop at a tiny sample still trips the flat floor (the guard is never
+    # MORE permissive than the old heuristic).
+    base = [5.0] * 10
+    patched = [4.4] * 10
+    assert ao.paired_verdict(base, patched, 0.90, 0.88, n_games=100) == "worse"
+
+
+def test_wr_regressed_helper_scales_with_n():
+    # Same 0.6pp drop: not significant at n=500, significant at n=50000.
+    assert ao._wr_regressed(0.90, 0.894, n_games=500) is False
+    assert ao._wr_regressed(0.90, 0.894, n_games=50000) is True
+    assert ao._wr_regressed(0.90, 0.905, n_games=50000) is False   # WR went UP
+
+
+def test_selection_prefers_higher_winrate_over_faster_kill():
+    # A higher-WR patch beats a faster-kill one (WR primary, #37)...
+    assert ao._selection_key(0.91, 0.10) > ao._selection_key(0.90, 0.50)
+    # ...and among WR-neutral (same 1pp bucket) patches, faster kill wins.
+    assert ao._selection_key(0.903, 0.50) > ao._selection_key(0.898, 0.30)
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
