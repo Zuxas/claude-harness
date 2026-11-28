@@ -90,6 +90,42 @@ def _names_referenced(node):
     return names
 
 
+def _cache_path_names(func):
+    """Names that appear in the cache-write PATH construction (not just anywhere
+    in the body). The real collision shape passes `deck` to the sim but leaves it
+    out of `f"cache/{opp}.json"`, so `deck` IS referenced in the body yet missing
+    from the path -- the old `identity - body_names` check never caught it.
+
+    Collects names from: the first arg of any open(); the receiver of any
+    .write_text/.write_bytes; and, when that receiver is a bare Name, the RHS of
+    its assignments (so `p = f"...{opp}..."; p.write_text(...)` counts too)."""
+    names = set()
+    path_vars = set()  # bare-Name path exprs (open() arg or write_text receiver)
+    for node in ast.walk(func):
+        if not isinstance(node, ast.Call):
+            continue
+        f = node.func
+        if isinstance(f, ast.Name) and f.id == "open" and node.args:
+            names |= _names_referenced(node.args[0])
+            if isinstance(node.args[0], ast.Name):
+                path_vars.add(node.args[0].id)
+        elif isinstance(f, ast.Attribute) and f.attr in ("write_text", "write_bytes"):
+            names |= _names_referenced(f.value)
+            if isinstance(f.value, ast.Name):
+                path_vars.add(f.value.id)
+    # Trace `p = f"...{opp}..."; open(p,'w')` / `p.write_text(...)` so names in
+    # the path variable's definition count toward the cache path.
+    if path_vars:
+        for node in ast.walk(func):
+            if isinstance(node, ast.Assign):
+                if {t.id for t in node.targets if isinstance(t, ast.Name)} & path_vars:
+                    names |= _names_referenced(node.value)
+            elif (isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+                  and node.target.id in path_vars and node.value is not None):
+                names |= _names_referenced(node.value)
+    return names
+
+
 def _has_allowlist_above(source_lines, lineno, window=5):
     """Check for allow-list comment within `window` lines above lineno."""
     start = max(0, lineno - 1 - window)
@@ -120,8 +156,11 @@ def analyze_file(path, scan_root=None):
         if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
 
-        # Collect parameter names matching heuristic
-        param_names = {arg.arg for arg in func.args.args}
+        # Collect parameter names matching heuristic. Include positional-only and
+        # keyword-only params (a cache keyed by `*, seed, n` must still include
+        # them) -- the old code only looked at func.args.args.
+        a = func.args
+        param_names = {arg.arg for arg in (a.args + a.posonlyargs + a.kwonlyargs)}
         identity_params = param_names & HEURISTIC_PARAMS
         if not identity_params:
             continue
@@ -144,13 +183,13 @@ def analyze_file(path, scan_root=None):
         if first_write_line is None:
             continue
 
-        # Heuristic: identity params not referenced anywhere in the function
-        # body indicates a likely cache-key gap. Tolerant of false negatives
-        # at INFO level (param referenced in a log message looks "OK" even
-        # if not in path; that's acceptable for v1 — the audit doc covers
-        # the strict case).
-        body_names = _names_referenced(func)
-        missing = identity_params - body_names
+        # Heuristic: an identity-shaping param that is NOT in the cache-write
+        # path is a collision candidate -- two calls differing only in that input
+        # map to the same file. Checked against the path construction specifically
+        # (not the whole body), so a `deck` passed to the sim but omitted from the
+        # path is caught.
+        path_names = _cache_path_names(func)
+        missing = identity_params - path_names
         if missing:
             findings.append({
                 "severity": "INFO",
@@ -161,7 +200,7 @@ def analyze_file(path, scan_root=None):
                 "missing_params": sorted(missing),
                 "detail": (f"function `{func.name}` writes cache at line {first_write_line} "
                            f"but identity-shaping parameter(s) {sorted(missing)} "
-                           f"do not appear referenced in the function body"),
+                           f"do not appear in the cache path (collision risk)"),
                 "fix": ("Verify cache key includes all identity-shaping inputs. "
                         "Add `# drift-detect:cache-key-ok reason=\"...\"` above the "
                         "write call to suppress if intentional. See "
