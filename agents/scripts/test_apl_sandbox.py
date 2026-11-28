@@ -80,6 +80,39 @@ def test_run_apl_subprocess_fails_closed_on_bad_module():
     assert out.get("status") != "ran", f"bad module should not report ran: {out}"
 
 
+def test_smoke_python_prefers_existing_override():
+    os.environ["MTG_SMOKE_PYTHON"] = sys.executable  # exists
+    try:
+        assert s._smoke_python("C:/whatever/no/venv") == sys.executable
+    finally:
+        os.environ.pop("MTG_SMOKE_PYTHON", None)
+
+
+def test_smoke_python_ignores_missing_override_and_falls_back():
+    os.environ["MTG_SMOKE_PYTHON"] = "C:/definitely/not/here/python.exe"
+    try:
+        assert s._smoke_python("C:/no/venv/here") == sys.executable
+    finally:
+        os.environ.pop("MTG_SMOKE_PYTHON", None)
+
+
+def test_smoke_python_finds_sibling_venv():
+    import shutil
+    import tempfile
+    os.environ.pop("MTG_SMOKE_PYTHON", None)
+    d = tempfile.mkdtemp()
+    try:
+        # create both conventional venv-python locations so this passes on any OS
+        for rel in ("Scripts/python.exe", "bin/python"):
+            p = Path(d) / ".venv" / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("")
+        got = s._smoke_python(d)
+        assert ".venv" in got and got != sys.executable, got
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
