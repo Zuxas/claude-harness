@@ -850,6 +850,29 @@ def _smoke_test_apl(deck_name, format_name, n=50):
         return {"status": "crashed", "passed": False, "error": str(e)[:200]}
 
 
+def _build_registry_entry(deck_name, format_name, smoke_result):
+    """The auto_apl_registry.json entry for a smoke-passed APL. smoke_avg_turns
+    reads the smoke's avg_KILL_turn -- the field _smoke_test_apl actually
+    returns. The old code read 'avg_turns', a key that never existed, so every
+    entry stored null (#18)."""
+    safe = _safe_slug(deck_name)
+    return {
+        "module": f"apl.auto_apls.{safe}",
+        "class": smoke_result.get("class_name"),
+        "deck_file": f"decks/auto/{safe}_{format_name}.txt",
+        "generated_date": TODAY,
+        "source": "auto_pipeline:gemma",
+        "smoke_avg_turns": smoke_result.get("avg_kill_turn"),
+    }
+
+
+def _count_validated(flow_results):
+    """How many generated APLs actually validated: passed the smoke gate and
+    entered the auto-registry. A smoke failure (registered False/absent) is
+    never counted, so a broken APL can no longer be reported as validated (#18)."""
+    return sum(1 for r in flow_results if r.get("registered"))
+
+
 def _register_auto_apl(deck_name, format_name, smoke_result):
     """Write entry to data/auto_apl_registry.json after smoke test passes.
     Failed smoke -> not registered; APL file stays on disk for manual review.
@@ -864,17 +887,9 @@ def _register_auto_apl(deck_name, format_name, smoke_result):
     if not cls_name:
         log(f"  [REG] Smoke result missing class_name; cannot register")
         return False
-    safe = _safe_slug(deck_name)
     norm_key = deck_name.lower().replace(" ", "").replace("'", "").replace("-", "")
     reg_path = SIM_ROOT / "data" / "auto_apl_registry.json"
-    new_entry = {
-        "module": f"apl.auto_apls.{safe}",
-        "class": cls_name,
-        "deck_file": f"decks/auto/{safe}_{format_name}.txt",
-        "generated_date": TODAY,
-        "source": "auto_pipeline:gemma",
-        "smoke_avg_turns": smoke_result.get("avg_turns"),
-    }
+    new_entry = _build_registry_entry(deck_name, format_name, smoke_result)
 
     from engine.atomic_json import atomic_rmw_json
     try:
@@ -941,29 +956,12 @@ def _get_decklist_from_db(deck_name, format_name="modern"):
 # Step 3: Validate Generated APLs
 # ---------------------------------------------------------------------------
 
-def validate_apl(deck_name, n_games=200):
-    """Validate an APL by running a quick goldfish sim."""
-    log(f"  Validating APL for {deck_name}...")
-    tuner = HARNESS_ROOT / "agents" / "scripts" / "apl_tuner.py"
-    try:
-        proc = subprocess.run(
-            [sys.executable, str(tuner), deck_name,
-             "--mode", "validate", "--games", str(n_games)],
-            capture_output=True, text=True, timeout=120,
-            cwd=str(SIM_ROOT)
-        )
-        output = proc.stdout
-        if "Kill turn" in output or "kill_turn" in output.lower():
-            log(f"  APL validated successfully")
-            return {"status": "valid", "deck": deck_name}
-        elif "FAIL" in output:
-            log(f"  APL validation FAILED: {output[-200:]}", "ERROR")
-            return {"status": "invalid", "deck": deck_name}
-        else:
-            log(f"  APL validation unclear: {output[-200:]}")
-            return {"status": "unclear", "deck": deck_name}
-    except Exception as e:
-        return {"status": "error", "deck": deck_name, "error": str(e)}
+# validate_apl() was removed (#18). It shelled to apl_tuner.py, which searched
+# decks/*.txt + apl/*.py by fuzzy substring and fell back to the generic
+# AutoAPLFactory, so it never exercised the generated apl/auto_apls/<slug>.py
+# and ignored the exit code -- a syntactically broken APL was still reported
+# "valid". The real check is _smoke_test_apl (step 2.5), which loads the
+# generated APL against decks/auto/<slug>_<fmt>.txt and reports a kill turn.
 
 
 # ---------------------------------------------------------------------------
@@ -1067,8 +1065,15 @@ def run_pipeline(format_name="modern", use_claude=True, dry_run=False,
     if generate_deck:
         result = generate_apl(generate_deck, use_claude, dry_run, force=force,
                               format_name=format_name)
-        if result["status"] in ("generated", "draft"):
-            validate_apl(generate_deck)
+        if result["status"] in ("generated", "draft") and not dry_run:
+            # Validate by actually smoke-testing the generated APL (#18) rather
+            # than the old validate_apl, which never loaded it.
+            if _generate_deck_file_from_db(generate_deck, format_name):
+                smoke = _smoke_test_apl(generate_deck, format_name, n=50)
+                log(f"  Smoke {generate_deck}: {smoke['status']}" +
+                    (f" (avg_kill_turn={smoke.get('avg_kill_turn'):.2f})"
+                     if smoke.get("avg_kill_turn") is not None else ""))
+                _register_auto_apl(generate_deck, format_name, smoke)
         return result
     
     if draft_deck:
@@ -1149,22 +1154,21 @@ def run_pipeline(format_name="modern", use_claude=True, dry_run=False,
                 continue
             smoke = _smoke_test_apl(deck_name, format_name, n=50)
             log(f"  Smoke {deck_name}: {smoke['status']}" +
-                (f" (avg_turns={smoke.get('avg_turns'):.2f})"
-                 if smoke.get("avg_turns") is not None else ""))
+                (f" (avg_kill_turn={smoke.get('avg_kill_turn'):.2f})"
+                 if smoke.get("avg_kill_turn") is not None else ""))
             if smoke.get("error"):
                 log(f"    crash: {smoke['error']}")
             registered = _register_auto_apl(deck_name, format_name, smoke)
             flow_results.append({"deck": deck_name, "smoke": smoke["status"],
                                  "registered": registered})
 
-    # Step 3: Validate generated APLs (legacy path - kept for compat)
-    log("\n[STEP 3/5] Validating generated APLs...")
-    valid_count = 0
-    for result in gen_results:
-        if result["status"] in ("generated", "draft") and not dry_run:
-            val = validate_apl(result["deck"])
-            if val["status"] == "valid":
-                valid_count += 1
+    # Step 3: validation comes from the real smoke gate in step 2.5. The old
+    # legacy path shelled to apl_tuner, which searched decks/*.txt + apl/*.py
+    # by fuzzy substring, fell back to the generic factory, and ignored the
+    # exit code -- so a syntactically broken generated APL was still counted as
+    # "validated". An APL is validated iff it passed smoke and was registered.
+    log("\n[STEP 3/5] Validation (from the step 2.5 smoke gate)...")
+    valid_count = _count_validated(flow_results)
     
     # Step 4: Draft playbooks for top decks
     log("\n[STEP 4/5] Drafting playbooks for top archetypes...")
