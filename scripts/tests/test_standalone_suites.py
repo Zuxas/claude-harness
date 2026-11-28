@@ -21,10 +21,10 @@ SUITES = sorted(
     + [p for p in (ROOT / "agents" / "scripts").glob("test_*.py")]
 )
 
-# Suites that import a module which touches the hardcoded E:\ workspace at import
-# time, so they can only run on the owner's Windows box. Skipped (not failed)
-# until the roots are derived (#1).
-_WORKSPACE_ONLY = {"test_playbook_generator.py"}
+# Suites that can only run on the owner's box (e.g. a module that touches the
+# hardcoded workspace at import). Empty now that roots are derived (#1) --
+# test_playbook_generator imports cleanly again.
+_WORKSPACE_ONLY: set = set()
 
 
 def test_suites_discovered():
