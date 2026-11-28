@@ -12,6 +12,7 @@ Based on: Agentic AI for Engineers (Nagasubramanian 2026)
 """
 
 import json
+import sys
 import time
 import os
 from pathlib import Path
@@ -19,9 +20,15 @@ from datetime import datetime, date
 from functools import wraps
 import urllib.request
 
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import harness_root  # noqa: E402
+
+# Derived, not hardcoded (#1). On the owner's box this is still
+# E:/vscode ai project/harness; elsewhere it tracks the real checkout, so a
+# fresh clone no longer crashes at import trying to mkdir an E:\ path.
+HARNESS_ROOT = harness_root()
 STATE_DIR = HARNESS_ROOT / "state"
-STATE_DIR.mkdir(exist_ok=True)
+STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Circuit Breaker
