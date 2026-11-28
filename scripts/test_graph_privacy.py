@@ -68,6 +68,9 @@ def test_default_includes_only_allowlist():
         assert "brand_new_repo" in st["excluded_unknown_folders"]
         assert st["excluded_gitignored_count"] >= 1
         assert st["included_public_folders"] is not None
+        # provenance markers: filtered, publishable
+        assert st["gitignore_filtered"] is True
+        assert st["local_only"] is False
 
 
 def test_unknown_repo_excluded_by_default_regression():
@@ -117,11 +120,43 @@ def test_gexf_publication_guard_drops_non_public():
     assert d2 == 0 and len(n2) == 2 and len(e2) == 1
 
 
-def test_gexf_refuses_prefix_snapshot():
-    # A snapshot without the #27 gitignore stat can't have its privacy established.
-    assert jg._snapshot_privacy_established({"stats": {"excluded_gitignored_count": 3}})
-    assert not jg._snapshot_privacy_established({"stats": {"total_nodes": 5}})
+def test_privacy_established_requires_real_filtering():
+    # Established only when filtering actually ran AND it's not a local-only export.
+    assert jg._snapshot_privacy_established(
+        {"stats": {"gitignore_filtered": True, "local_only": False}})
+    # --include-gitignored run: count present (=0) but filtering was skipped -> refuse.
+    assert not jg._snapshot_privacy_established(
+        {"stats": {"gitignore_filtered": False, "local_only": True,
+                   "excluded_gitignored_count": 0}})
+    # --include-private run: filtered but local-only -> refuse.
+    assert not jg._snapshot_privacy_established(
+        {"stats": {"gitignore_filtered": True, "local_only": True}})
+    # pre-fix snapshot: no markers -> refuse.
+    assert not jg._snapshot_privacy_established({"stats": {"excluded_gitignored_count": 3}})
     assert not jg._snapshot_privacy_established({})
+
+
+def test_check_ignore_failure_fails_closed():
+    # If git check-ignore can't run, every path in that repo is EXCLUDED, not
+    # passed through unchecked.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _make_workspace(root)
+        real_run = gs.subprocess.run
+
+        def boom(cmd, *a, **k):
+            if cmd[:2] == ["git", "-C"] and "check-ignore" in cmd:
+                raise OSError("git exploded")
+            return real_run(cmd, *a, **k)
+        gs.subprocess.run = boom
+        try:
+            snap = gs.build_snapshot(root, public_folders=PUB, include_gitignored=False)
+        finally:
+            gs.subprocess.run = real_run
+        ids = {n["id"] for n in snap["nodes"]}
+        # pub_repo paths were all excluded because its ignore status was unknowable
+        assert not any(i.startswith("pub_repo/") for i in ids), \
+            "paths passed through despite check-ignore failure (fail-open!)"
 
 
 def test_env_extends_public_set():
