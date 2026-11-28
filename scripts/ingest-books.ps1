@@ -10,7 +10,10 @@ param(
     [switch]$Stats
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\ingest_books.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\ingest_books.py"
 
 if ($Query) {
     python $Script --query $Query

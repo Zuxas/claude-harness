@@ -32,6 +32,9 @@ param(
     [double]$Temperature = 0.3
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 # Force UTF-8 stdout/stderr for the Python child process.
 # Belt-and-suspenders: gemma_drift_pr.py also calls sys.stdout.reconfigure(),
 # but setting the env var here ensures correct behavior even on older Python
@@ -44,7 +47,7 @@ param(
 # box drawing, etc.).
 $env:PYTHONIOENCODING = "utf-8"
 
-$Script = "E:\vscode ai project\harness\agents\scripts\gemma_drift_pr.py"
+$Script = "$AgentScripts\gemma_drift_pr.py"
 
 if (-not (Test-Path $Script)) {
     Write-Host "ERROR: gemma_drift_pr.py not found at $Script" -ForegroundColor Red

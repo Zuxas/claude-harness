@@ -15,7 +15,9 @@ param(
     [switch]$Remove
 )
 
-$HarnessRoot = "E:\vscode ai project\harness"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 
 $Tasks = @(
     @{

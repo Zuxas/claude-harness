@@ -39,10 +39,13 @@ param(
     [switch]$SkipGraphSnapshot
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 $ErrorActionPreference = "Continue"
 
 # Paths
-$projectRoot   = "E:\vscode ai project"
+$projectRoot   = "$ProjectRoot"
 $mtgSimRoot    = "$projectRoot\mtg-sim"
 $harnessRoot   = "$projectRoot\harness"
 $knowledgeTech = "$harnessRoot\knowledge\tech"

@@ -21,7 +21,10 @@ param(
     [switch]$UseClaude
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\apl_optimizer.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\apl_optimizer.py"
 $args_list = @($Deck, "--format", $Format, "--games", $Games, "--iterations", $Iterations, "--model", $Model)
 if ($AnalyzeOnly) { $args_list += "--analyze-only" }
 if ($UseClaude)   { $args_list += "--use-claude" }

@@ -22,10 +22,13 @@ param(
     [switch]$AnalyzeLogs
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 $env:OPENAI_API_KEY = [Environment]::GetEnvironmentVariable("OPENAI_API_KEY", "User")
 $env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable("GEMINI_API_KEY", "User")
 
-$Script = "E:\vscode ai project\harness\agents\scripts\apl_grinder.py"
+$Script = "$AgentScripts\apl_grinder.py"
 $args_list = @($Deck, "--target", $Target, "--max-iterations", $MaxIter, "--games", $Games, "--model", $Model)
 if ($Until) { $args_list += @("--until", $Until) }
 if ($Duration -gt 0) { $args_list += @("--duration", $Duration) }

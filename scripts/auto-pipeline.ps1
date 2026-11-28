@@ -19,7 +19,10 @@ param(
     [switch]$ShowMemory
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\auto_pipeline.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\auto_pipeline.py"
 $args_list = @("--format", $Format)
 if ($DryRun)         { $args_list += "--dry-run" }
 if ($UseGemma)       { $args_list += "--use-gemma" }
