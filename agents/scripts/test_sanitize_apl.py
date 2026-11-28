@@ -35,19 +35,26 @@ def test_safe_slug_rejects_shell_and_overlong():
         raise AssertionError(f"not rejected: {hostile!r}")
 
 
-def test_reject_bad_code_blocks_banned_imports():
+def test_reject_bad_code_blocks_disallowed_imports():
+    # Allowlist, not denylist: anything outside the approved roots is rejected,
+    # including third-party packages and relative imports -- not just the
+    # obvious os/subprocess/socket.
     for payload in [
         "import os\nx = 1\n",
         "import subprocess as sp\n",
         "from socket import socket\n",
         "from os.path import join\n",
         "import shutil\n",
+        "import requests\n",          # third-party, not host-dangerous by name
+        "import numpy as np\n",       # third-party
+        "from ..base import Thing\n",  # relative import
+        "import ctypes\n",
     ]:
         try:
             ap._reject_bad_code(payload)
         except ValueError:
             continue
-        raise AssertionError(f"banned import not rejected: {payload!r}")
+        raise AssertionError(f"disallowed import not rejected: {payload!r}")
 
 
 def test_reject_bad_code_blocks_eval_exec_open():
@@ -75,7 +82,9 @@ def test_reject_bad_code_blocks_syntax_error():
 def test_reject_bad_code_allows_legit_apl():
     legit = (
         "from data.card import Card, Tag\n"
-        "from apl.base_apl import BaseAPL\n\n"
+        "from apl.base_apl import BaseAPL\n"
+        "import math\n"
+        "from collections import Counter\n\n"
         "class BurnAPL(BaseAPL):\n"
         "    name = 'Burn'\n"
         "    def keep(self, hand, mulligans, on_play):\n"
@@ -86,6 +95,28 @@ def test_reject_bad_code_allows_legit_apl():
         "                gs.cast_spell(c)\n"
     )
     ap._reject_bad_code(legit)  # must not raise
+
+
+def test_child_env_strips_secrets():
+    # The smoke subprocess must not inherit the orchestrator's secrets. Set a few
+    # secret-shaped vars and prove _child_env() drops them while keeping PATH.
+    import os
+    secrets = {"ANTHROPIC_API_KEY": "sk-ant-xxx", "GH_TOKEN": "ghp_xxx",
+               "OPENAI_API_KEY": "sk-xxx", "FAKE_SECRET_TOKEN": "sekret"}
+    saved = {k: os.environ.get(k) for k in secrets}
+    try:
+        os.environ.update(secrets)
+        os.environ.setdefault("PATH", "/usr/bin")
+        env = ap._child_env()
+        for k in secrets:
+            assert k not in env, f"{k} leaked into smoke subprocess env"
+        assert "PATH" in env, "PATH should be passed through"
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 def test_save_apl_code_rejects_hostile_slug(tmp_root=None):
@@ -126,6 +157,7 @@ def test_smoke_test_uses_subprocess_not_import():
     assert "subprocess.run" in body, "smoke test no longer shells out"
     assert "import_module" not in body and "importlib" not in body, \
         "smoke test still imports generated code in-process"
+    assert "env=_child_env()" in body, "smoke subprocess not run with scrubbed env"
     assert ap._SMOKE_RUNNER.name == "_apl_smoke_runner.py"
     assert ap._SMOKE_RUNNER.exists(), "runner script missing"
 

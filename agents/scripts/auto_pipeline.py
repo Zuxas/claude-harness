@@ -177,39 +177,48 @@ def _safe_slug(deck_name):
     return slug
 
 
-# Generated APLs are pure decision logic over the engine's own objects; they
-# never need to reach the host. Anything that does is a red flag in model
-# output, so it is rejected before the code is written to disk or imported (#2).
-_BANNED_IMPORT_ROOTS = frozenset({
-    "os", "sys", "subprocess", "socket", "shutil", "pathlib", "importlib",
-    "ctypes", "pickle", "marshal", "urllib", "http", "requests", "pty",
-    "multiprocessing", "threading", "signal", "builtins", "resource", "glob",
+# Generated APLs are pure decision logic over the engine's own objects. They may
+# import ONLY first-party engine/APL packages plus a few capability-safe stdlib
+# modules; anything else is rejected. An allowlist, not a denylist: blocking
+# known-dangerous names (os, subprocess, ...) is not a boundary -- an unlisted or
+# obfuscated reach slips a denylist, so anything not explicitly approved is
+# refused (#2, Tom review). Relative imports are rejected too (the template uses
+# absolute first-party imports).
+_ALLOWED_IMPORT_ROOTS = frozenset({
+    "data", "apl", "engine",                           # first-party, trusted
+    "typing", "math", "random", "collections",         # capability-safe stdlib
+    "itertools", "functools", "dataclasses", "enum",
 })
+# eval/exec/open/compile/__import__ are builtins, not imports, so the import
+# allowlist can't see them; reject them by name too. (An AST check can't catch
+# every dynamic reach -- getattr tricks, etc. -- which is why the smoke process
+# also runs with a scrubbed env and will later want an OS sandbox; see #2.)
 _BANNED_CALLS = frozenset({"eval", "exec", "compile", "__import__", "open"})
 
 
 def _reject_bad_code(code):
-    """Raise ValueError if generated APL code won't parse or reaches for the
-    host (banned import or eval/exec/open). Run BEFORE the code is written under
-    mtg-sim, so hostile or broken model output is never persisted or imported
-    (#2). ast.parse raises SyntaxError, which callers treat as a rejection too."""
+    """Raise ValueError if generated APL code won't parse or imports anything
+    outside the allowlist / calls eval/exec/open. Run BEFORE the code is written
+    under mtg-sim, so hostile or broken model output is never persisted or
+    imported (#2). ast.parse raises SyntaxError, which callers treat as a
+    rejection too."""
     import ast as _ast
     tree = _ast.parse(code)
     bad = []
     for node in _ast.walk(tree):
         if isinstance(node, _ast.Import):
             for a in node.names:
-                if a.name.split(".")[0] in _BANNED_IMPORT_ROOTS:
+                if a.name.split(".")[0] not in _ALLOWED_IMPORT_ROOTS:
                     bad.append(f"import {a.name}")
         elif isinstance(node, _ast.ImportFrom):
             root = (node.module or "").split(".")[0]
-            if root in _BANNED_IMPORT_ROOTS:
-                bad.append(f"from {node.module} import ...")
+            if node.level or root not in _ALLOWED_IMPORT_ROOTS:
+                bad.append(f"from {'.' * node.level}{node.module or ''} import ...")
         elif isinstance(node, _ast.Call) and isinstance(node.func, _ast.Name):
             if node.func.id in _BANNED_CALLS:
                 bad.append(f"{node.func.id}()")
     if bad:
-        raise ValueError("banned constructs in generated APL: "
+        raise ValueError("disallowed constructs in generated APL: "
                          + ", ".join(sorted(set(bad))))
 
 
@@ -842,6 +851,20 @@ _SMOKE_MAX_KILL_TURN = 20    # slower than T20 on average = APL effectively does
 _SMOKE_TIMEOUT = 300         # seconds; a generated APL that hangs this long fails the gate
 _SMOKE_RUNNER = Path(__file__).resolve().parent / "_apl_smoke_runner.py"
 
+# The smoke subprocess gets a minimal environment: only what the interpreter
+# needs to run. `python -I` controls sys.path and interpreter config but NOT
+# os.environ, so without this the child would inherit every secret the
+# orchestrator holds -- ANTHROPIC_API_KEY, OAuth tokens, GH creds (#2, Tom
+# review). Allowlist, so a newly-added secret env var isn't leaked by default.
+_CHILD_ENV_KEEP = ("PATH", "SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP",
+                   "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "HOME", "HOMEPATH",
+                   "HOMEDRIVE", "USERPROFILE", "PATHEXT", "COMSPEC")
+
+
+def _child_env():
+    """Minimal, secret-free environment for the smoke subprocess (#2)."""
+    return {k: os.environ[k] for k in _CHILD_ENV_KEEP if k in os.environ}
+
 
 def _smoke_test_apl(deck_name, format_name, n=50):
     """Run the auto-generated APL out-of-process over N goldfish games (#2).
@@ -860,14 +883,16 @@ def _smoke_test_apl(deck_name, format_name, n=50):
         return {"status": "no_deck_file", "passed": False}
 
     # Run the generated APL OUT OF PROCESS (#2): never import model-written code
-    # into the orchestrator. A hang is bounded by _SMOKE_TIMEOUT; a crash or a
-    # non-JSON stdout is a gate failure, not an orchestrator crash.
+    # into the orchestrator. `-I` + a scrubbed env (no secrets) + a timeout.
+    # ponytail: process + scrubbed-env isolation, NOT a kernel sandbox -- a
+    # seccomp/container jail, or declarative non-executable APLs, is the real
+    # ceiling and stays open on #2.
     mod_name = f"apl.auto_apls.{safe}"
     cmd = [sys.executable, "-I", str(_SMOKE_RUNNER), str(SIM_ROOT), mod_name,
            str(deck_path), str(n), "42"]
     try:
         proc = subprocess.run(cmd, cwd=str(SIM_ROOT), capture_output=True,
-                              text=True, timeout=_SMOKE_TIMEOUT)
+                              text=True, timeout=_SMOKE_TIMEOUT, env=_child_env())
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "passed": False,
                 "error": f"smoke exceeded {_SMOKE_TIMEOUT}s"}
