@@ -718,17 +718,23 @@ def _generate_via_claude_v2(deck_name, format_name="modern"):
     production quality. Writes to apl/auto_apls/<slug>.py.
     """
     log(f"  Generating APL via Claude for {deck_name}...")
-    from harness_auth import get_claude_token
+    from harness_auth import get_claude_token, sdk_auth_kwargs, credential_kind
     _token = get_claude_token()
     if not _token:
-        log("  Claude credential unavailable -- falling back to Gemma", "WARN")
+        log("  Claude credential unavailable (no ANTHROPIC_API_KEY, no usable OAuth "
+            "token) -- falling back to Gemma", "WARN")
         return _generate_via_gemma(deck_name, format_name)
 
+    # Route an OAuth token through auth_token= (Bearer) and an API key through
+    # api_key=, matching the raw-HTTP path, so an sk-ant-oat token never rides
+    # the x-api-key path the pre-migration SDK builds for api_key= (#30). The
+    # credential TYPE is logged, never the value.
+    log(f"  Using Claude via {credential_kind(_token)} credential")
     prompt = _build_apl_prompt(deck_name, format_name)
     try:
         import anthropic as _anthropic
         import time as _time
-        _client = _anthropic.Anthropic(api_key=_token)
+        _client = _anthropic.Anthropic(**sdk_auth_kwargs(_token))
 
         # Retry once on 429 with a 60s back-off (Sonnet has tighter OAuth rate limits)
         _code = None
