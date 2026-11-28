@@ -266,12 +266,13 @@ def _stub_decks_has_fuzzy_fallback_marker(path: Path) -> bool:
 def _parse_deck_file(path: Path) -> tuple[list[str], list[str]] | None:
     """Parse a .txt deck file into (mainboard_cards, sideboard_cards).
 
-    Each card is the card name (lines like '4 Ragavan, Nimble Pilferer' yield
-    'Ragavan, Nimble Pilferer' once per copy or the name once -- here we
-    return one entry per copy so 4 Ragavan -> 4 entries).
+    Each card is the card name, one entry per copy, so '4 Ragavan' -> 4
+    entries and len(mainboard) is the real card count.
 
-    Sideboard delimiter: blank line OR line starting with 'Sideboard' /
-    'SB:' / '//' / '#'.
+    Parsing mirrors mtg-sim data/deck.py::_parse_decklist so the counts match
+    the simulator's loader: an explicit 'Sideboard' line, or a blank line only
+    after 50+ mainboard cards, starts the sideboard. Section-comment blank
+    lines do not.
 
     Returns None if file missing or unparseable.
     """
@@ -285,45 +286,45 @@ def _parse_deck_file(path: Path) -> tuple[list[str], list[str]] | None:
 
     mainboard: list[str] = []
     sideboard: list[str] = []
-    target = mainboard
-    sb_seen = False
+    in_sideboard = False
+    main_count = 0
 
+    # Mirror mtg-sim data/deck.py::_parse_decklist exactly, so the linter's
+    # counts match the simulator's real loader (#19). The old code flipped to
+    # the sideboard at the FIRST blank line with any mainboard card, so a
+    # sectioned list (// CREATURES, blank, // LANDS, ...) was mis-split as e.g.
+    # 8 main / 67 side. The real parser treats a blank line as a sideboard
+    # break only after 50+ mainboard cards, and otherwise only an explicit
+    # 'Sideboard' line. We deliberately do NOT import that function: this
+    # linter is pure and must run even when mtg-sim cannot be imported.
     for raw in lines:
         line = raw.strip()
-        if not line:
-            # Blank line = transition to SB on first occurrence
-            if not sb_seen and mainboard:
-                target = sideboard
-                sb_seen = True
+        if not line or line.startswith("//") or line.startswith("#"):
+            if not line and not in_sideboard and main_count >= 50:
+                in_sideboard = True
             continue
 
-        lower = line.lower()
-        if lower.startswith(("sideboard", "sb:", "// sideboard", "#sb")):
-            target = sideboard
-            sb_seen = True
-            continue
-        if line.startswith(("//", "#")):
+        if line.lower() in ("sideboard", "maindeck", "companion"):
+            if line.lower() == "sideboard":
+                in_sideboard = True
             continue
 
-        # Parse "<count> <name>" or just "<name>"
+        # Only "<int qty> <name>" lines are cards (same as the real parser,
+        # which skips a bare name rather than defaulting its count to 1).
         parts = line.split(None, 1)
-        if not parts:
+        if len(parts) != 2:
             continue
-        count = 1
-        name = line
         try:
-            count = int(parts[0])
-            if len(parts) > 1:
-                name = parts[1].strip()
+            qty = int(parts[0])
         except ValueError:
-            name = line
+            continue
+        name = parts[1].strip()
 
-        # Strip set/collector tags like "Ragavan (MH2) 138"
-        if "(" in name:
-            name = name.split("(", 1)[0].strip()
-
-        for _ in range(count):
-            target.append(name)
+        if in_sideboard:
+            sideboard.extend([name] * qty)
+        else:
+            mainboard.extend([name] * qty)
+            main_count += qty
 
     return mainboard, sideboard
 
