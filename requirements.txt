@@ -1,0 +1,14 @@
+# Harness Python dependencies.
+#
+# The nightly agents talk to Ollama over plain HTTP (stdlib urllib only) and
+# import the sibling mtg-sim's apl/data/engine by path, so the core pipeline has
+# no hard third-party pip dependencies. This file covers the test suite and the
+# one optional runtime extra.
+
+# Test + CI (`pytest -q`; see .github/workflows/tests.yml).
+pytest
+
+# Optional — uncomment for the Claude-backed APL generation path in
+# auto_pipeline.py. Without it (or without a credential) that path falls back to
+# the local Ollama/Gemma models. Version pinning is tracked in issue #43.
+# anthropic
