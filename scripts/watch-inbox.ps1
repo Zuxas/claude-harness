@@ -9,9 +9,11 @@
 # Drop a file named domain--blockname.txt into harness/inbox/
 # and it compiles automatically within 5 seconds.
 
-$InboxDir = "E:\vscode ai project\harness\inbox"
-$ProcessScript = "E:\vscode ai project\harness\scripts\process-inbox.ps1"
-$LogFile = "E:\vscode ai project\harness\logs\inbox-watcher.log"
+# Paths default to the Windows install; env overrides let the watcher run (and be
+# tested) anywhere without editing the script.
+$InboxDir      = if ($env:HARNESS_INBOX_DIR)      { $env:HARNESS_INBOX_DIR }      else { "E:\vscode ai project\harness\inbox" }
+$ProcessScript = if ($env:HARNESS_PROCESS_SCRIPT) { $env:HARNESS_PROCESS_SCRIPT } else { "E:\vscode ai project\harness\scripts\process-inbox.ps1" }
+$LogFile       = if ($env:HARNESS_INBOX_LOG)      { $env:HARNESS_INBOX_LOG }      else { "E:\vscode ai project\harness\logs\inbox-watcher.log" }
 
 # Ensure log directory exists
 $logDir = Split-Path $LogFile
@@ -37,47 +39,64 @@ $watcher.NotifyFilter = [System.IO.NotifyFilters]::FileName -bor [System.IO.Noti
 # Debounce: track last processed time to avoid double-firing
 $script:lastProcessed = @{}
 
+# NOTE: $using: does NOT work inside a Register-ObjectEvent -Action block (it is
+# only valid in remote/job/parallel scopes and throws "A Using variable cannot be
+# retrieved..."). Paths are passed in via -MessageData and read from $Event.MessageData.
+# The whole body is wrapped in try/catch so a failure is logged instead of vanishing
+# into the event job's error stream that nobody reads.
 $action = {
-    $name = $Event.SourceEventArgs.Name
-    $fullPath = $Event.SourceEventArgs.FullPath
-    $changeType = $Event.SourceEventArgs.ChangeType
-    
-    # Skip processed/ subdirectory
-    if ($fullPath -match "\\processed\\") { return }
-    
-    # Skip non-text files
-    if ($name -notmatch "\.(txt|md|log)$") { return }
-    
-    # Debounce: skip if we processed this file in the last 30 seconds
-    $now = Get-Date
-    if ($script:lastProcessed[$name] -and ($now - $script:lastProcessed[$name]).TotalSeconds -lt 30) {
-        return
-    }
-    $script:lastProcessed[$name] = $now
-    
-    # Wait a moment for the file to finish writing
-    Start-Sleep -Seconds 2
-    
-    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMsg = "[$ts] File detected: $name ($changeType) - compiling..."
-    Add-Content -Path $using:LogFile -Value $logMsg
-    Write-Host $logMsg -ForegroundColor Cyan
-    
     try {
-        & $using:ProcessScript
+        $logFile    = $Event.MessageData.LogFile
+        $procScript = $Event.MessageData.ProcessScript
+
+        $name = $Event.SourceEventArgs.Name
+        $fullPath = $Event.SourceEventArgs.FullPath
+        $changeType = $Event.SourceEventArgs.ChangeType
+
+        # Skip processed/ subdirectory (match either path separator)
+        if ($fullPath -match "[\\/]processed[\\/]") { return }
+
+        # Skip non-text files
+        if ($name -notmatch "\.(txt|md|log)$") { return }
+
+        # Skip the daily drift-pr--YYYY-MM-DD.md files gemma drops here; they are not
+        # knowledge blocks and fail the domain--name regex on every pass (issue #14).
+        if ($name -match "^drift-pr--") { return }
+
+        # Debounce: skip if we processed this file in the last 30 seconds.
+        # Initialise per-registration state on first fire (the main-scope init does
+        # not reach this action's module scope).
+        if ($null -eq $script:lastProcessed) { $script:lastProcessed = @{} }
+        $now = Get-Date
+        if ($script:lastProcessed[$name] -and ($now - $script:lastProcessed[$name]).TotalSeconds -lt 30) {
+            return
+        }
+        $script:lastProcessed[$name] = $now
+
+        # Wait a moment for the file to finish writing
+        Start-Sleep -Seconds 2
+
+        $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $logMsg = "[$ts] File detected: $name ($changeType) - compiling..."
+        Add-Content -Path $logFile -Value $logMsg
+        Write-Host $logMsg -ForegroundColor Cyan
+
+        & $procScript
         $doneMsg = "[$ts] Compilation complete for: $name"
-        Add-Content -Path $using:LogFile -Value $doneMsg
+        Add-Content -Path $logFile -Value $doneMsg
         Write-Host $doneMsg -ForegroundColor Green
     } catch {
-        $errMsg = "[$ts] ERROR compiling $name`: $_"
-        Add-Content -Path $using:LogFile -Value $errMsg
+        $et = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $errMsg = "[$et] ERROR in inbox watcher: $_"
+        try { Add-Content -Path $Event.MessageData.LogFile -Value $errMsg } catch { }
         Write-Host $errMsg -ForegroundColor Red
     }
 }
 
-# Register event handlers
-Register-ObjectEvent $watcher "Created" -Action $action | Out-Null
-Register-ObjectEvent $watcher "Changed" -Action $action | Out-Null
+# Register event handlers. Paths travel in via -MessageData (see the $action note).
+$handlerData = @{ LogFile = $LogFile; ProcessScript = $ProcessScript }
+Register-ObjectEvent $watcher "Created" -Action $action -MessageData $handlerData | Out-Null
+Register-ObjectEvent $watcher "Changed" -Action $action -MessageData $handlerData | Out-Null
 
 # Start watching
 $watcher.EnableRaisingEvents = $true
