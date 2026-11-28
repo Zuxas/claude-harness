@@ -31,10 +31,12 @@ from pathlib import Path
 from datetime import datetime
 
 # Add mtg-sim to path
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, harness_root  # noqa: E402
+SIM_ROOT = sim_root()
 sys.path.insert(0, str(SIM_ROOT))
 
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+HARNESS_ROOT = harness_root()
 OLLAMA_API = "http://localhost:11434/api/generate"
 
 # ---------------------------------------------------------------------------

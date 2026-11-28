@@ -30,8 +30,10 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, harness_root  # noqa: E402
+SIM_ROOT = sim_root()
+HARNESS_ROOT = harness_root()
 APL_DIR = SIM_ROOT / "apl"
 DECKS_DIR = SIM_ROOT / "decks"
 

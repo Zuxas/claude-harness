@@ -69,3 +69,21 @@ def test_agent_hardening_uses_derived_root(monkeypatch):
     ah = importlib.import_module("agent_hardening")
     assert ah.HARNESS_ROOT == ROOT
     assert ah.STATE_DIR == ROOT / "state"
+
+
+def test_resolved_equals_legacy_on_owner_box(monkeypatch):
+    # #50 phase-2 equivalence: with roots.py at the owner's layout and no env,
+    # EVERY resolved root equals the exact value the migrated scripts used to
+    # hardcode. This is the automated form of the dry-run diff the migration
+    # requires before the live pipeline runs against the new code.
+    import roots as r
+    monkeypatch.setattr(r, "_HARNESS_FROM_FILE", Path("E:/vscode ai project/harness"))
+    for k in ("ZUXAS_PROJECT_ROOT", "HARNESS_ROOT", "MTG_SIM_ROOT",
+              "MTG_META_ANALYZER_ROOT", "MTG_META_DB", "MY_WEBSITE_ROOT",
+              "ZUXAS_BOOKS_DIR"):
+        monkeypatch.delenv(k, raising=False)
+    resolved = r.resolved()
+    assert resolved == {name: Path(legacy) for name, legacy in r._LEGACY.items()}
+    # and the pieces the scripts build on top of the roots:
+    assert r.harness_root() / "knowledge" / "library" == Path(
+        "E:/vscode ai project/harness/knowledge/library")

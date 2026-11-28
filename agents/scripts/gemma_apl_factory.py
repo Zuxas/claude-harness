@@ -26,8 +26,10 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, harness_root, website_root  # noqa: E402
+SIM_ROOT = sim_root()
+HARNESS_ROOT = harness_root()
 APL_DIR = SIM_ROOT / "apl"
 DECKS_DIR = SIM_ROOT / "decks"
 
@@ -170,7 +172,7 @@ def ask_gemma(prompt, system="", model="gemma4", max_tokens=4096, temperature=0.
 # Step 0: Load playbook content as strategy source
 # ---------------------------------------------------------------------------
 
-WEBSITE_DIR = Path("E:/vscode ai project/My-Website")
+WEBSITE_DIR = website_root()
 
 def load_playbook_text(deck_name, format_name):
     """Extract strategy text from an existing HTML playbook."""

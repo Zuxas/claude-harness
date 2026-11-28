@@ -14,8 +14,10 @@ import sys, os, json, re, time, argparse
 from pathlib import Path
 from datetime import datetime
 
-BOOKS_DIR = Path("E:/vscode ai project/books")
-LIBRARY_DIR = Path("E:/vscode ai project/harness/knowledge/library")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import books_dir, harness_root  # noqa: E402
+BOOKS_DIR = books_dir()
+LIBRARY_DIR = harness_root() / "knowledge" / "library"
 INDEX_FILE = LIBRARY_DIR / "book_index.json"
 CHUNK_SIZE = 2000  # chars per chunk
 CHUNK_OVERLAP = 200  # overlap between chunks

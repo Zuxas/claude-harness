@@ -38,10 +38,12 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
-META_ANALYZER = Path("E:/vscode ai project/mtg-meta-analyzer")
-WEBSITE_ROOT = Path("E:/vscode ai project/My-Website")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, harness_root, meta_root, website_root  # noqa: E402
+SIM_ROOT = sim_root()
+HARNESS_ROOT = harness_root()
+META_ANALYZER = meta_root()
+WEBSITE_ROOT = website_root()
 MEMORY_FILE = HARNESS_ROOT / "agents" / "optimization_memory.json"
 
 sys.path.insert(0, str(SIM_ROOT))
