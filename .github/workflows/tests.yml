@@ -14,11 +14,12 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     steps:
-      # Pinned to the v4/v5 major tags. For stricter supply-chain hardening these
-      # can be pinned to a full commit SHA (e.g. actions/checkout@<sha> # v4.x);
-      # left at the major tag here so the pin is verifiable without network.
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # Pinned to full commit SHAs (supply-chain hardening, #48): a moved or
+      # compromised major tag can't inject into CI. Update the SHA + comment
+      # together when bumping; resolve a tag via the GitHub API's
+      # /repos/<owner>/<repo>/git/ref/tags/<tag> endpoint.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262      # v4 tag @ 2026-07-16
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5 tag @ 2025-04-24
         with:
           python-version: "3.12"
       - name: Install pytest
