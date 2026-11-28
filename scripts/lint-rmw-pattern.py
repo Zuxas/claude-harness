@@ -28,66 +28,88 @@ AGENTS_ROOT = HARNESS_ROOT / "agents" / "scripts"
 
 SKIP_DIRS = {"__pycache__", "_research", "auto_apls", "tests", ".git"}
 
-# Names that signal safe atomic writes — seeing any of these in a function
-# means it has been migrated to the safe pattern.
-SAFE_PATTERNS = {
-    "atomic_rmw_json", "atomic_write_json", "os.replace",
-    "atomic_json_update",
-}
+
+def _attr_chain(node):
+    """Attribute(Name(os), 'replace') -> 'os.replace'; returns '' if not a pure
+    Name/Attribute chain."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return ""
 
 
-def _extract_string(node):
-    """Return the string value of a constant string AST node, or None."""
+def _path_identity(node):
+    """A canonical identity for a path expression, so a read and a write can be
+    recognized as the SAME target whether it's a string literal, a constant name
+    (MATRIX), or an attribute (self.path). Returns None for anything else."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
+        return ("lit", node.value)
+    if isinstance(node, ast.Name):
+        return ("name", node.id)
+    if isinstance(node, ast.Attribute):
+        chain = _attr_chain(node)
+        return ("attr", chain) if chain else None
     return None
 
 
-def _find_open_paths(func_body, mode_hint):
-    """
-    Find hardcoded string paths passed to open() with the given mode hint.
-    mode_hint: 'r' matches open(path) or open(path, 'r')
-               'w' matches open(path, 'w') or open(path, 'wb')
-    Returns set of (path_str, lineno).
-    """
-    results = set()
-    for node in ast.walk(ast.Module(body=func_body, type_ignores=[])):
+def _open_mode(call):
+    """'w' if an open() call opens for writing/appending, else 'r'."""
+    mode = None
+    if len(call.args) >= 2 and isinstance(call.args[1], ast.Constant):
+        mode = call.args[1].value
+    else:
+        for kw in call.keywords:
+            if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
+                mode = kw.value.value
+    if isinstance(mode, str) and mode[:1] in ("w", "a"):
+        return "w"
+    return "r"
+
+
+# Call names that make a write to their path argument atomic/safe.
+_SAFE_CALL_NAMES = {"atomic_rmw_json", "atomic_write_json", "atomic_json_update"}
+
+
+def _collect_targets(func):
+    """Return (reads, writes, safe_ids): path identities read, written, and made
+    safe by an atomic call (os.replace / Path.replace / atomic_* targeting them).
+    Covers open(x[, mode]) and Path x.read_text/write_text/read_bytes/write_bytes."""
+    reads, writes, safe_ids = set(), set(), set()
+    for node in ast.walk(func):
         if not isinstance(node, ast.Call):
             continue
-        func = node.func
-        # open(path, ...) or open(path)
-        is_open = (isinstance(func, ast.Name) and func.id == "open")
-        if not is_open:
-            continue
-        if not node.args:
-            continue
-        path_str = _extract_string(node.args[0])
-        if path_str is None:
-            continue
-        # Determine mode
-        if len(node.args) >= 2:
-            mode_arg = _extract_string(node.args[1])
-        else:
-            # Check keyword mode=
-            mode_arg = None
-            for kw in node.keywords:
-                if kw.arg == "mode":
-                    mode_arg = _extract_string(kw.value)
-        if mode_hint == "r":
-            if mode_arg is None or mode_arg in ("r", "rb", "rt"):
-                results.add((path_str, node.lineno))
-        elif mode_hint == "w":
-            if mode_arg in ("w", "wb", "wt"):
-                results.add((path_str, node.lineno))
-    return results
-
-
-def _has_safe_pattern(func_src):
-    """Return True if any safe atomic-write pattern name appears in function source."""
-    for safe in SAFE_PATTERNS:
-        if safe in func_src:
-            return True
-    return False
+        f = node.func
+        if isinstance(f, ast.Name):
+            if f.id == "open" and node.args:
+                ident = _path_identity(node.args[0])
+                if ident:
+                    (writes if _open_mode(node) == "w" else reads).add(ident)
+            elif f.id in _SAFE_CALL_NAMES and node.args:
+                ident = _path_identity(node.args[0])
+                if ident:
+                    safe_ids.add(ident)
+        elif isinstance(f, ast.Attribute):
+            if f.attr in ("read_text", "read_bytes"):
+                ident = _path_identity(f.value)
+                if ident:
+                    reads.add(ident)
+            elif f.attr in ("write_text", "write_bytes"):
+                ident = _path_identity(f.value)
+                if ident:
+                    writes.add(ident)
+            elif f.attr == "replace" or _attr_chain(f) in _SAFE_CALL_NAMES:
+                # os.replace(src, dst) / tmp.replace(dst): every path arg of an
+                # atomic rename is a safe target (path-specific, so os.replace on
+                # a DIFFERENT file does not exempt this one).
+                for a in node.args:
+                    ident = _path_identity(a)
+                    if ident:
+                        safe_ids.add(ident)
+    return reads, writes, safe_ids
 
 
 def _has_allowlist(func_src):
@@ -100,6 +122,11 @@ def _get_func_source(source_lines, func_node):
     start = func_node.lineno - 1
     end = func_node.end_lineno
     return "\n".join(source_lines[start:end])
+
+
+def _fmt_identity(ident):
+    kind, val = ident
+    return val if kind == "lit" else val
 
 
 def check_file(path: Path):
@@ -119,39 +146,28 @@ def check_file(path: Path):
 
         func_src = _get_func_source(source_lines, node)
 
-        # Fast exits
         if _has_allowlist(func_src):
             continue
-        if _has_safe_pattern(func_src):
+        # RMW-of-JSON shape: the function both loads and dumps JSON.
+        if not (("json.load" in func_src or "json.loads" in func_src)
+                and ("json.dump" in func_src or "json.dumps" in func_src)):
             continue
-        # Must mention json somewhere
-        if "json" not in func_src:
-            continue
 
-        read_paths = _find_open_paths(node.body, "r")
-        write_paths = _find_open_paths(node.body, "w")
-
-        read_path_strs = {p for p, _ in read_paths}
-        write_path_strs = {p for p, _ in write_paths}
-        overlap = read_path_strs & write_path_strs
-
-        for shared_path in overlap:
-            # Only flag if json.load/dump appears in the function
-            if ("json.load" in func_src or "json.loads" in func_src) and (
-                "json.dump" in func_src or "json.dumps" in func_src
-            ):
-                findings.append({
-                    "file": str(path),
-                    "function": node.name,
-                    "line": node.lineno,
-                    "path": shared_path,
-                    "message": (
-                        f"RMW pattern on '{shared_path}' without atomic-write. "
-                        f"Use atomic_rmw_json() or os.replace(). "
-                        f"Suppress with: # drift-detect:rmw-ok reason=\"...\""
-                    ),
-                    "level": "INFO",
-                })
+        reads, writes, safe_ids = _collect_targets(node)
+        for ident in (reads & writes) - safe_ids:
+            shared = _fmt_identity(ident)
+            findings.append({
+                "file": str(path),
+                "function": node.name,
+                "line": node.lineno,
+                "path": shared,
+                "message": (
+                    f"RMW pattern on '{shared}' without atomic-write. "
+                    f"Use atomic_rmw_json() or os.replace(). "
+                    f"Suppress with: # drift-detect:rmw-ok reason=\"...\""
+                ),
+                "level": "INFO",
+            })
 
     return findings
 
@@ -179,12 +195,25 @@ def main():
     args = parser.parse_args()
 
     roots = args.roots or [str(MTG_SIM_ROOT), str(AGENTS_ROOT)]
+    missing = [r for r in roots if not Path(r).exists()]
+
+    # A missing root means the scan never ran -- reporting "clean" would hide the
+    # bug this linter exists to catch. Under --strict that is a hard failure, not
+    # an exit-0 "OK" (drift-detect runs --strict).
+    if missing:
+        msg = f"scan root(s) missing, cannot certify clean: {missing}"
+        if args.strict:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            sys.exit(2)
+        print(f"WARNING: {msg}", file=sys.stderr)
+
     findings = scan(roots)
 
     if args.json:
-        print(json.dumps({"findings": findings, "count": len(findings)}, indent=2))
+        print(json.dumps({"findings": findings, "count": len(findings),
+                          "missing_roots": missing}, indent=2))
     else:
-        if not findings:
+        if not findings and not missing:
             print("OK -- no RMW-pattern findings")
         for f in findings:
             print(f"[{f['level']}] {f['file']}:{f['line']} {f['function']}()")
