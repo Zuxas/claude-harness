@@ -88,10 +88,28 @@ def test_smoke_python_prefers_existing_override():
         os.environ.pop("MTG_SMOKE_PYTHON", None)
 
 
-def test_smoke_python_ignores_missing_override_and_falls_back():
+def test_smoke_python_fails_closed_on_invalid_override():
+    # A set-but-missing override is trusted operator config gone wrong: raise,
+    # never silently fall back to a different interpreter.
     os.environ["MTG_SMOKE_PYTHON"] = "C:/definitely/not/here/python.exe"
     try:
-        assert s._smoke_python("C:/no/venv/here") == sys.executable
+        try:
+            s._smoke_python("C:/no/venv/here")
+        except FileNotFoundError:
+            pass
+        else:
+            raise AssertionError("invalid override should raise, not fall back")
+    finally:
+        os.environ.pop("MTG_SMOKE_PYTHON", None)
+
+
+def test_run_apl_subprocess_fails_closed_on_invalid_override():
+    # The raise from _smoke_python must surface as a non-"ran" status, not an
+    # exception out of run_apl_subprocess.
+    os.environ["MTG_SMOKE_PYTHON"] = "C:/definitely/not/here/python.exe"
+    try:
+        out = s.run_apl_subprocess("C:/sim", "m", "C:/d.txt", 1, 1, timeout=10)
+        assert out.get("status") != "ran", out
     finally:
         os.environ.pop("MTG_SMOKE_PYTHON", None)
 
