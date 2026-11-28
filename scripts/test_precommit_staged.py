@@ -118,6 +118,42 @@ def test_hook_allows_clean_staged_commit():
         assert len(_git(root, "log", "--oneline").stdout.strip().splitlines()) == 2
 
 
+def test_hook_blocks_when_staged_export_fails():
+    # Fail-closed: if `git checkout-index` can't export the index, the hook must
+    # ABORT (exit non-zero), not fall back to linting the (possibly clean)
+    # working tree. git forces its own binary into a hook's PATH, so a shim can't
+    # be injected via `git commit`; instead run the hook DIRECTLY with a git shim
+    # that breaks only checkout-index and passes everything else through -- same
+    # code path, deterministic failure.
+    real_git = shutil.which("git")
+    if not real_git or not shutil.which("bash"):
+        print("  skip test_hook_blocks_when_staged_export_fails (git/bash unavailable)")
+        return
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _make_repo(root)
+        _install_hook(root)
+
+        shimdir = root / "_shim"
+        shimdir.mkdir()
+        shim = shimdir / "git"
+        shim.write_text(
+            "#!/usr/bin/env bash\n"
+            'if [ "$1" = "checkout-index" ]; then exit 1; fi\n'
+            f'exec "{real_git}" "$@"\n', encoding="utf-8")
+        shim.chmod(0o755)
+
+        # Stage a lint-relevant file so the hook reaches the export step.
+        (root / "decks" / "ghost.txt").write_text("60 Forest\n", encoding="utf-8")
+        _git(root, "add", "decks/ghost.txt")
+
+        env = dict(os.environ, PATH=str(shimdir) + os.pathsep + os.environ.get("PATH", ""))
+        res = subprocess.run(["bash", str(root / ".git" / "hooks" / "pre-commit")],
+                             cwd=str(root), capture_output=True, text=True, env=env)
+        assert res.returncode != 0, "hook passed despite a failed staged export (fail-open!)"
+        assert "fail-closed" in (res.stdout + res.stderr).lower(), res.stdout + res.stderr
+
+
 def _run_all():
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
