@@ -21,8 +21,10 @@ param(
     [switch]$DryRun
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 $ErrorActionPreference = "Stop"
-$HarnessRoot = "E:\vscode ai project\harness"
 $OllamaAPI = "http://localhost:11434/api/generate"
 $Today = Get-Date -Format "yyyy-MM-dd"
 

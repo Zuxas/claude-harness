@@ -1,8 +1,11 @@
 # install-stack.ps1
 # Installs the harness infrastructure stack
 # Run manually — each component is independent
-# Usage: powershell -ExecutionPolicy Bypass -File "E:\vscode ai project\harness\scripts\install-stack.ps1"
+# Usage: powershell -ExecutionPolicy Bypass -File "$HarnessRoot\scripts\install-stack.ps1"
 
+
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
 Write-Host "=== HARNESS STACK INSTALLER ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -29,7 +32,7 @@ Write-Host ""
 # 4. Obsidian (knowledge base viewer)
 Write-Host "[4/4] Obsidian — view knowledge blocks with graph visualization" -ForegroundColor Yellow
 Write-Host "  Install: winget install Obsidian.Obsidian" -ForegroundColor Gray
-Write-Host "  Then:    Open as vault -> E:\vscode ai project\harness\knowledge\" -ForegroundColor Gray
+Write-Host "  Then:    Open as vault -> $HarnessRoot\knowledge\" -ForegroundColor Gray
 Write-Host "  Plugins: Smart Connections (for AI-powered search of your vault)" -ForegroundColor Gray
 Write-Host ""
 

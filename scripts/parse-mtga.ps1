@@ -19,8 +19,9 @@ param(
     [string]$Format = "standard"
 )
 
-$ProjectRoot = "E:\vscode ai project\mtg-meta-analyzer"
-$HarnessRoot = "E:\vscode ai project\harness"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 
 # Build command args
 $args_list = @("--resolve-cards", "--summary")
