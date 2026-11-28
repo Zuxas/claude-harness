@@ -43,6 +43,18 @@ import urllib.request
 OLLAMA_API = "http://localhost:11434/api/generate"
 TODAY = datetime.now().strftime("%Y-%m-%d")
 
+# Running LLM spend for one optimizer run, accrued by call_claude_api and
+# reported in the summary. Gemma is local (free), so this stays 0.0 unless the
+# Claude path is used (#15 -- the summary used to hardcode "Cost: $0.00").
+# ponytail: module-global accumulator + hardcoded per-token rate estimate; a
+# single run is sequential so the global is safe, and the rate is a close-enough
+# sticker price, not billed truth.
+_RUN_COST = 0.0
+# Per-token rate ESTIMATES (sticker price, not billed truth); override per model
+# via env rather than editing code.
+_CLAUDE_USD_PER_MTOK_IN = float(os.environ.get("CLAUDE_USD_PER_MTOK_IN", "3.0"))
+_CLAUDE_USD_PER_MTOK_OUT = float(os.environ.get("CLAUDE_USD_PER_MTOK_OUT", "15.0"))
+
 # ---------------------------------------------------------------------------
 # AI Backends (Gemma local + Claude API)
 # ---------------------------------------------------------------------------
@@ -127,6 +139,10 @@ def call_claude_api(prompt, model="claude-sonnet-4-20250514"):
     try:
         with urllib.request.urlopen(req, timeout=90) as resp:
             data = json.loads(resp.read())
+            usage = data.get("usage", {})
+            global _RUN_COST
+            _RUN_COST += (usage.get("input_tokens", 0) / 1e6 * _CLAUDE_USD_PER_MTOK_IN
+                          + usage.get("output_tokens", 0) / 1e6 * _CLAUDE_USD_PER_MTOK_OUT)
             return data["content"][0]["text"]
     except Exception as e:
         log(f"  [WARN] Claude API failed ({e}), falling back to Gemma")
@@ -581,11 +597,14 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
     log(f"  Paired baseline: {_PAIRS} seeds x {_n_per_seed} games, "
         f"mean kill {_mean_kill(base_kills):.2f}, WR {base_wr:.1%}")
 
+    global _RUN_COST
+    _RUN_COST = 0.0
+
     all_results = []
-    current_source = apl_source
-    best_delta = 0.0          # best paired mean kill improvement among IMPROVED
+    current_source = apl_source   # advances as patches are accepted (#15)
+    accepted_issues = []
     best_patch = None
-    
+
     for iteration in range(1, iterations + 1):
         log(f"\n{'='*65}")
         log(f"  ITERATION {iteration}/{iterations}")
@@ -614,7 +633,13 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             all_results.append({"iteration": iteration, "status": "analyze_only",
                                "patches": patches, "analysis": analysis[:2000]})
             continue
-        
+
+        # Best IMPROVED candidate THIS iteration (vs the CURRENT baseline, which
+        # is the source accepted so far). Promoted at the end so iteration k+1
+        # refines iteration k's winner instead of re-analyzing the original (#15).
+        iter_best = None
+        iter_best_delta = 0.0
+
         # Test each patch independently
         for i, patch in enumerate(patches):
             log(f"\n  Testing patch [{i+1}]: {patch['issue']}")
@@ -679,16 +704,33 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             }
             all_results.append(result)
 
-            if verdict == "IMPROVED" and delta_kill > best_delta:
-                best_delta = delta_kill
-                best_patch = {"patch": patch, "results": {
-                                  "avg_kill": patched_mean, "win_rate": patched_wr},
-                              "source": patched_source}
-            
+            if verdict == "IMPROVED" and delta_kill > iter_best_delta:
+                iter_best_delta = delta_kill
+                iter_best = {"patch": patch, "kills": patched_kills, "wr": patched_wr,
+                             "mean": patched_mean, "source": patched_source}
+
             # Clean up temp file
             temp_apl_file.unlink(missing_ok=True)
 
-    # Re-confirm the selected best patch on a FRESH seed set before trusting it
+        # Promote this iteration's winner: advance the working source AND the
+        # paired baseline to it, so the next iteration compares against the
+        # improved APL. No improvement this round -> the same source would yield
+        # the same patches, so stop (#15).
+        if iter_best is None:
+            log(f"  No qualifying improvement in iteration {iteration} -- stopping early.")
+            break
+        current_source = iter_best["source"]
+        base_kills, base_wr = iter_best["kills"], iter_best["wr"]
+        accepted_issues.append(iter_best["patch"]["issue"])
+        best_patch = {"patch": iter_best["patch"],
+                      "results": {"avg_kill": iter_best["mean"], "win_rate": iter_best["wr"]},
+                      "source": iter_best["source"],
+                      "accepted_issues": list(accepted_issues)}
+        log(f"  Accepted [{iter_best['patch']['issue']}]; working source now "
+            f"{len(current_source)} chars, {len(accepted_issues)} patch(es) deep.")
+
+    # Re-confirm the cumulative accepted source on a FRESH seed set before
+    # trusting it
     # -- best-of-N selection is biased toward a lucky draw (winner's curse). If
     # it no longer clears significance on new seeds, discard it (#16).
     if best_patch:
@@ -711,6 +753,19 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
         finally:
             reconfirm_file.unlink(missing_ok=True)
 
+    # Save the reconfirmed optimized APL to a stable path so the winning code
+    # survives the run (the temp files are unlinked; the old code kept it only as
+    # a 300-char report excerpt). A human reviews it and promotes over the
+    # original -- the optimizer never overwrites the live APL (#15).
+    if best_patch:
+        opt_path = SIM_ROOT / "apl" / f"{apl_file.stem}_opt_{TODAY}.py"
+        try:
+            opt_path.write_text(best_patch["source"], encoding="utf-8")
+            best_patch["saved_to"] = str(opt_path)
+            log(f"\n  Saved optimized APL: {opt_path}")
+        except Exception as e:
+            log(f"  [WARN] Could not save optimized APL: {str(e)[:100]}")
+
     # Summary
     elapsed = time.time() - total_start
     tested = [r for r in all_results if r.get("status") in ("improved","neutral","worse")]
@@ -724,12 +779,15 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
     log(f"  Improved: {len(improved)}")
     if best_patch:
         bp = best_patch
-        log(f"  Best: {bp['patch']['issue']}")
+        log(f"  Accepted: {len(bp.get('accepted_issues', []))} patch(es): "
+            f"{'; '.join(bp.get('accepted_issues', [bp['patch']['issue']]))}")
         log(f"    Kill: T{baseline['avg_kill']:.2f} -> T{bp['results']['avg_kill']:.2f} "
             f"({baseline['avg_kill'] - bp['results']['avg_kill']:+.2f} turns)")
+        if bp.get("saved_to"):
+            log(f"    Saved: {bp['saved_to']}")
     else:
         log(f"  Best: No improvements found")
-    log(f"  Time: {elapsed:.0f}s | Cost: $0.00")
+    log(f"  Time: {elapsed:.0f}s | Cost: ~${_RUN_COST:.4f} (est)")
     log(f"{'='*65}")
     
     # Write report
@@ -762,16 +820,19 @@ def write_report(deck_name, format_name, baseline, results, best_patch, elapsed)
     if best_patch:
         bp = best_patch
         ptype = bp['patch'].get('type', 'replace').upper()
-        lines.extend(["", "### Best Improvement",
-            f"- Issue: {bp['patch']['issue']}",
-            f"- Type: {ptype}",
-            f"- Kill: {baseline['avg_kill']:.2f} -> {bp['results']['avg_kill']:.2f}",
-            f"- Code change:", "```python",
+        accepted = bp.get("accepted_issues", [bp['patch']['issue']])
+        lines.extend(["", "### Best Improvement (cumulative)",
+            f"- Accepted patches ({len(accepted)}): " + "; ".join(accepted),
+            f"- Last type: {ptype}",
+            f"- Kill: {baseline['avg_kill']:.2f} -> {bp['results']['avg_kill']:.2f}"])
+        if bp.get("saved_to"):
+            lines.append(f"- Saved optimized APL: `{bp['saved_to']}`")
+        lines.extend([f"- Last code change:", "```python",
             f"# {ptype} AFTER:", bp['patch']['after'][:300],
             f"# NEW CODE:", bp['patch']['code'][:300],
             "```"])
-    
-    lines.extend(["", f"Time: {elapsed:.0f}s | Cost: $0.00", "",
+
+    lines.extend(["", f"Time: {elapsed:.0f}s | Cost: ~${_RUN_COST:.4f} (est)", "",
                   "## Changelog", f"- {TODAY}: Generated by apl_optimizer.py"])
     
     path = HARNESS_ROOT / "knowledge" / "mtg" / f"apl-opt-{safe}-{TODAY}.md"
@@ -788,7 +849,8 @@ if __name__ == "__main__":
     parser.add_argument("deck", help="Deck name")
     parser.add_argument("--format", default="modern")
     parser.add_argument("--games", type=int, default=500)
-    parser.add_argument("--iterations", type=int, default=2)
+    parser.add_argument("--iterations", type=int, default=2,
+                        help="Maximum iterations; stops early when an iteration finds no improving patch")
     parser.add_argument("--analyze-only", action="store_true",
                         help="Show analysis without testing patches")
     parser.add_argument("--use-claude", action="store_true",
