@@ -32,8 +32,11 @@ ACTIVE_STATUSES = {"PROPOSED", "EXECUTING"}
 
 # Matches: python path/to/script.py or python3 path/to/script.py
 # Does NOT match: python -c "...", python -m module
+# The captured path is a single whitespace-free token ending in .py; the class
+# no longer contains a space, so "python a.py then fix b.py" captures only "a.py"
+# instead of greedily swallowing the prose through to "b.py" (a false ERROR).
 PYTHON_SCRIPT_RE = re.compile(
-    r'python3?\s+(?!-[cm]\s)([A-Za-z0-9_./\\][A-Za-z0-9_./\\ -]*\.py)\b'
+    r'python3?\s+(?!-[cm]\s)([A-Za-z0-9_./\\][A-Za-z0-9_./\\-]*\.py)\b'
 )
 
 # Section headings that indicate pre-flight context
