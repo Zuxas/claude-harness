@@ -38,10 +38,13 @@ GEXF_NS = "http://gexf.net/1.3"
 
 
 def _snapshot_privacy_established(snapshot):
-    """A snapshot generated BEFORE the #27 gitignore filter can't be trusted:
-    it may carry gitignored paths this converter can't re-detect from JSON. The
-    presence of the exclusion stat marks a post-fix snapshot."""
-    return "excluded_gitignored_count" in snapshot.get("stats", {})
+    """True only if the snapshot was actually privacy-filtered at generation and
+    is not a local-only (opt-in) export (#27). The count stat alone is NOT
+    enough: a --include-gitignored run still records excluded_gitignored_count=0
+    while carrying unfiltered gitignored paths. A pre-fix snapshot lacks these
+    markers entirely and is likewise refused."""
+    stats = snapshot.get("stats", {})
+    return stats.get("gitignore_filtered") is True and not stats.get("local_only", False)
 
 
 def _filter_public(snapshot, public_folders):
@@ -217,10 +220,17 @@ def main():
     # Refuse to publish a pre-#27 snapshot whose gitignore status is unknown,
     # unless the operator explicitly opts in for local analysis.
     if not args.include_private and not _snapshot_privacy_established(snapshot):
-        print("[json-to-gexf] ERROR: snapshot predates the #27 privacy filter "
-              "(no 'excluded_gitignored_count' stat); its gitignore status can't be "
-              "established. Regenerate with graph-snapshot.py, or pass --include-private "
-              "for a LOCAL-ONLY conversion.", file=sys.stderr)
+        st = snapshot.get("stats", {})
+        if st.get("local_only"):
+            reason = "it was generated with an opt-in (--include-private/--include-gitignored) and is local-only"
+        elif st.get("gitignore_filtered") is not True:
+            reason = "gitignore filtering was not applied at generation"
+        else:
+            reason = "it predates the #27 privacy filter (missing provenance markers)"
+        print(f"[json-to-gexf] ERROR: refusing to publish -- {reason}; its privacy "
+              f"status can't be established. Regenerate with graph-snapshot.py (no "
+              f"opt-ins), or pass --include-private for a LOCAL-ONLY conversion.",
+              file=sys.stderr)
         sys.exit(6)
 
     public_folders = (None if args.include_private

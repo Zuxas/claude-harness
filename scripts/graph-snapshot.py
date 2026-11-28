@@ -164,8 +164,18 @@ def _gitignored_rel_paths(files: dict[str, dict], root: Path,
             proc = subprocess.run(
                 ["git", "-C", str(repo), "check-ignore", "--stdin"],
                 input="\n".join(back), capture_output=True, text=True, timeout=120)
-        except Exception as e:  # git missing, timeout, etc. -- fail open, warn
-            warnings.append(f"check-ignore failed for repo {repo.name}: {e}")
+        except Exception as e:
+            # FAIL CLOSED (#27): if we can't establish ignore status for a repo
+            # (git missing, timeout, crash), exclude ALL its paths rather than
+            # let unchecked paths through.
+            warnings.append(f"check-ignore failed for repo {repo.name}: {e} "
+                            f"-- excluding all {len(back)} of its paths (fail-closed)")
+            ignored.update(back.values())
+            continue
+        if proc.returncode not in (0, 1):  # 0=some ignored, 1=none; else error
+            warnings.append(f"check-ignore error (rc={proc.returncode}) for repo "
+                            f"{repo.name} -- excluding all its paths (fail-closed)")
+            ignored.update(back.values())
             continue
         for line in proc.stdout.splitlines():
             line = line.strip()
@@ -528,6 +538,13 @@ def build_snapshot(root: Path, verbose: bool = False,
             "included_public_folders": included_public,
             "excluded_unknown_folders": sorted(excluded_unknown),
             "excluded_gitignored_count": excluded_gitignored,
+            # Privacy provenance for the publication layer (#27). gitignore_filtered
+            # records whether filtering actually ran (the count alone is 0 both when
+            # nothing matched AND when --include-gitignored skipped it). local_only
+            # marks a snapshot made with an exposure-widening opt-in; publication
+            # refuses those by default.
+            "gitignore_filtered": not include_gitignored,
+            "local_only": include_gitignored or (public_folders is None),
         },
         "nodes": sorted(nodes, key=lambda n: n["id"]),
         "edges": sorted(edges, key=lambda e: (e["from"], e["to"], e["type"])),
