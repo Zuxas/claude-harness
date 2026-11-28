@@ -57,8 +57,10 @@ except Exception:
     pass
 
 # Paths
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import harness_root, sim_root  # noqa: E402
+HARNESS_ROOT = harness_root()
+SIM_ROOT = sim_root()
 INBOX_DIR = HARNESS_ROOT / "inbox"
 STATE_DIR = HARNESS_ROOT / "state"
 KNOWLEDGE_TECH = HARNESS_ROOT / "knowledge" / "tech"

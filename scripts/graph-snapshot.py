@@ -58,13 +58,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agents" / "scripts"))
 from graph_privacy import resolve_public_folders  # noqa: E402
+from roots import project_root  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-DEFAULT_ROOT = Path(r"E:\vscode ai project")
+DEFAULT_ROOT = project_root()
 DEFAULT_OUT_DIR = DEFAULT_ROOT / "harness" / "state" / "graph-snapshots"
 
 # Directories to skip entirely (anywhere in the tree)

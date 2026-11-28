@@ -29,11 +29,13 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 # Path setup — must come before any mtg-sim imports
 # ---------------------------------------------------------------------------
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
-PROJECT_ROOT = Path("E:/vscode ai project")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, project_root  # noqa: E402
+SIM_ROOT = sim_root()
+PROJECT_ROOT = project_root()
 
 sys.path.insert(0, str(SIM_ROOT))
-sys.path.insert(0, str(Path("E:/vscode ai project/harness/agents/scripts")))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from agent_hardening import AgentLogger, LoopController
 
@@ -70,7 +72,8 @@ def _get_competitive_archetypes(format_name: str, weeks: int = 8) -> dict:
     Returns {archetype_name: {"meta_share": float, "results": int, "best_finish": int}}
     """
     import sqlite3
-    META_DB = Path("E:/vscode ai project/mtg-meta-analyzer/data/mtg_meta.db")
+    from roots import meta_db
+    META_DB = meta_db()
     if not META_DB.exists():
         return {}
 
