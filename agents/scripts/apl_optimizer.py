@@ -213,11 +213,12 @@ def load_apl_from_file(apl_path):
 # Sim Runner
 # ---------------------------------------------------------------------------
 
-def run_goldfish(apl, deck, n=500):
-    """Run goldfish sim and return results dict."""
+def run_goldfish(apl, deck, n=500, seed=None):
+    """Run goldfish sim and return results dict. Pass a seed for reproducible,
+    paired comparisons (common random numbers) -- see _paired_runs (#16)."""
     from engine.runner import run_simulation
     start = time.time()
-    results = run_simulation(apl, deck, n=n, on_play=True)
+    results = run_simulation(apl, deck, n=n, on_play=True, seed=seed)
     elapsed = time.time() - start
     return {
         "win_rate": results.win_rate(),
@@ -228,6 +229,75 @@ def run_goldfish(apl, deck, n=500):
         "time": round(elapsed, 1),
         "games": n,
     }
+
+
+# ---------------------------------------------------------------------------
+# Paired comparison (common random numbers) + significance (#16)
+#
+# The old verdict was `baseline_avg_kill - patched_avg_kill > 0.05` from ONE
+# unseeded n=500 run per side. Run-to-run noise at n=500 is ~0.037 SD, so a
+# no-op patch cleared 0.05 about 17% of the time, and the best of 6 patches was
+# then chosen by max (winner's curse). avg_kill is also averaged over WINNING
+# games only, so a patch that turns slow wins into losses "improves" avg_kill
+# while lowering win rate.
+# ---------------------------------------------------------------------------
+
+def _mean_kill(kills):
+    """Mean of the per-seed avg-kill samples that have a value (a seed with 0
+    wins reports None)."""
+    vals = [k for k in kills if k is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def _paired_runs(apl, deck, seeds, n_per_seed):
+    """Run `apl` once per seed and return (per_seed_avg_kill, overall_win_rate).
+    Using the SAME seed for baseline and candidate makes the two share identical
+    game draws (common random numbers), so a no-op change produces identical
+    per-seed results and the paired delta is exactly zero."""
+    kills, wins, total = [], 0, 0
+    for s in seeds:
+        r = run_goldfish(apl, deck, n=n_per_seed, seed=s)
+        kills.append(r["avg_kill"])
+        wins += round(r["win_rate"] * n_per_seed)
+        total += n_per_seed
+    return kills, (wins / total if total else 0.0)
+
+
+def paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
+                   k=2.5, min_effect=0.05, wr_drop_tol=0.01):
+    """Classify a patch from paired per-seed avg-kill samples + overall WR.
+
+    - A win-rate drop beyond tolerance is always WORSE. avg_kill is over
+      winning games only, so a patch that trades slow wins for losses must not
+      count as an improvement.
+    - Otherwise require the paired mean kill improvement to exceed BOTH a
+      minimum effect and k x the paired standard error. Under common random
+      numbers a true no-op has zero paired variance (and zero mean), so it is
+      NEUTRAL; residual noise from a behaviour-changing patch must clear
+      significance, not a flat 0.05.
+    Positive delta = patched kills faster.
+    """
+    if patched_wr < base_wr - wr_drop_tol:
+        return "worse"
+    deltas = [b - p for b, p in zip(base_kills, patched_kills)
+              if b is not None and p is not None]
+    n = len(deltas)
+    if n < 2:
+        return "neutral"
+    mean_d = sum(deltas) / n
+    var = sum((d - mean_d) ** 2 for d in deltas) / (n - 1)
+    se = (var / n) ** 0.5
+    if se == 0:
+        if mean_d > min_effect:
+            return "improved"
+        if mean_d < -min_effect:
+            return "worse"
+        return "neutral"
+    if mean_d > min_effect and mean_d > k * se:
+        return "improved"
+    if mean_d < -min_effect and mean_d < -k * se:
+        return "worse"
+    return "neutral"
 
 
 # ---------------------------------------------------------------------------
@@ -501,9 +571,19 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
     log(f"  Fastest: T{baseline['fastest']}")
     log(f"  Speed: {baseline['games'] / baseline['time']:.0f} g/s")
     
+    # Paired baseline for common-random-number comparison (#16): run the
+    # baseline once per seed on a fixed seed set, keeping the same total game
+    # budget (M seeds x n_games/M). Each candidate runs on the SAME seeds.
+    _PAIRS = 10
+    _n_per_seed = max(1, n_games // _PAIRS)
+    _tune_seeds = list(range(1001, 1001 + _PAIRS))
+    base_kills, base_wr = _paired_runs(original_apl, mainboard, _tune_seeds, _n_per_seed)
+    log(f"  Paired baseline: {_PAIRS} seeds x {_n_per_seed} games, "
+        f"mean kill {_mean_kill(base_kills):.2f}, WR {base_wr:.1%}")
+
     all_results = []
     current_source = apl_source
-    best_kill = baseline["avg_kill"]
+    best_delta = 0.0          # best paired mean kill improvement among IMPROVED
     best_patch = None
     
     for iteration in range(1, iterations + 1):
@@ -567,44 +647,70 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
                                    "error": str(e)[:200]})
                 continue
             
-            # Run sim with patched APL
+            # Run the candidate on the SAME seeds as the baseline (#16).
             try:
-                patched_results = run_goldfish(patched_apl, mainboard, n_games)
+                patched_kills, patched_wr = _paired_runs(
+                    patched_apl, mainboard, _tune_seeds, _n_per_seed)
             except Exception as e:
                 log(f"    FAIL: Sim crashed with patch: {str(e)[:100]}")
                 all_results.append({"iteration": iteration, "patch": i+1,
                                    "issue": patch["issue"], "status": "sim_crash",
                                    "error": str(e)[:200]})
                 continue
-            
-            delta_kill = baseline["avg_kill"] - patched_results["avg_kill"]
-            delta_wr = patched_results["win_rate"] - baseline["win_rate"]
-            
-            verdict = "IMPROVED" if delta_kill > 0.05 else "WORSE" if delta_kill < -0.05 else "NEUTRAL"
-            log(f"    Kill: {baseline['avg_kill']:.2f} -> {patched_results['avg_kill']:.2f} ({delta_kill:+.2f} turns)")
-            log(f"    WR: {baseline['win_rate']:.1%} -> {patched_results['win_rate']:.1%} ({delta_wr:+.1%})")
+
+            verdict = paired_verdict(base_kills, patched_kills, base_wr, patched_wr).upper()
+            base_mean = _mean_kill(base_kills)
+            patched_mean = _mean_kill(patched_kills)
+            delta_kill = (base_mean - patched_mean) if (base_mean and patched_mean) else 0.0
+            delta_wr = patched_wr - base_wr
+            log(f"    Kill: {base_mean:.2f} -> {patched_mean:.2f} ({delta_kill:+.2f} turns, paired)")
+            log(f"    WR: {base_wr:.1%} -> {patched_wr:.1%} ({delta_wr:+.1%})")
             log(f"    [{verdict}]")
-            
+
             result = {
                 "iteration": iteration, "patch": i+1,
                 "issue": patch["issue"], "impact": patch["impact"],
                 "status": verdict.lower(),
-                "baseline_kill": round(baseline["avg_kill"], 2),
-                "patched_kill": round(patched_results["avg_kill"], 2),
+                "baseline_kill": round(base_mean, 2) if base_mean else None,
+                "patched_kill": round(patched_mean, 2) if patched_mean else None,
                 "delta_kill": round(delta_kill, 2),
-                "baseline_wr": round(baseline["win_rate"], 3),
-                "patched_wr": round(patched_results["win_rate"], 3),
+                "baseline_wr": round(base_wr, 3),
+                "patched_wr": round(patched_wr, 3),
             }
             all_results.append(result)
-            
-            if delta_kill > 0.05 and patched_results["avg_kill"] < best_kill:
-                best_kill = patched_results["avg_kill"]
-                best_patch = {"patch": patch, "results": patched_results,
-                              "file": str(temp_apl_file)}
+
+            if verdict == "IMPROVED" and delta_kill > best_delta:
+                best_delta = delta_kill
+                best_patch = {"patch": patch, "results": {
+                                  "avg_kill": patched_mean, "win_rate": patched_wr},
+                              "source": patched_source}
             
             # Clean up temp file
             temp_apl_file.unlink(missing_ok=True)
-    
+
+    # Re-confirm the selected best patch on a FRESH seed set before trusting it
+    # -- best-of-N selection is biased toward a lucky draw (winner's curse). If
+    # it no longer clears significance on new seeds, discard it (#16).
+    if best_patch:
+        confirm_seeds = list(range(5001, 5001 + _PAIRS))
+        reconfirm_file = HARNESS_ROOT / "agents" / "temp" / "reconfirm_best.py"
+        try:
+            reconfirm_file.parent.mkdir(exist_ok=True)
+            reconfirm_file.write_text(best_patch["source"], encoding="utf-8")
+            best_apl = load_apl_from_file(reconfirm_file)
+            cbase_kills, cbase_wr = _paired_runs(original_apl, mainboard, confirm_seeds, _n_per_seed)
+            cpatch_kills, cpatch_wr = _paired_runs(best_apl, mainboard, confirm_seeds, _n_per_seed)
+            cverdict = paired_verdict(cbase_kills, cpatch_kills, cbase_wr, cpatch_wr)
+            log(f"\n  Re-confirming best on fresh seeds: [{cverdict.upper()}]")
+            if cverdict != "improved":
+                log("    Not reproduced on fresh seeds -- discarding (winner's curse).")
+                best_patch = None
+        except Exception as e:
+            log(f"    Re-confirmation failed ({str(e)[:80]}); discarding best to be safe.")
+            best_patch = None
+        finally:
+            reconfirm_file.unlink(missing_ok=True)
+
     # Summary
     elapsed = time.time() - total_start
     tested = [r for r in all_results if r.get("status") in ("improved","neutral","worse")]
