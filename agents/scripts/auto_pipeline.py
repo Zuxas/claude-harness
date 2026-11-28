@@ -29,6 +29,7 @@ COST MODEL:
 
 import sys
 import os
+import re
 import json
 import time
 import argparse
@@ -132,7 +133,11 @@ def find_new_archetypes(format_name="modern"):
         if arch["current_share"] < 0.02:  # skip <2% meta share
             continue
         
-        safe = _safe_slug(arch["archetype"])
+        try:
+            safe = _safe_slug(arch["archetype"])
+        except ValueError:
+            log(f"  Skipping unsafe archetype name: {arch['archetype']!r}", "WARN")
+            continue
         has_apl = _slug_covered(safe, existing_apls)
         has_deck = _slug_covered(safe, existing_decks)
         
@@ -151,8 +156,70 @@ def find_new_archetypes(format_name="modern"):
 # Step 2: Generate APLs for New Archetypes
 # ---------------------------------------------------------------------------
 
+_SLUG_RE = re.compile(r"^[a-z0-9_]+$")
+_SLUG_MAX = 64
+
+
 def _safe_slug(deck_name):
-    return deck_name.lower().replace(" ", "_").replace("-", "_").replace("'", "")
+    """Normalize an archetype/deck name to a filesystem- and import-safe slug.
+
+    Allowlist, not rewrite: after the known-safe substitutions the result must
+    match ^[a-z0-9_]+$ within _SLUG_MAX chars, else ValueError. A hostile name
+    like '../../x' or 'x; rm -rf ~' is REJECTED rather than silently mapped to a
+    path-traversing or otherwise surprising slug that then names a file we write
+    under mtg-sim or a module we import (#2). Callers that iterate untrusted
+    names (find_new_archetypes) catch this and skip; the generation paths catch
+    it and write nothing."""
+    slug = deck_name.lower().replace(" ", "_").replace("-", "_").replace("'", "")
+    if (not slug or len(slug) > _SLUG_MAX or not _SLUG_RE.match(slug)
+            or not any(ch.isalnum() for ch in slug)):
+        raise ValueError(f"unsafe deck/archetype name: {deck_name!r}")
+    return slug
+
+
+# Generated APLs are pure decision logic over the engine's own objects. They may
+# import ONLY first-party engine/APL packages plus a few capability-safe stdlib
+# modules; anything else is rejected. An allowlist, not a denylist: blocking
+# known-dangerous names (os, subprocess, ...) is not a boundary -- an unlisted or
+# obfuscated reach slips a denylist, so anything not explicitly approved is
+# refused (#2, Tom review). Relative imports are rejected too (the template uses
+# absolute first-party imports).
+_ALLOWED_IMPORT_ROOTS = frozenset({
+    "data", "apl", "engine",                           # first-party, trusted
+    "typing", "math", "random", "collections",         # capability-safe stdlib
+    "itertools", "functools", "dataclasses", "enum",
+})
+# eval/exec/open/compile/__import__ are builtins, not imports, so the import
+# allowlist can't see them; reject them by name too. (An AST check can't catch
+# every dynamic reach -- getattr tricks, etc. -- which is why the smoke process
+# also runs with a scrubbed env and will later want an OS sandbox; see #2.)
+_BANNED_CALLS = frozenset({"eval", "exec", "compile", "__import__", "open"})
+
+
+def _reject_bad_code(code):
+    """Raise ValueError if generated APL code won't parse or imports anything
+    outside the allowlist / calls eval/exec/open. Run BEFORE the code is written
+    under mtg-sim, so hostile or broken model output is never persisted or
+    imported (#2). ast.parse raises SyntaxError, which callers treat as a
+    rejection too."""
+    import ast as _ast
+    tree = _ast.parse(code)
+    bad = []
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            for a in node.names:
+                if a.name.split(".")[0] not in _ALLOWED_IMPORT_ROOTS:
+                    bad.append(f"import {a.name}")
+        elif isinstance(node, _ast.ImportFrom):
+            root = (node.module or "").split(".")[0]
+            if node.level or root not in _ALLOWED_IMPORT_ROOTS:
+                bad.append(f"from {'.' * node.level}{node.module or ''} import ...")
+        elif isinstance(node, _ast.Call) and isinstance(node.func, _ast.Name):
+            if node.func.id in _BANNED_CALLS:
+                bad.append(f"{node.func.id}()")
+    if bad:
+        raise ValueError("disallowed constructs in generated APL: "
+                         + ", ".join(sorted(set(bad))))
 
 
 def _slug_covered(slug, names):
@@ -530,11 +597,10 @@ def _save_apl_code(deck_name, code, method="gemma"):
         lines = code.splitlines()
         code = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
 
-    import ast as _ast
-    try:
-        _ast.parse(code)
-    except SyntaxError as _se:
-        log(f"  SyntaxError at line {_se.lineno}: {_se.msg} -- saved anyway (smoke gate will catch)")
+    # Reject (don't persist) code that won't parse or reaches for the host. The
+    # old code logged a SyntaxError and saved anyway; a banned-import payload was
+    # never checked at all and got imported by the in-process smoke test (#2).
+    _reject_bad_code(code)
 
     header = f"# Auto-generated APL for {deck_name} ({method} draft)\n# {TODAY}\n\n"
     cache_file.write_text(header + code, encoding="utf-8")
@@ -782,10 +848,26 @@ def _generate_deck_file_from_db(deck_name, format_name):
 _SMOKE_MIN_WIN_RATE = 0.10   # at least 10% of games must deal lethal
 _SMOKE_MIN_KILL_TURN = 3     # faster than T3 means the APL is doing something wrong
 _SMOKE_MAX_KILL_TURN = 20    # slower than T20 on average = APL effectively does nothing
+_SMOKE_TIMEOUT = 300         # seconds; a generated APL that hangs this long fails the gate
+_SMOKE_RUNNER = Path(__file__).resolve().parent / "_apl_smoke_runner.py"
+
+# The smoke subprocess gets a minimal environment: only what the interpreter
+# needs to run. `python -I` controls sys.path and interpreter config but NOT
+# os.environ, so without this the child would inherit every secret the
+# orchestrator holds -- ANTHROPIC_API_KEY, OAuth tokens, GH creds (#2, Tom
+# review). Allowlist, so a newly-added secret env var isn't leaked by default.
+_CHILD_ENV_KEEP = ("PATH", "SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP",
+                   "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "HOME", "HOMEPATH",
+                   "HOMEDRIVE", "USERPROFILE", "PATHEXT", "COMSPEC")
+
+
+def _child_env():
+    """Minimal, secret-free environment for the smoke subprocess (#2)."""
+    return {k: os.environ[k] for k in _CHILD_ENV_KEEP if k in os.environ}
 
 
 def _smoke_test_apl(deck_name, format_name, n=50):
-    """Import the auto-generated APL + run N goldfish games.
+    """Run the auto-generated APL out-of-process over N goldfish games (#2).
 
     Gate: crash-free AND semantic sanity:
       - win_rate >= _SMOKE_MIN_WIN_RATE (APL must actually deal lethal sometimes)
@@ -799,55 +881,54 @@ def _smoke_test_apl(deck_name, format_name, n=50):
     deck_path = SIM_ROOT / "decks" / "auto" / f"{safe}_{format_name}.txt"
     if not deck_path.exists():
         return {"status": "no_deck_file", "passed": False}
+
+    # Run the generated APL OUT OF PROCESS (#2): never import model-written code
+    # into the orchestrator. `-I` + a scrubbed env (no secrets) + a timeout.
+    # ponytail: process + scrubbed-env isolation, NOT a kernel sandbox -- a
+    # seccomp/container jail, or declarative non-executable APLs, is the real
+    # ceiling and stays open on #2.
+    mod_name = f"apl.auto_apls.{safe}"
+    cmd = [sys.executable, "-I", str(_SMOKE_RUNNER), str(SIM_ROOT), mod_name,
+           str(deck_path), str(n), "42"]
     try:
-        import importlib
-        if str(SIM_ROOT) not in sys.path:
-            sys.path.insert(0, str(SIM_ROOT))
-        mod_name = f"apl.auto_apls.{safe}"
-        if mod_name in sys.modules:
-            importlib.reload(sys.modules[mod_name])
-        else:
-            importlib.import_module(mod_name)
-        mod = sys.modules[mod_name]
-        cls = None
-        for attr_name in dir(mod):
-            obj = getattr(mod, attr_name)
-            if isinstance(obj, type) and attr_name.endswith("APL") and attr_name != "BaseAPL":
-                cls = obj
-                cls_name = attr_name
-                break
-        if cls is None:
-            return {"status": "no_apl_class", "passed": False}
+        proc = subprocess.run(cmd, cwd=str(SIM_ROOT), capture_output=True,
+                              text=True, timeout=_SMOKE_TIMEOUT, env=_child_env())
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout", "passed": False,
+                "error": f"smoke exceeded {_SMOKE_TIMEOUT}s"}
 
-        from data.deck import load_deck_from_file
-        from engine.runner import run_simulation
-        main, _ = load_deck_from_file(str(deck_path))
-        apl_instance = cls()
-        if not hasattr(apl_instance, 'name') or apl_instance.name is None:
-            apl_instance.name = deck_name
-        result = run_simulation(apl_instance, main, n=n, verbose_first=0, seed=42)
+    out = (proc.stdout or "").strip().splitlines()
+    data = None
+    for line in reversed(out):  # last JSON line is the runner's verdict
+        try:
+            data = json.loads(line)
+            break
+        except ValueError:
+            continue
+    if data is None:
+        return {"status": "crashed", "passed": False,
+                "error": (proc.stderr or proc.stdout or "")[:200]}
+    if data.get("status") != "ran":
+        return {"status": data.get("status", "crashed"), "passed": False}
 
-        win_rate = result.win_rate()
-        avg_kt = result.avg_kill_turn()  # None if 0 wins
+    win_rate = data["win_rate"]
+    avg_kt = data["avg_kill_turn"]  # None if 0 wins
+    metrics = {"win_rate": round(win_rate, 3),
+               "avg_kill_turn": round(avg_kt, 2) if avg_kt is not None else None,
+               "games_completed": n,
+               "class_name": data.get("class_name")}
 
-        metrics = {"win_rate": round(win_rate, 3),
-                   "avg_kill_turn": round(avg_kt, 2) if avg_kt is not None else None,
-                   "games_completed": n,
-                   "class_name": cls_name}
+    # Semantic gate
+    if win_rate < _SMOKE_MIN_WIN_RATE:
+        return {"status": "semantic_fail_win_rate",
+                "reason": f"win_rate={win_rate:.1%} < {_SMOKE_MIN_WIN_RATE:.0%} threshold",
+                "passed": False, **metrics}
+    if avg_kt is None or not (_SMOKE_MIN_KILL_TURN <= avg_kt <= _SMOKE_MAX_KILL_TURN):
+        return {"status": "semantic_fail_kill_turn",
+                "reason": f"avg_kill_turn={avg_kt} outside [{_SMOKE_MIN_KILL_TURN},{_SMOKE_MAX_KILL_TURN}]",
+                "passed": False, **metrics}
 
-        # Semantic gate
-        if win_rate < _SMOKE_MIN_WIN_RATE:
-            return {"status": "semantic_fail_win_rate",
-                    "reason": f"win_rate={win_rate:.1%} < {_SMOKE_MIN_WIN_RATE:.0%} threshold",
-                    "passed": False, **metrics}
-        if avg_kt is None or not (_SMOKE_MIN_KILL_TURN <= avg_kt <= _SMOKE_MAX_KILL_TURN):
-            return {"status": "semantic_fail_kill_turn",
-                    "reason": f"avg_kill_turn={avg_kt} outside [{_SMOKE_MIN_KILL_TURN},{_SMOKE_MAX_KILL_TURN}]",
-                    "passed": False, **metrics}
-
-        return {"status": "passed", "passed": True, **metrics}
-    except Exception as e:
-        return {"status": "crashed", "passed": False, "error": str(e)[:200]}
+    return {"status": "passed", "passed": True, **metrics}
 
 
 def _build_registry_entry(deck_name, format_name, smoke_result):
