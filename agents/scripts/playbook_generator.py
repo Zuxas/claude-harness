@@ -20,14 +20,15 @@ import sys
 from datetime import date
 from pathlib import Path
 
-sys.path.insert(0, str(Path("E:/vscode ai project/harness/agents/scripts")))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from agent_hardening import AgentLogger
+from roots import project_root
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = Path("E:/vscode ai project")
+PROJECT_ROOT = project_root()
 KNOWLEDGE_DIR = PROJECT_ROOT / "harness" / "knowledge" / "mtg"
 WEBSITE_DIR = PROJECT_ROOT / "My-Website"
 DRAFTS_DIR = PROJECT_ROOT / "playbook-drafts"

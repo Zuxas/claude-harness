@@ -72,3 +72,57 @@ HARNESS_ROOT = harness_root()
 PROJECT_ROOT = project_root()
 SIM_ROOT = sim_root()
 META_ROOT = meta_root()
+
+
+# The old hardcoded values, kept only so the dry-run below and the equivalence
+# test can diff the resolved roots against what the scripts used to target.
+_LEGACY = {
+    "project_root": "E:/vscode ai project",
+    "harness_root": "E:/vscode ai project/harness",
+    "sim_root": "E:/vscode ai project/mtg-sim",
+    "meta_root": "E:/vscode ai project/mtg-meta-analyzer",
+    "meta_db": "E:/vscode ai project/mtg-meta-analyzer/data/mtg_meta.db",
+    "website_root": "E:/vscode ai project/My-Website",
+    "books_dir": "E:/vscode ai project/books",
+}
+
+
+def resolved() -> dict:
+    """Every root as currently resolved (env overrides + derivation)."""
+    return {
+        "project_root": project_root(),
+        "harness_root": harness_root(),
+        "sim_root": sim_root(),
+        "meta_root": meta_root(),
+        "meta_db": meta_db(),
+        "website_root": website_root(),
+        "books_dir": books_dir(),
+    }
+
+
+def _main():
+    """Dry-run: print every resolved root and whether it matches the legacy
+    hardcoded value (#50). On the owner's box with no env set they should all
+    MATCH; a fresh clone shows the derived paths. Modifies nothing."""
+    import sys as _sys
+    res = resolved()
+    width = max(len(k) for k in res)
+    all_match = True
+    for name, path in res.items():
+        legacy = Path(_LEGACY[name])
+        match = path == legacy
+        all_match = all_match and match
+        tag = "MATCH " if match else "DIFFER"
+        print(f"  {name:<{width}}  [{tag}]  {path}")
+        if not match:
+            print(f"  {'':<{width}}            (legacy: {legacy})")
+    print()
+    print("All roots match the legacy hardcoded values."
+          if all_match else
+          "Some roots differ from legacy -- expected on any box that isn't "
+          "E:/vscode ai project (a fresh clone, a worktree, CI).")
+    return 0 if all_match else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

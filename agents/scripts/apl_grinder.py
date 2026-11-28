@@ -14,8 +14,10 @@ import sys, os, json, time, re, importlib.util, argparse
 from pathlib import Path
 from datetime import datetime
 
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, harness_root  # noqa: E402
+SIM_ROOT = sim_root()
+HARNESS_ROOT = harness_root()
 RULES_FILE = HARNESS_ROOT / "knowledge" / "rules" / "mtg-rules-engine.md"
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))

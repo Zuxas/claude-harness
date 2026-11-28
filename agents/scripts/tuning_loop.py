@@ -32,8 +32,10 @@ from pathlib import Path
 from datetime import datetime
 from copy import deepcopy
 
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import sim_root, harness_root, meta_db  # noqa: E402
+SIM_ROOT = sim_root()
+HARNESS_ROOT = harness_root()
 sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))
 
@@ -44,7 +46,7 @@ from agent_hardening import (
 
 OLLAMA_API = "http://localhost:11434/api/generate"
 TODAY = datetime.now().strftime("%Y-%m-%d")
-META_DB = Path("E:/vscode ai project/mtg-meta-analyzer/data/mtg_meta.db")
+META_DB = meta_db()
 
 log = AgentLogger("tuning-loop")
 
