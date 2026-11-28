@@ -70,13 +70,19 @@ STAGED_TREE="$(mktemp -d -t mtg-sim-staged.XXXXXX 2>/dev/null || echo "/tmp/mtg-
 mkdir -p "$STAGED_TREE"
 trap 'rm -f "$TMP_OUT"; rm -rf "$STAGED_TREE"' EXIT
 
-if git checkout-index -af --prefix="$STAGED_TREE/" 2>/dev/null; then
-    LINT_ROOT="$STAGED_TREE"
-else
-    # Fall back to the repo working tree root if the export fails for any reason.
-    echo "[pre-commit] WARN: could not export staged index, linting working tree" >&2
-    LINT_ROOT="$REPO_ROOT"
+# Fail CLOSED: if the staged index can't be exported we cannot lint what is
+# actually being committed. Linting the working tree instead would reintroduce
+# exactly the bug this hook fixes (a clean working tree passing a broken staged
+# commit), so abort the commit with a non-zero exit instead of falling back.
+if ! git checkout-index -af --prefix="$STAGED_TREE/" 2>"$TMP_OUT"; then
+    echo "" >&2
+    echo "[pre-commit] ERROR: could not export the staged index for linting." >&2
+    echo "[pre-commit] Refusing to commit un-lintable staged content (fail-closed)." >&2
+    cat "$TMP_OUT" >&2
+    echo "[pre-commit] Fix the cause, or bypass with: git commit --no-verify" >&2
+    exit 1
 fi
+LINT_ROOT="$STAGED_TREE"
 
 # Resolve python -- prefer python3 then fall back to python.
 # On Windows git-bash, python is usually the right one.
