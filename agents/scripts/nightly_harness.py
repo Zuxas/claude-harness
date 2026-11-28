@@ -28,9 +28,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 # Paths
-HARNESS_ROOT = Path("E:/vscode ai project/harness")
-META_ANALYZER = Path("E:/vscode ai project/mtg-meta-analyzer")
-SIM_ROOT = Path("E:/vscode ai project/mtg-sim")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roots import harness_root, meta_root, sim_root  # noqa: E402
+HARNESS_ROOT = harness_root()
+META_ANALYZER = meta_root()
+SIM_ROOT = sim_root()
 LOG_DIR = HARNESS_ROOT / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
