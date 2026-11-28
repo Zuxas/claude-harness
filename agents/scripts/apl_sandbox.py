@@ -55,9 +55,17 @@ def _smoke_python(sim_root):
     Prefer a dedicated venv: the MTG_SMOKE_PYTHON override, else a `.venv`
     beside the sim, else the current interpreter (back-compat; only works if its
     std site already has the deps). `-I` is never dropped -- the fix is giving
-    an isolated interpreter the deps, not weakening the isolation."""
+    an isolated interpreter the deps, not weakening the isolation.
+
+    MTG_SMOKE_PYTHON is trusted operator configuration, never model input. If it
+    is set but points at a missing interpreter, FAIL CLOSED (raise) rather than
+    silently falling back to another interpreter -- an operator who named an
+    interpreter meant that one."""
     override = os.environ.get("MTG_SMOKE_PYTHON")
-    if override and Path(override).exists():
+    if override:
+        if not Path(override).exists():
+            raise FileNotFoundError(
+                f"MTG_SMOKE_PYTHON points at a missing interpreter: {override!r}")
         return override
     for rel in ("Scripts/python.exe", "bin/python"):
         cand = Path(sim_root) / ".venv" / rel
@@ -107,14 +115,16 @@ def run_apl_subprocess(sim_root, module, deck_path, n, seed,
     returns a dict whose status is not "ran" (never raises for those), so a
     caller that only ships on status == "ran" cannot be fooled into treating a
     failed sandbox as a pass."""
-    cmd = [_smoke_python(sim_root), "-I", str(SMOKE_RUNNER), str(sim_root),
-           str(module), str(deck_path), str(n), str(seed), str(mode)]
     try:
+        # Interpreter resolution is inside the try so a bad MTG_SMOKE_PYTHON
+        # override fails closed (non-"ran" status) rather than raising.
+        cmd = [_smoke_python(sim_root), "-I", str(SMOKE_RUNNER), str(sim_root),
+               str(module), str(deck_path), str(n), str(seed), str(mode)]
         proc = subprocess.run(cmd, cwd=str(sim_root), capture_output=True,
                               text=True, timeout=timeout, env=child_env())
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "error": f"smoke exceeded {timeout}s"}
-    except Exception as e:  # subprocess init failure -> fail closed, don't raise
+    except Exception as e:  # bad interpreter / subprocess init -> fail closed
         return {"status": "subprocess_error", "error": str(e)}
 
     out = (proc.stdout or "").strip().splitlines()
