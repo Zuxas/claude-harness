@@ -85,28 +85,36 @@ def aggregate_matchups(matches):
         key = (my_deck, opp_deck)
         mu = matchups[key]
         
-        is_win = m["result"] == "win"
-        mu["total"] += 1
-        mu["wins"] += int(is_win)
-        mu["losses"] += int(not is_win)
-        
-        # Per-game tracking
+        # Only decided (win/loss) results count toward the win rate -- draws and
+        # unknown/blank results were previously folded into losses, deflating the
+        # real WR the calibration compares against (#22).
+        result = (m["result"] or "").lower()
+        counts_wl = result in ("win", "loss")
+        is_win = result == "win"
+        if counts_wl:
+            mu["total"] += 1
+            mu["wins"] += int(is_win)
+            mu["losses"] += int(not is_win)
+
+        # Per-game tracking (already filtered to win/loss, independent of the
+        # overall match result).
         for g in ["g1_result", "g2_result", "g3_result"]:
             if m.get(g) and m[g] in ("win", "loss"):
                 if g == "g1_result":
                     mu["g1_total"] += 1
                     mu["g1_wins"] += int(m[g] == "win")
                     mu["g1_losses"] += int(m[g] == "loss")
-        
-        # Play/draw tracking
+
+        # Play/draw tracking -- only for decided matches (play_draw "draw" means
+        # "on the draw", not a drawn game).
         pd = m.get("play_draw", "")
-        if pd == "play":
+        if counts_wl and pd == "play":
             mu["play_total"] += 1
             mu["play_wins"] += int(is_win)
-        elif pd == "draw":
+        elif counts_wl and pd == "draw":
             mu["draw_total"] += 1
             mu["draw_wins"] += int(is_win)
-        
+
         mu["matches"].append(m)
     
     return dict(matchups)
@@ -116,37 +124,50 @@ def aggregate_matchups(matches):
 # Sim Prediction Lookup
 # ---------------------------------------------------------------------------
 
-def get_sim_prediction(my_deck, opp_deck, n_games=500):
-    """Run sim for a specific matchup and return predicted win rate."""
+def _deck_slug(name):
+    return (name or "").lower().replace(" ", "_").replace("-", "_")
+
+
+def get_sim_prediction(my_deck, opp_deck, format_name="", n_games=500):
+    """Run sim for a specific matchup and return predicted win rate.
+
+    Uses the SAME deck-specific / goldfish-wrapped APLs the gauntlet, tuner and
+    grinder use (via matchup_gauntlet.load_apl_for_deck), not GenericMatchAPL on
+    both sides -- otherwise calibration measures a generic-vs-generic model no
+    other part of the harness relies on (#22). The APL class + source used per
+    side is returned so the report can name it.
+    """
     try:
         from data.deck import load_deck_from_file
         from engine.match_engine import run_match_set
-        from apl.match_apl import GenericMatchAPL
-        
+        import matchup_gauntlet as mg
+
         deck_dir = SIM_ROOT / "decks"
-        
+
         # Find deck files by fuzzy name match
         my_file = _find_deck_file(my_deck, deck_dir)
         opp_file = _find_deck_file(opp_deck, deck_dir)
-        
+
         if not my_file or not opp_file:
             missing = []
             if not my_file: missing.append(f"my_deck: {my_deck}")
             if not opp_file: missing.append(f"opp_deck: {opp_deck}")
             return {"status": "no_deck_file", "missing": missing}
-        
+
         my_cards, _ = load_deck_from_file(str(my_file))
         opp_cards, _ = load_deck_from_file(str(opp_file))
-        
-        apl_a = GenericMatchAPL()
-        apl_b = GenericMatchAPL()
-        
+
+        apl_a, src_a = mg.load_apl_for_deck(_deck_slug(my_deck), format_name)
+        apl_b, src_b = mg.load_apl_for_deck(_deck_slug(opp_deck), format_name)
+
         results = run_match_set(apl_a, my_cards, apl_b, opp_cards, n=n_games)
-        
+
         return {
             "status": "ok",
             "sim_wr": round(results.win_rate_a() * 100, 1),
             "games": n_games,
+            "apl_a": type(apl_a).__name__, "apl_a_source": src_a,
+            "apl_b": type(apl_b).__name__, "apl_b_source": src_b,
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -173,7 +194,7 @@ def _find_deck_file(deck_name, deck_dir):
 # Calibration Engine
 # ---------------------------------------------------------------------------
 
-def calibrate(matchups, n_sim_games=500, dry_run=False):
+def calibrate(matchups, n_sim_games=500, dry_run=False, format_name=""):
     """Compare real results vs sim predictions for each matchup."""
     results = []
     
@@ -198,13 +219,18 @@ def calibrate(matchups, n_sim_games=500, dry_run=False):
         else:
             # Run sim prediction
             print(f"  Simming: {my_deck} vs {opp_deck}...", end=" ")
-            sim = get_sim_prediction(my_deck, opp_deck, n_sim_games)
-            
+            sim = get_sim_prediction(my_deck, opp_deck, format_name, n_sim_games)
+
             if sim["status"] == "ok":
                 entry["sim_wr"] = sim["sim_wr"]
                 entry["delta"] = round(entry["real_wr"] - sim["sim_wr"], 1)
                 entry["accuracy"] = _score_accuracy(entry["delta"], data["total"])
-                print(f"Real: {real_wr}% | Sim: {sim['sim_wr']}% | Delta: {entry['delta']:+.1f}% [{entry['accuracy']}]")
+                # Record which APL each side used, so the report can show the
+                # calibration isn't generic-vs-generic (#22).
+                entry["sim_apl"] = f"{sim.get('apl_a')} ({sim.get('apl_a_source')}) vs " \
+                                   f"{sim.get('apl_b')} ({sim.get('apl_b_source')})"
+                print(f"Real: {real_wr}% | Sim: {sim['sim_wr']}% | Delta: {entry['delta']:+.1f}% "
+                      f"[{entry['accuracy']}] APLs: {entry['sim_apl']}")
             else:
                 entry["sim_wr"] = None
                 entry["delta"] = None
@@ -274,6 +300,8 @@ def write_calibration_report(results, deck_filter=None, format_filter=None):
             lines.append(f"### {r['my_deck']} vs {r['opp_deck']}")
             lines.append(f"- Real: {r['real_wr']}% ({r['real_matches']} matches)")
             lines.append(f"- Sim: {r['sim_wr']}%")
+            if r.get("sim_apl"):
+                lines.append(f"- Sim APLs: {r['sim_apl']}")
             lines.append(f"- Delta: {r['delta']:+.1f}% [{r['accuracy']}]")
             if r.get("real_g1_wr") is not None:
                 lines.append(f"- G1 real WR: {r['real_g1_wr']}%")
@@ -285,13 +313,14 @@ def write_calibration_report(results, deck_filter=None, format_filter=None):
     
     # All matchup data
     lines.append("## Full Matchup Data")
-    lines.append("| My Deck | Opponent | Real WR | Sim WR | Delta | Accuracy | Matches |")
-    lines.append("|---------|----------|---------|--------|-------|----------|---------|")
+    lines.append("| My Deck | Opponent | Real WR | Sim WR | Delta | Accuracy | Matches | Sim APLs |")
+    lines.append("|---------|----------|---------|--------|-------|----------|---------|----------|")
     for r in results:
         sim = f"{r['sim_wr']}%" if r.get("sim_wr") is not None else "N/A"
         delta = f"{r['delta']:+.1f}%" if r.get("delta") is not None else "N/A"
         acc = r.get("accuracy", "N/A")
-        lines.append(f"| {r['my_deck']} | {r['opp_deck']} | {r['real_wr']}% | {sim} | {delta} | {acc} | {r['real_matches']} |")
+        apls = r.get("sim_apl", "N/A")
+        lines.append(f"| {r['my_deck']} | {r['opp_deck']} | {r['real_wr']}% | {sim} | {delta} | {acc} | {r['real_matches']} | {apls} |")
     
     lines.extend(["", "## Changelog", f"- {TODAY}: Generated by calibrate.py"])
     
@@ -344,7 +373,7 @@ def run_calibration(deck=None, format_name=None, min_matches=1,
     
     # Run calibration
     print(f"\n[3/4] Running calibration (sim vs reality)...")
-    results = calibrate(filtered, n_sim_games, dry_run)
+    results = calibrate(filtered, n_sim_games, dry_run, format_name=format_name or "")
     
     # Write report
     print(f"\n[4/4] Writing calibration report...")
