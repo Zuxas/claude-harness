@@ -60,7 +60,29 @@ fi
 # ── Run lint ──────────────────────────────────────────────────────
 # Use a tempfile so concurrent git operations don't interfere.
 TMP_OUT="$(mktemp -t mtg-sim-lint.XXXXXX 2>/dev/null || echo "/tmp/mtg-sim-lint.$$")"
-trap 'rm -f "$TMP_OUT"' EXIT
+
+# Export the STAGED index to a scratch tree and lint THAT (#21). Linting the
+# default/working tree misses staged-but-unsaved content (stage a broken
+# registry, fix it in the editor without re-staging, and the broken version
+# still lands) and checks the wrong files when committing from a worktree or a
+# second clone. checkout-index writes exactly the index contents.
+STAGED_TREE="$(mktemp -d -t mtg-sim-staged.XXXXXX 2>/dev/null || echo "/tmp/mtg-sim-staged.$$.d")"
+mkdir -p "$STAGED_TREE"
+trap 'rm -f "$TMP_OUT"; rm -rf "$STAGED_TREE"' EXIT
+
+# Fail CLOSED: if the staged index can't be exported we cannot lint what is
+# actually being committed. Linting the working tree instead would reintroduce
+# exactly the bug this hook fixes (a clean working tree passing a broken staged
+# commit), so abort the commit with a non-zero exit instead of falling back.
+if ! git checkout-index -af --prefix="$STAGED_TREE/" 2>"$TMP_OUT"; then
+    echo "" >&2
+    echo "[pre-commit] ERROR: could not export the staged index for linting." >&2
+    echo "[pre-commit] Refusing to commit un-lintable staged content (fail-closed)." >&2
+    cat "$TMP_OUT" >&2
+    echo "[pre-commit] Fix the cause, or bypass with: git commit --no-verify" >&2
+    exit 1
+fi
+LINT_ROOT="$STAGED_TREE"
 
 # Resolve python -- prefer python3 then fall back to python.
 # On Windows git-bash, python is usually the right one.
@@ -72,7 +94,7 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 
 # Capture both stdout and stderr; lint emits findings to stdout
-"$PYTHON_BIN" "$LINT_SCRIPT" >"$TMP_OUT" 2>&1
+"$PYTHON_BIN" "$LINT_SCRIPT" --root "$LINT_ROOT" >"$TMP_OUT" 2>&1
 LINT_EXIT=$?
 
 # ── Interpret exit code ────────────────────────────────────────────
