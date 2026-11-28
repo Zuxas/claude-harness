@@ -10,5 +10,12 @@ pytest
 
 # Optional — uncomment for the Claude-backed APL generation path in
 # auto_pipeline.py. Without it (or without a credential) that path falls back to
-# the local Ollama/Gemma models. Version pinning is tracked in issue #43.
-# anthropic
+# the local Ollama/Gemma models.
+#
+# Pinned so an autonomous nightly pipeline can't inherit a breaking SDK change on
+# a dep reinstall (#43). 2.x moved to httpx2 + Bearer-style auth; auto_pipeline.py
+# routes auth by token type via harness_auth.sdk_auth_kwargs (#30/#42). The two
+# raw-HTTP callers (agents/scripts/apl_optimizer.py, mtg-sim apl/auto_apl.py) don't
+# import the SDK and are unaffected. Bump the pin and re-run test_sdk_auth.py +
+# test_harness_auth.py when validating a newer release.
+# anthropic==2.14.0
