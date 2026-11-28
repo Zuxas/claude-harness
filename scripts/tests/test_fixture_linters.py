@@ -6,6 +6,7 @@ module docstring / filename states its expected finding count; this pins them.
 """
 import importlib.util
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,22 @@ def test_cache_key_fixtures(fname, expected):
     ("fixture-help-preflight.md", 0, 1),
 ])
 def test_spec_ref_fixtures(fname, errors, infos):
-    findings = sr.check_spec(FIX / "spec_ref_fixtures" / fname)
+    # The linter resolves `python scripts/x.py` refs against MTG_SIM_ROOT /
+    # HARNESS_ROOT. fixture-good-spec references scripts/calibrate_matrix.py,
+    # which lives in a sibling mtg-sim checkout that exists locally but not in a
+    # fresh CI checkout -- so point both roots at a controlled temp tree
+    # containing exactly the script the "good" fixture expects. Then good=0 and
+    # fictional=1 hold in any environment.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "scripts").mkdir()
+        (root / "scripts" / "calibrate_matrix.py").write_text("# stub\n", encoding="utf-8")
+        orig_mtg, orig_harness = sr.MTG_SIM_ROOT, sr.HARNESS_ROOT
+        sr.MTG_SIM_ROOT = root
+        sr.HARNESS_ROOT = root
+        try:
+            findings = sr.check_spec(FIX / "spec_ref_fixtures" / fname)
+        finally:
+            sr.MTG_SIM_ROOT, sr.HARNESS_ROOT = orig_mtg, orig_harness
     assert len([f for f in findings if f["level"] == "ERROR"]) == errors, findings
     assert len([f for f in findings if f["level"] == "INFO"]) == infos, findings
