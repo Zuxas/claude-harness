@@ -13,6 +13,11 @@ each status. After a spec ships, it stays in this index forever.
 
 ## PROPOSED
 
+- `2026-11-28-generated-code-containment.md` -- #39 follow-up to #2/PR#38. Honest
+  generated-code isolation posture + audit of in-process APL loads (gemma_apl_factory
+  imports model code ungated) + declarative-APL migration path (Tom's Option C). Design
+  doc deliverable; no code. **Status:** PROPOSED 2026-11-28, with Tom; 2 follow-up issues filed.
+
 - `2026-05-01-skill-system-harness.md` — Dynamic capability loading for the harness.
   Bundle knowledge + scripts + behavior rules into loadable skills (mtg-sim-quality,
   meta-analysis, apl-generation, harness-ops). ~78% context reduction per turn.
