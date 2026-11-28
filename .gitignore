@@ -31,3 +31,7 @@ Thumbs.db
 # Generated project graphs: local only. They index every file in the
 # workspace, including gitignored and private-repo files (issue #3).
 visualizations/gephi/*.gexf
+
+# Gource render videos and Gephi GEXF exports are build artifacts, not source (#10)
+visualizations/**/*.mp4
+visualizations/**/*.gexf
