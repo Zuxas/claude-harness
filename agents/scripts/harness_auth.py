@@ -65,3 +65,23 @@ def auth_header(token: str) -> dict:
     if tok.startswith("sk-ant-oat"):
         return {"Authorization": f"Bearer {tok}"}
     return {"x-api-key": tok}
+
+
+def credential_kind(token: str) -> str:
+    """'oauth' for an sk-ant-oat accessToken, else 'api_key'. For logging which
+    credential TYPE was used -- never the value."""
+    return "oauth" if token.removeprefix("Bearer ").strip().startswith("sk-ant-oat") else "api_key"
+
+
+def sdk_auth_kwargs(token: str) -> dict:
+    """Anthropic() kwargs for the SDK path, matching auth_header's raw-HTTP
+    classification so both paths agree (#30). An OAuth token goes through
+    auth_token= (SDK sends Authorization: Bearer); a plain API key goes through
+    api_key=. This is correct on both the pre-2026-10 SDK (api_key -> x-api-key,
+    auth_token -> Bearer) and the post-migration 2.x SDK (both -> Bearer): an
+    OAuth token must never ride the x-api-key path the old SDK builds for
+    api_key=."""
+    tok = token.removeprefix("Bearer ").strip()
+    if tok.startswith("sk-ant-oat"):
+        return {"auth_token": tok}
+    return {"api_key": tok}
