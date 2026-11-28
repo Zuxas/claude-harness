@@ -615,7 +615,20 @@ def main() -> int:
                         help="Emit JSON report to stdout")
     parser.add_argument("--strict", action="store_true",
                         help="Treat warnings as errors")
+    parser.add_argument("--root", default=None,
+                        help="mtg-sim checkout to lint (default: the hardcoded "
+                             "workspace path). The pre-commit hook points this at "
+                             "an export of the STAGED index so staged-but-unsaved "
+                             "content, and commits from a worktree, are linted (#21).")
     args = parser.parse_args()
+
+    if args.root:
+        global MTG_SIM_ROOT, APL_INIT, STUB_DECKS, DECKS_DIR, APL_DIR
+        MTG_SIM_ROOT = Path(args.root).resolve()
+        APL_INIT = MTG_SIM_ROOT / "apl" / "__init__.py"
+        STUB_DECKS = MTG_SIM_ROOT / "data" / "stub_decks.py"
+        DECKS_DIR = MTG_SIM_ROOT / "decks"
+        APL_DIR = MTG_SIM_ROOT / "apl"
 
     if not MTG_SIM_ROOT.exists():
         print(f"ERROR: mtg-sim root not found: {MTG_SIM_ROOT}", file=sys.stderr)

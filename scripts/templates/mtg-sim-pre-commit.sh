@@ -60,7 +60,23 @@ fi
 # ── Run lint ──────────────────────────────────────────────────────
 # Use a tempfile so concurrent git operations don't interfere.
 TMP_OUT="$(mktemp -t mtg-sim-lint.XXXXXX 2>/dev/null || echo "/tmp/mtg-sim-lint.$$")"
-trap 'rm -f "$TMP_OUT"' EXIT
+
+# Export the STAGED index to a scratch tree and lint THAT (#21). Linting the
+# default/working tree misses staged-but-unsaved content (stage a broken
+# registry, fix it in the editor without re-staging, and the broken version
+# still lands) and checks the wrong files when committing from a worktree or a
+# second clone. checkout-index writes exactly the index contents.
+STAGED_TREE="$(mktemp -d -t mtg-sim-staged.XXXXXX 2>/dev/null || echo "/tmp/mtg-sim-staged.$$.d")"
+mkdir -p "$STAGED_TREE"
+trap 'rm -f "$TMP_OUT"; rm -rf "$STAGED_TREE"' EXIT
+
+if git checkout-index -af --prefix="$STAGED_TREE/" 2>/dev/null; then
+    LINT_ROOT="$STAGED_TREE"
+else
+    # Fall back to the repo working tree root if the export fails for any reason.
+    echo "[pre-commit] WARN: could not export staged index, linting working tree" >&2
+    LINT_ROOT="$REPO_ROOT"
+fi
 
 # Resolve python -- prefer python3 then fall back to python.
 # On Windows git-bash, python is usually the right one.
@@ -72,7 +88,7 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 
 # Capture both stdout and stderr; lint emits findings to stdout
-"$PYTHON_BIN" "$LINT_SCRIPT" >"$TMP_OUT" 2>&1
+"$PYTHON_BIN" "$LINT_SCRIPT" --root "$LINT_ROOT" >"$TMP_OUT" 2>&1
 LINT_EXIT=$?
 
 # ── Interpret exit code ────────────────────────────────────────────
