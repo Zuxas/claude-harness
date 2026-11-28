@@ -17,7 +17,10 @@ param(
     [switch]$DryRun
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\tuning_loop.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\tuning_loop.py"
 $args_list = @($Deck, "--format", $Format, "--iterations", $Iterations, "--games", $Games, "--field-size", $FieldSize)
 if ($DryRun) { $args_list += "--dry-run" }
 

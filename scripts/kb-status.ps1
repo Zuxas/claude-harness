@@ -2,7 +2,10 @@
 # Shows knowledge base health at a glance
 # Usage: powershell -ExecutionPolicy Bypass -File C:\temp\kb-status.ps1
 
-$harnessRoot = "E:\vscode ai project\harness"
+
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+$harnessRoot = "$HarnessRoot"
 $knowledgeDir = "$harnessRoot\knowledge"
 
 Write-Host "=== KNOWLEDGE BASE STATUS ===" -ForegroundColor Cyan

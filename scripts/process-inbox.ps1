@@ -23,8 +23,10 @@ param(
     [string]$Model = "gemma4"
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 $ErrorActionPreference = "Stop"
-$HarnessRoot = "E:\vscode ai project\harness"
 $InboxDir = Join-Path $HarnessRoot "inbox"
 $ProcessedDir = Join-Path $InboxDir "processed"
 $CompileScript = Join-Path $HarnessRoot "scripts\compile-knowledge.ps1"

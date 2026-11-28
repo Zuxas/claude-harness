@@ -11,9 +11,12 @@
 
 # Paths default to the Windows install; env overrides let the watcher run (and be
 # tested) anywhere without editing the script.
-$InboxDir      = if ($env:HARNESS_INBOX_DIR)      { $env:HARNESS_INBOX_DIR }      else { "E:\vscode ai project\harness\inbox" }
-$ProcessScript = if ($env:HARNESS_PROCESS_SCRIPT) { $env:HARNESS_PROCESS_SCRIPT } else { "E:\vscode ai project\harness\scripts\process-inbox.ps1" }
-$LogFile       = if ($env:HARNESS_INBOX_LOG)      { $env:HARNESS_INBOX_LOG }      else { "E:\vscode ai project\harness\logs\inbox-watcher.log" }
+
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+$InboxDir      = if ($env:HARNESS_INBOX_DIR)      { $env:HARNESS_INBOX_DIR }      else { "$HarnessRoot\inbox" }
+$ProcessScript = if ($env:HARNESS_PROCESS_SCRIPT) { $env:HARNESS_PROCESS_SCRIPT } else { "$HarnessRoot\scripts\process-inbox.ps1" }
+$LogFile       = if ($env:HARNESS_INBOX_LOG)      { $env:HARNESS_INBOX_LOG }      else { "$HarnessRoot\logs\inbox-watcher.log" }
 
 # Ensure log directory exists
 $logDir = Split-Path $LogFile

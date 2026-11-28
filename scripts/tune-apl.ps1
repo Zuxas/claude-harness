@@ -19,7 +19,10 @@ param(
     [switch]$ListDecks
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\apl_tuner.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\apl_tuner.py"
 
 if ($ListAPLs) {
     python $Script --list-apls

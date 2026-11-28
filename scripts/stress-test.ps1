@@ -2,8 +2,11 @@
 # Exercises every pipeline with real data, real Gemma calls, real sims
 # USAGE: .\stress-test.ps1
 
+
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
 $ErrorActionPreference = "Continue"
-$H = "E:\vscode ai project\harness"
+$H = "$HarnessRoot"
 $S = "$H\scripts"
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 $Pass = 0; $Fail = 0; $Results = @()
@@ -118,7 +121,7 @@ Test "L2.1 Scheduled tasks (3 harness + 3 meta-analyzer)" {
 }
 
 Test "L2.2 LIVE: Nightly harness dry run" {
-    cd "E:\vscode ai project"
+    cd "$ProjectRoot"
     $out = python "harness\agents\scripts\nightly_harness.py" --dry-run --skip-mtga 2>&1 | Out-String
     if ($out -notmatch "NIGHTLY COMPLETE") { throw "Did not complete" }
     $shifts = ([regex]::Matches($out, "SHIFT:")).Count
@@ -126,7 +129,7 @@ Test "L2.2 LIVE: Nightly harness dry run" {
 }
 
 Test "L2.3 LIVE: Meta change detection" {
-    cd "E:\vscode ai project\mtg-meta-analyzer"
+    cd "$MetaRoot"
     $out = python -c "from analysis.meta_change import compare_periods; r=compare_periods('modern',1,2); s=r['summary']; print(f""OK rising={s['rising']} new={s['new']} gone={s['gone']}"")" 2>&1 | Out-String
     if ($out -notmatch "OK") { throw "Failed: $out" }
     Write-Host "($($out.Trim())) " -NoNewline
@@ -143,10 +146,10 @@ Write-Host "`n--- LAYER 3: Tuning ---" -ForegroundColor Magenta
 # ==========================================================================
 
 Test "L3.1 Legality checker (4/4)" {
-    cd "E:\vscode ai project"
+    cd "$ProjectRoot"
     $out = python -c "
-import sys; sys.path.insert(0,'E:/vscode ai project/mtg-sim')
-sys.path.insert(0,'E:/vscode ai project/harness/agents/scripts')
+import sys; sys.path.insert(0,"$SimRoot")
+sys.path.insert(0,"$AgentScripts")
 from tuning_loop import check_card_legal
 t = [('Lightning Bolt','modern',True),('Swords to Plowshares','modern',False),
      ('Lightning Bolt','legacy',True),('Ragavan, Nimble Pilferer','legacy',False)]
@@ -158,7 +161,7 @@ print(f'OK {ok}/4')
 }
 
 Test "L3.2 LIVE: Sim goldfish (Boros Energy 200g)" {
-    cd "E:\vscode ai project\mtg-sim"
+    cd "$SimRoot"
     $out = python -c "
 from data.deck import load_deck_from_file
 from apl.boros_energy import BorosEnergyAPL
@@ -172,7 +175,7 @@ print(f'OK T{r.avg_kill_turn():.2f} {r.win_rate():.0%}WR {200/max(0.01,(r.elapse
 }
 
 Test "L3.3 LIVE: Variant tester (1 swap)" {
-    cd "E:\vscode ai project\mtg-sim"
+    cd "$SimRoot"
     $out = python -c "
 from data.deck import load_deck_from_file
 from engine.variant import compare_variants
@@ -186,7 +189,7 @@ print(f'OK base={r[0].base_wr}% var={r[0].variant_wr}% delta={r[0].delta}%')
 }
 
 Test "L3.4 LIVE: Field analysis (3 opponents)" {
-    cd "E:\vscode ai project\mtg-sim"
+    cd "$SimRoot"
     $out = python -c "
 from data.deck import load_deck_from_file
 from engine.variant import run_field_analysis
@@ -208,10 +211,10 @@ Write-Host "`n--- LAYER 4: Calibration ---" -ForegroundColor Magenta
 # ==========================================================================
 
 Test "L4.1 LIVE: Calibration reads match_log" {
-    cd "E:\vscode ai project"
+    cd "$ProjectRoot"
     $out = python -c "
-import sys; sys.path.insert(0,'E:/vscode ai project/mtg-sim')
-sys.path.insert(0,'E:/vscode ai project/harness/agents/scripts')
+import sys; sys.path.insert(0,"$SimRoot")
+sys.path.insert(0,"$AgentScripts")
 from calibrate import load_real_matches, aggregate_matchups
 m=load_real_matches()
 a=aggregate_matchups(m)
@@ -232,7 +235,7 @@ Write-Host "`n--- LAYER 5: Pipeline ---" -ForegroundColor Magenta
 # ==========================================================================
 
 Test "L5.1 LIVE: Auto-pipeline dry run" {
-    cd "E:\vscode ai project"
+    cd "$ProjectRoot"
     $out = python "harness\agents\scripts\auto_pipeline.py" --format modern --dry-run 2>&1 | Out-String
     if ($out -notmatch "PIPELINE COMPLETE") { throw "Did not complete" }
     $newArchs = ([regex]::Matches($out, "meta share")).Count
@@ -240,10 +243,10 @@ Test "L5.1 LIVE: Auto-pipeline dry run" {
 }
 
 Test "L5.2 Optimization memory" {
-    cd "E:\vscode ai project"
+    cd "$ProjectRoot"
     $out = python -c "
-import sys; sys.path.insert(0,'E:/vscode ai project/mtg-sim')
-sys.path.insert(0,'E:/vscode ai project/harness/agents/scripts')
+import sys; sys.path.insert(0,"$SimRoot")
+sys.path.insert(0,"$AgentScripts")
 from auto_pipeline import load_memory
 m=load_memory()
 print(f""OK experiments={m['stats']['total_experiments']} apls={len(m['generated_apls'])} playbooks={len(m['playbooks_drafted'])}"")
@@ -257,10 +260,10 @@ Write-Host "`n--- APL SELF-TUNER ---" -ForegroundColor Magenta
 # ==========================================================================
 
 Test "L6.1 LIVE: APL optimizer loads + reads source" {
-    cd "E:\vscode ai project"
+    cd "$ProjectRoot"
     $out = python -c "
-import sys; sys.path.insert(0,'E:/vscode ai project/mtg-sim')
-sys.path.insert(0,'E:/vscode ai project/harness/agents/scripts')
+import sys; sys.path.insert(0,"$SimRoot")
+sys.path.insert(0,"$AgentScripts")
 from apl_optimizer import find_apl_file, find_deck_file, load_apl_from_file
 apl_f = find_apl_file('Boros Energy')
 deck_f = find_deck_file('Boros Energy')

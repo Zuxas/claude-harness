@@ -35,13 +35,16 @@ param(
     [switch]$DryRun
 )
 
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
 $ErrorActionPreference = "Stop"
 
 # Paths
-$mtgSimRoot   = "E:\vscode ai project\mtg-sim"
+$mtgSimRoot   = "$SimRoot"
 $hooksDir     = "$mtgSimRoot\.git\hooks"
 $hookTarget   = "$hooksDir\pre-commit"
-$hookSource   = "E:\vscode ai project\harness\scripts\templates\mtg-sim-pre-commit.sh"
+$hookSource   = "$HarnessRoot\scripts\templates\mtg-sim-pre-commit.sh"
 
 function Write-Color {
     param([string]$Text, [string]$Color = "White")

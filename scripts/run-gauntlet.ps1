@@ -12,13 +12,16 @@ param(
     [switch]$DryRun
 )
 
-$script = "E:\vscode ai project\harness\agents\scripts\matchup_gauntlet.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$script = "$AgentScripts\matchup_gauntlet.py"
 $args_list = @("--format", $Format, "--games", $Games)
 
 if ($Top -gt 0) { $args_list += @("--top", $Top) }
 if ($Deck) { $args_list += @("--deck", $Deck) }
 if ($DryRun) { $args_list += "--dry-run" }
 
-Push-Location "E:\vscode ai project"
+Push-Location "$ProjectRoot"
 python $script @args_list
 Pop-Location

@@ -21,7 +21,10 @@ param(
     [switch]$AutoPipelineUseClaude
 )
 
-$Script = "E:\vscode ai project\harness\agents\scripts\nightly_harness.py"
+# Resolve roots (env override or derive from location); see _roots.ps1 (#51).
+. "$PSScriptRoot\_roots.ps1"
+
+$Script = "$AgentScripts\nightly_harness.py"
 $args_list = @("--format", $Format)
 if ($DryRun)                 { $args_list += "--dry-run" }
 if ($SkipMTGA)               { $args_list += "--skip-mtga" }
