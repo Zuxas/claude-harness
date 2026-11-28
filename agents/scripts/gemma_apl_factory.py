@@ -37,6 +37,10 @@ sys.path.insert(0, str(SIM_ROOT))
 sys.path.insert(0, str(HARNESS_ROOT / "agents" / "scripts"))
 
 from agent_hardening import AgentLogger, check_ollama_health, ollama_breaker
+# Shared containment gate + out-of-process smoke runner (#65). Model-generated
+# code is validated through the SAME boundary auto_pipeline uses, and is never
+# imported into this (secret-holding) process.
+from apl_sandbox import reject_bad_code, run_apl_subprocess
 import urllib.request
 
 log = AgentLogger("gemma-apl-factory")
@@ -321,80 +325,59 @@ def generate_match_apl_code(deck_name, decklist_text, analysis, format_name):
 # ---------------------------------------------------------------------------
 
 def validate_apl_code(code, deck_file, slug, format_name):
-    """Validate generated APL: compile, import, run 100 games."""
+    """Validate generated APL: AST-gate, then run 100 games OUT OF PROCESS.
 
-    # 3a. Syntax check
+    The model's code is never imported into this process (#65) -- it is gated,
+    written to a temp module, and run only inside apl_sandbox's `python -I` +
+    scrubbed-env subprocess. Returns (ok, message). Fails closed."""
+
+    # 3a. AST safety gate BEFORE the code is written or executed (#65). Rejects
+    # non-allowlisted imports, eval/exec/open/compile/__import__, and syntax
+    # errors. Fail closed: nothing is persisted or run if this raises.
     try:
-        compile(code, "<generated>", "exec")
-        log.info("  Syntax check: PASS")
+        reject_bad_code(code)
     except SyntaxError as e:
         log.error("  Syntax check: FAIL -- {}".format(e))
         return False, "SyntaxError: {}".format(e)
+    except ValueError as e:
+        log.error("  Safety gate: FAIL -- {}".format(e))
+        return False, "Unsafe code rejected: {}".format(e)
+    log.info("  Safety gate + syntax: PASS")
 
-    # 3b. Write to temp file and try importing
+    # 3b. Write to a temp module, then smoke it OUT OF PROCESS (#65): the model's
+    # code is NEVER imported into this process (which holds API/OAuth/GH creds).
+    # apl_sandbox.run_apl_subprocess loads + runs it in a `python -I` interpreter
+    # with a scrubbed, secret-free env and a timeout.
     temp_path = APL_DIR / "_temp_generated.py"
     try:
         temp_path.write_text(code, encoding="utf-8")
-
-        # Clear cached module if exists
         if "apl._temp_generated" in sys.modules:
             del sys.modules["apl._temp_generated"]
-
-        mod = importlib.import_module("apl._temp_generated")
-
-        # Find the MatchAPL subclass
-        from apl.match_apl import MatchAPL
-        apl_cls = None
-        for v in vars(mod).values():
-            if isinstance(v, type) and issubclass(v, MatchAPL) and v is not MatchAPL:
-                apl_cls = v
-                break
-
-        if not apl_cls:
-            log.error("  Import check: FAIL -- no MatchAPL subclass found")
-            return False, "No MatchAPL subclass found in generated code"
-
-        apl_instance = apl_cls()
-        log.info("  Import check: PASS ({})".format(apl_cls.__name__))
-
-    except Exception as e:
-        log.error("  Import check: FAIL -- {}".format(e))
-        return False, "ImportError: {}".format(e)
+        data = run_apl_subprocess(SIM_ROOT, "apl._temp_generated", deck_file,
+                                  100, 42, mode="match")
     finally:
         if temp_path.exists():
             temp_path.unlink()
         if "apl._temp_generated" in sys.modules:
             del sys.modules["apl._temp_generated"]
 
-    # 3c. Run 100 quick games against GenericMatchAPL
-    try:
-        from data.deck import load_deck_from_file
-        from engine.match_engine import run_match_set
-        from apl.match_apl import GenericMatchAPL
+    # 3c. Interpret the sandbox verdict. Fail closed: anything but status=="ran"
+    # (crash, timeout, no APL class, subprocess init failure) is a rejection.
+    status = data.get("status")
+    if status != "ran":
+        detail = data.get("error") or status or "unknown"
+        log.error("  Sim check: FAIL -- {}".format(detail))
+        return False, "Smoke failed ({}): {}".format(status, detail)
 
-        main_a, sb_a = load_deck_from_file(deck_file)
-        # Use same deck for opponent (self-play test)
-        main_b, sb_b = load_deck_from_file(deck_file)
-
-        apl_a = apl_instance
-        apl_b = GenericMatchAPL()
-
-        results = run_match_set(apl_a, main_a, apl_b, main_b, n=100, mix_play_draw=True)
-        wr = results.win_rate_a()
-
-        log.info("  Sim check: {} WR vs GenericMatchAPL (100 games)".format(
-            "{:.1f}%".format(wr * 100)))
-
-        if wr < 0.01:
-            return False, "Win rate 0% -- APL is completely broken (never wins)"
-        if wr > 0.99:
-            return False, "Win rate 100% -- APL is likely not interacting correctly"
-
-        return True, "Valid: {:.1f}% WR".format(wr * 100)
-
-    except Exception as e:
-        log.error("  Sim check: FAIL -- {}".format(e))
-        return False, "SimError: {}".format(e)
+    wr = data.get("win_rate")
+    if wr is None:
+        return False, "Smoke returned no win_rate"
+    log.info("  Sim check: {:.1f}% WR vs GenericMatchAPL (100 games, sandboxed)".format(wr * 100))
+    if wr < 0.01:
+        return False, "Win rate 0% -- APL is completely broken (never wins)"
+    if wr > 0.99:
+        return False, "Win rate 100% -- APL is likely not interacting correctly"
+    return True, "Valid: {:.1f}% WR".format(wr * 100)
 
 
 # ---------------------------------------------------------------------------
