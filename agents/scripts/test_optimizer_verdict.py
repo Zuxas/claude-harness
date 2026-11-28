@@ -62,29 +62,44 @@ def test_mean_kill_ignores_none():
     assert ao._mean_kill([None, None]) is None
 
 
-def test_wr_guard_is_sample_size_aware():
-    # A 0.5pp WR drop + a real kill gain. With no sample size (legacy) the flat
-    # tolerance lets it through as IMPROVED; at a large sample the same drop is
-    # statistically significant and must be vetoed as WORSE.
+def test_wr_guard_vetoes_significant_sub_1pp_drop():
+    # A real kill gain, with a CONSISTENT 0.4pp per-seed WR drop (below the 1pp
+    # floor). With no series (legacy) it passes as IMPROVED; with the paired
+    # per-seed WRs the consistent drop is significant and is vetoed as WORSE.
     base = [5.0] * 10
     patched = [4.6] * 10
-    assert ao.paired_verdict(base, patched, 0.90, 0.895) == "improved"
-    assert ao.paired_verdict(base, patched, 0.90, 0.895, n_games=100000) == "worse"
+    assert ao.paired_verdict(base, patched, 0.90, 0.896) == "improved"
+    assert ao.paired_verdict(base, patched, 0.900, 0.896,
+                             base_wr_series=[0.90] * 10,
+                             patched_wr_series=[0.896] * 10) == "worse"
 
 
-def test_wr_guard_small_n_keeps_flat_floor():
-    # A 2pp drop at a tiny sample still trips the flat floor (the guard is never
-    # MORE permissive than the old heuristic).
+def test_wr_guard_noisy_sub_1pp_drop_not_vetoed():
+    # Same tiny mean drop but high per-seed variance -> not significant -> the
+    # kill gain stands.
+    base = [5.0] * 10
+    patched = [4.6] * 10
+    bser = [0.90] * 10
+    pser = [0.896 + (0.05 if i % 2 else -0.05) for i in range(10)]  # mean 0.896, noisy
+    assert ao.paired_verdict(base, patched, 0.900, 0.896,
+                             base_wr_series=bser, patched_wr_series=pser) == "improved"
+
+
+def test_wr_guard_1pp_hard_veto_survives_noise():
+    # A >1pp overall drop is vetoed by the hard floor regardless of the series.
     base = [5.0] * 10
     patched = [4.4] * 10
-    assert ao.paired_verdict(base, patched, 0.90, 0.88, n_games=100) == "worse"
+    assert ao.paired_verdict(base, patched, 0.90, 0.88,
+                             base_wr_series=[0.90] * 10,
+                             patched_wr_series=[0.88] * 10) == "worse"
 
 
-def test_wr_regressed_helper_scales_with_n():
-    # Same 0.6pp drop: not significant at n=500, significant at n=50000.
-    assert ao._wr_regressed(0.90, 0.894, n_games=500) is False
-    assert ao._wr_regressed(0.90, 0.894, n_games=50000) is True
-    assert ao._wr_regressed(0.90, 0.905, n_games=50000) is False   # WR went UP
+def test_wr_regressed_paired_helper():
+    base = [0.90] * 10
+    assert ao._wr_regressed(0.90, 0.896, base, [0.896] * 10) is True     # consistent small drop
+    assert ao._wr_regressed(0.90, 0.905, base, [0.905] * 10) is False    # WR went UP
+    noisy = [0.896 + (0.05 if i % 2 else -0.05) for i in range(10)]
+    assert ao._wr_regressed(0.90, 0.896, base, noisy) is False           # noisy -> not significant
 
 
 def test_selection_prefers_higher_winrate_over_faster_kill():
