@@ -32,15 +32,24 @@ $Decks = @(
     @{Name="Jeskai Blink"; Target=6.5}
 )
 
-# Parse stop time for display
-# Convert duration to Until time if specified
-if ($Duration -gt 0 -and -not $Until) {
-    $stopAt = (Get-Date).AddMinutes($Duration)
-    $Until = $stopAt.ToString("H:mm")
-    Write-Host "  Duration: $Duration minutes (until $Until)"
+# Compute the absolute stop time ONCE, before the loop.
+# Recomputing it per deck and rolling a past time to "tomorrow" is what made
+# the overnight grind never stop, and passing the same wall-clock --until to
+# every grinder call let the first deck eat the whole window (issue #12).
+$stopDT = $null
+if ($Duration -gt 0) {
+    $stopDT = (Get-Date).AddMinutes($Duration)
+    Write-Host "  Duration: $Duration minutes (until $($stopDT.ToString('HH:mm')))"
+} elseif ($Until) {
+    $parts = $Until -split ":"
+    $stopHour = [int]$parts[0]
+    $stopMin  = if ($parts.Count -gt 1) { [int]$parts[1] } else { 0 }
+    $stopDT = (Get-Date).Date.AddHours($stopHour).AddMinutes($stopMin)
+    if ($stopDT -lt (Get-Date)) { $stopDT = $stopDT.AddDays(1) }  # roll forward ONCE
 }
+$timed = $null -ne $stopDT
 
-$StopDisplay = if ($Until) { "Until $Until" } else { "$MaxIter iterations/deck" }
+$StopDisplay = if ($timed) { "Until $($stopDT.ToString('yyyy-MM-dd HH:mm'))" } else { "$MaxIter iterations/deck" }
 $StartTime = Get-Date
 Write-Host ""
 Write-Host "============================================"
@@ -59,31 +68,33 @@ while ($keepGoing) {
     Write-Host ""
     Write-Host "=== ROUND $round ==="
     
-    foreach ($deck in $Decks) {
-        # Time check
-        if ($Until) {
-            $parts = $Until -split ":"
-            $stopHour = [int]$parts[0]
-            $stopMin = if ($parts.Count -gt 1) { [int]$parts[1] } else { 0 }
-            $stopDT = (Get-Date).Date.AddHours($stopHour).AddMinutes($stopMin)
-            if ($stopDT -lt (Get-Date)) { $stopDT = $stopDT.AddDays(1) }
-            if ((Get-Date) -ge $stopDT) {
+    for ($di = 0; $di -lt $Decks.Count; $di++) {
+        $deck = $Decks[$di]
+        # Time check + per-deck budget
+        $deckBudget = 0
+        if ($timed) {
+            $remaining = ($stopDT - (Get-Date)).TotalMinutes
+            if ($remaining -le 0) {
                 Write-Host "  STOP TIME REACHED"
                 $keepGoing = $false
                 break
             }
-            $minsLeft = [math]::Round(($stopDT - (Get-Date)).TotalMinutes)
-            Write-Host "  [$minsLeft min remaining]"
+            # Split the remaining window across the decks still to run this round,
+            # so one deck can't consume the whole window. Decks that converge early
+            # return their unused time to the ones after them.
+            $decksLeft = $Decks.Count - $di
+            $deckBudget = [math]::Max(1, [math]::Ceiling($remaining / $decksLeft))
+            Write-Host "  [$([math]::Round($remaining)) min remaining; this deck <= $deckBudget min]"
         }
-        
+
         $name = $deck.Name
         $target = $deck.Target
         Write-Host ""
         Write-Host "--- $name (target T$target) ---"
-        
+
         $argsList = @($name, "--target", $target, "--max-iterations", $MaxIter, "--games", $Games, "--model", $Model)
-        if ($Until) { $argsList += @("--until", $Until) }
-        
+        if ($timed) { $argsList += @("--duration", $deckBudget) }  # minutes, not wall-clock --until
+
         python $Script @argsList
         
         # Auto-apply improvements
@@ -98,7 +109,7 @@ while ($keepGoing) {
     }
     
     # If not time-based, stop after one round
-    if (-not $Until) { $keepGoing = $false }
+    if (-not $timed) { $keepGoing = $false }
 }
 
 $TotalMin = [math]::Round(((Get-Date) - $StartTime).TotalMinutes, 1)
