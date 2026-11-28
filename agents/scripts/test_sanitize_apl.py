@@ -149,17 +149,23 @@ def test_save_apl_code_rejects_banned_payload(monkeypatch=None):
 
 
 def test_smoke_test_uses_subprocess_not_import():
-    # The smoke path must shell out to the runner, never importlib the APL into
-    # this process. Assert on the source so a refactor back to in-process import
-    # fails here.
+    # The smoke path must shell out to the shared runner, never importlib the APL
+    # into this process. Since #65 the subprocess + scrubbed env live in
+    # apl_sandbox.run_apl_subprocess; the smoke body calls it and does no
+    # in-process import. Assert on the source so a refactor back to in-process
+    # import fails here.
+    import apl_sandbox as sbx
     src = Path(ap.__file__).read_text()
     body = src.split("def _smoke_test_apl", 1)[1].split("\ndef ", 1)[0]
-    assert "subprocess.run" in body, "smoke test no longer shells out"
+    assert "run_apl_subprocess" in body, "smoke test no longer shells out"
     assert "import_module" not in body and "importlib" not in body, \
         "smoke test still imports generated code in-process"
-    assert "env=_child_env()" in body, "smoke subprocess not run with scrubbed env"
-    assert ap._SMOKE_RUNNER.name == "_apl_smoke_runner.py"
-    assert ap._SMOKE_RUNNER.exists(), "runner script missing"
+    # The shared runner is the one that actually spawns the child with a scrubbed env.
+    sbx_src = Path(sbx.__file__).read_text()
+    assert "subprocess.run" in sbx_src, "shared runner no longer shells out"
+    assert "env=child_env()" in sbx_src, "shared runner not run with scrubbed env"
+    assert sbx.SMOKE_RUNNER.name == "_apl_smoke_runner.py"
+    assert sbx.SMOKE_RUNNER.exists(), "runner script missing"
 
 
 def _run_all():
