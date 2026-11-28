@@ -48,6 +48,24 @@ SMOKE_RUNNER = Path(__file__).resolve().parent / "_apl_smoke_runner.py"
 DEFAULT_SMOKE_TIMEOUT = 300  # seconds
 
 
+def _smoke_python(sim_root):
+    """Interpreter for the smoke subprocess. The child runs with `python -I`,
+    which excludes the USER site-packages -- so mtg-sim's deps (requests, numpy,
+    ...) must live in the interpreter's OWN (std) site, not user-site (#67).
+    Prefer a dedicated venv: the MTG_SMOKE_PYTHON override, else a `.venv`
+    beside the sim, else the current interpreter (back-compat; only works if its
+    std site already has the deps). `-I` is never dropped -- the fix is giving
+    an isolated interpreter the deps, not weakening the isolation."""
+    override = os.environ.get("MTG_SMOKE_PYTHON")
+    if override and Path(override).exists():
+        return override
+    for rel in ("Scripts/python.exe", "bin/python"):
+        cand = Path(sim_root) / ".venv" / rel
+        if cand.exists():
+            return str(cand)
+    return sys.executable
+
+
 def reject_bad_code(code):
     """Raise ValueError if generated APL code won't parse, imports anything
     outside the allowlist, or calls eval/exec/open/compile/__import__. Run this
@@ -89,8 +107,8 @@ def run_apl_subprocess(sim_root, module, deck_path, n, seed,
     returns a dict whose status is not "ran" (never raises for those), so a
     caller that only ships on status == "ran" cannot be fooled into treating a
     failed sandbox as a pass."""
-    cmd = [sys.executable, "-I", str(SMOKE_RUNNER), str(sim_root), str(module),
-           str(deck_path), str(n), str(seed), str(mode)]
+    cmd = [_smoke_python(sim_root), "-I", str(SMOKE_RUNNER), str(sim_root),
+           str(module), str(deck_path), str(n), str(seed), str(mode)]
     try:
         proc = subprocess.run(cmd, cwd=str(sim_root), capture_output=True,
                               text=True, timeout=timeout, env=child_env())
