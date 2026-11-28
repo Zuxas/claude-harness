@@ -266,26 +266,72 @@ def _mean_kill(kills):
 
 
 def _paired_runs(apl, deck, seeds, n_per_seed):
-    """Run `apl` once per seed and return (per_seed_avg_kill, overall_win_rate).
-    Using the SAME seed for baseline and candidate makes the two share identical
-    game draws (common random numbers), so a no-op change produces identical
-    per-seed results and the paired delta is exactly zero."""
-    kills, wins, total = [], 0, 0
+    """Run `apl` once per seed and return (per_seed_avg_kill, overall_win_rate,
+    per_seed_win_rate). Using the SAME seed for baseline and candidate makes the
+    two share identical game draws (common random numbers), so a no-op change
+    produces identical per-seed results and both the kill and win-rate paired
+    deltas are exactly zero. The per-seed win rates are the paired samples the
+    WR guard's significance test uses (#37)."""
+    kills, wr_series, wins, total = [], [], 0, 0
     for s in seeds:
         r = run_goldfish(apl, deck, n=n_per_seed, seed=s)
         kills.append(r["avg_kill"])
+        wr_series.append(r["win_rate"])
         wins += round(r["win_rate"] * n_per_seed)
         total += n_per_seed
-    return kills, (wins / total if total else 0.0)
+    return kills, (wins / total if total else 0.0), wr_series
+
+
+def _wr_regressed(base_wr, patched_wr, base_wr_series=None, patched_wr_series=None,
+                  wr_drop_tol=0.01, k_wr=2.0):
+    """True if the win-rate dropped in a way the guard should veto (#37).
+
+    Two layers, both kept (Tom's review of #37):
+    1. A 1pp hard veto on the overall WR drop -- a floor that always applies, so
+       the guard is never more permissive than the old heuristic and catches a
+       substantial regression even at a tiny sample.
+    2. A PAIRED significance test on the per-seed win-rate deltas. #16 runs the
+       baseline and candidate on the SAME seeds (common random numbers), so the
+       per-seed WRs are paired; a paired test (not an independent two-proportion
+       test) is the correct way to account for that. A consistent sub-1pp drop
+       across seeds clears significance and is vetoed; per-seed noise around zero
+       is not. This mirrors the kill-turn guard's own paired mean/SE test.
+    With no series (legacy callers) only layer 1 applies, so the existing tests
+    that pass overall WRs alone keep their behaviour.
+    """
+    drop = base_wr - patched_wr
+    if drop > wr_drop_tol:                           # (1) 1pp hard veto
+        return True
+    if base_wr_series and patched_wr_series and len(base_wr_series) >= 2:
+        deltas = [b - p for b, p in zip(base_wr_series, patched_wr_series)]  # +ve = WR dropped
+        n = len(deltas)
+        mean = sum(deltas) / n
+        if mean <= 1e-9:                             # patched WR >= baseline on average
+            return False
+        var = sum((d - mean) ** 2 for d in deltas) / (n - 1)
+        se = (var / n) ** 0.5
+        if se == 0:                                  # a perfectly consistent drop is significant
+            return True
+        return mean > k_wr * se                      # (2) paired-significant drop
+    return False
+
+
+def _selection_key(patched_wr, delta_kill):
+    """Rank improved candidates by win rate first, kill-turn only as the
+    tie-breaker among WR-neutral patches (#37). WR is bucketed to 1pp so run-to-run
+    WR noise doesn't let a slightly-noisier-WR/faster-kill patch jump ahead of a
+    genuinely higher-WR one; a full pp of WR wins outright."""
+    return (round(patched_wr, 2), delta_kill)
 
 
 def paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
-                   k=2.5, min_effect=0.05, wr_drop_tol=0.01):
+                   k=2.5, min_effect=0.05, wr_drop_tol=0.01,
+                   base_wr_series=None, patched_wr_series=None):
     """Classify a patch from paired per-seed avg-kill samples + overall WR.
 
-    - A win-rate drop beyond tolerance is always WORSE. avg_kill is over
-      winning games only, so a patch that trades slow wins for losses must not
-      count as an improvement.
+    - A win-rate drop is always WORSE (1pp hard veto + paired significance on the
+      per-seed WRs, see _wr_regressed). avg_kill is over winning games only, so a
+      patch that trades slow wins for losses must not count as an improvement.
     - Otherwise require the paired mean kill improvement to exceed BOTH a
       minimum effect and k x the paired standard error. Under common random
       numbers a true no-op has zero paired variance (and zero mean), so it is
@@ -293,7 +339,7 @@ def paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
       significance, not a flat 0.05.
     Positive delta = patched kills faster.
     """
-    if patched_wr < base_wr - wr_drop_tol:
+    if _wr_regressed(base_wr, patched_wr, base_wr_series, patched_wr_series, wr_drop_tol):
         return "worse"
     deltas = [b - p for b, p in zip(base_kills, patched_kills)
               if b is not None and p is not None]
@@ -593,7 +639,7 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
     _PAIRS = 10
     _n_per_seed = max(1, n_games // _PAIRS)
     _tune_seeds = list(range(1001, 1001 + _PAIRS))
-    base_kills, base_wr = _paired_runs(original_apl, mainboard, _tune_seeds, _n_per_seed)
+    base_kills, base_wr, base_wr_series = _paired_runs(original_apl, mainboard, _tune_seeds, _n_per_seed)
     log(f"  Paired baseline: {_PAIRS} seeds x {_n_per_seed} games, "
         f"mean kill {_mean_kill(base_kills):.2f}, WR {base_wr:.1%}")
 
@@ -638,7 +684,7 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
         # is the source accepted so far). Promoted at the end so iteration k+1
         # refines iteration k's winner instead of re-analyzing the original (#15).
         iter_best = None
-        iter_best_delta = 0.0
+        iter_best_key = None  # (wr_bucket, delta_kill), maximized -- WR first (#37)
 
         # Test each patch independently
         for i, patch in enumerate(patches):
@@ -674,7 +720,7 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             
             # Run the candidate on the SAME seeds as the baseline (#16).
             try:
-                patched_kills, patched_wr = _paired_runs(
+                patched_kills, patched_wr, patched_wr_series = _paired_runs(
                     patched_apl, mainboard, _tune_seeds, _n_per_seed)
             except Exception as e:
                 log(f"    FAIL: Sim crashed with patch: {str(e)[:100]}")
@@ -683,7 +729,9 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
                                    "error": str(e)[:200]})
                 continue
 
-            verdict = paired_verdict(base_kills, patched_kills, base_wr, patched_wr).upper()
+            verdict = paired_verdict(base_kills, patched_kills, base_wr, patched_wr,
+                                     base_wr_series=base_wr_series,
+                                     patched_wr_series=patched_wr_series).upper()
             base_mean = _mean_kill(base_kills)
             patched_mean = _mean_kill(patched_kills)
             delta_kill = (base_mean - patched_mean) if (base_mean and patched_mean) else 0.0
@@ -704,10 +752,13 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             }
             all_results.append(result)
 
-            if verdict == "IMPROVED" and delta_kill > iter_best_delta:
-                iter_best_delta = delta_kill
-                iter_best = {"patch": patch, "kills": patched_kills, "wr": patched_wr,
-                             "mean": patched_mean, "source": patched_source}
+            if verdict == "IMPROVED":
+                key = _selection_key(patched_wr, delta_kill)
+                if iter_best_key is None or key > iter_best_key:
+                    iter_best_key = key
+                    iter_best = {"patch": patch, "kills": patched_kills, "wr": patched_wr,
+                                 "wr_series": patched_wr_series,
+                                 "mean": patched_mean, "source": patched_source}
 
             # Clean up temp file
             temp_apl_file.unlink(missing_ok=True)
@@ -721,6 +772,7 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             break
         current_source = iter_best["source"]
         base_kills, base_wr = iter_best["kills"], iter_best["wr"]
+        base_wr_series = iter_best["wr_series"]
         accepted_issues.append(iter_best["patch"]["issue"])
         best_patch = {"patch": iter_best["patch"],
                       "results": {"avg_kill": iter_best["mean"], "win_rate": iter_best["wr"]},
@@ -740,9 +792,12 @@ def run_optimizer(deck_name, format_name="modern", n_games=500,
             reconfirm_file.parent.mkdir(exist_ok=True)
             reconfirm_file.write_text(best_patch["source"], encoding="utf-8")
             best_apl = load_apl_from_file(reconfirm_file)
-            cbase_kills, cbase_wr = _paired_runs(original_apl, mainboard, confirm_seeds, _n_per_seed)
-            cpatch_kills, cpatch_wr = _paired_runs(best_apl, mainboard, confirm_seeds, _n_per_seed)
-            cverdict = paired_verdict(cbase_kills, cpatch_kills, cbase_wr, cpatch_wr)
+            cbase_kills, cbase_wr, cbase_series = _paired_runs(original_apl, mainboard, confirm_seeds, _n_per_seed)
+            cpatch_kills, cpatch_wr, cpatch_series = _paired_runs(best_apl, mainboard, confirm_seeds, _n_per_seed)
+            # Pass the fresh per-seed WR series so the WR guard (not just the kill
+            # guard) is re-validated on the fresh seeds (#37 review).
+            cverdict = paired_verdict(cbase_kills, cpatch_kills, cbase_wr, cpatch_wr,
+                                      base_wr_series=cbase_series, patched_wr_series=cpatch_series)
             log(f"\n  Re-confirming best on fresh seeds: [{cverdict.upper()}]")
             if cverdict != "improved":
                 log("    Not reproduced on fresh seeds -- discarding (winner's curse).")
